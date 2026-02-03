@@ -1,0 +1,57 @@
+﻿# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Android
+local.properties
+android/local.properties
+/android/build/
+/android/app/build/
+*.apk
+*.aab
+android/key.properties
+android/app/*.jks
+android/app/*.keystore
+keystore.txt
+key.txt
+secrets.txt
+
+# iOS
+ios/Flutter/
+ios/Pods/
+ios/.symlinks/
+ios/Runner.xcworkspace/
+ios/Runner/GeneratedPluginRegistrant.*
+
+# Environment & secrets
+.env
+.env.*
+
+# IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.metadata/
+.vscode/
+
+# OS & misc
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+*.orig
+*.class
+*.pyc
+.svn/
+.history
+.swiftpm/
+migrate_working_dir/
