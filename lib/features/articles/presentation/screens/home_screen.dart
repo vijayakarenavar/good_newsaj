@@ -1,4 +1,3 @@
-// 👇👇👇 FULL UPDATED HOME SCREEN CODE WITH AUTO-PLAY ON VIDEO TAB & HIDDEN FAB ON VIDEO TAB 👇👇👇
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:good_news/core/services/api_service.dart';
@@ -6,9 +5,16 @@ import 'package:good_news/core/services/user_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/core/services/social_api_service.dart';
 import 'package:good_news/features/articles/presentation/screens/friends_posts_screen.dart';
-import 'package:good_news/features/profile/presentation/screens/profile_screen.dart';
+import 'package:good_news/features/profile/presentation/screens/blocked_users_screen.dart';
+import 'package:good_news/features/profile/presentation/screens/edit_profile_screen.dart';
+import 'package:good_news/features/profile/presentation/screens/my_posts_screen.dart';
+import 'package:good_news/features/profile/presentation/screens/reading_history_screen.dart';
+import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
+import 'package:good_news/features/profile/presentation/widgets/quick_actions.dart';
+import 'package:good_news/features/profile/presentation/widgets/menu_list.dart';
 import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
 import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
+import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -17,12 +23,12 @@ import 'package:good_news/features/articles/presentation/widgets/social_post_car
 import 'package:good_news/features/articles/presentation/widgets/speed_dial_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:good_news/features/social/presentation/screens/messages_screen.dart'; // 👈 हे जोडा
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -36,7 +42,6 @@ class _HomeScreenState extends State<HomeScreen>
   List<Map<String, dynamic>> _socialPosts = [];
   List<Map<String, dynamic>> _videoPosts = [];
   Map<int, String> _categoryMap = {};
-  List<int> _selectedCategoryIds = [];
   List<Map<String, dynamic>> _displayedItems = [];
   String? _nextCursor;
   bool _hasMore = true;
@@ -45,46 +50,61 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isRefreshing = false;
   bool _isInitialLoading = true;
   int _currentIndex = 0;
-  int? _selectedCategoryId;
   bool _isSpeedDialOpen = false;
 
-  static const int SOCIAL_CATEGORY_ID = -1;
-  static const int VIDEO_CATEGORY_ID = -2;
+  // 👇 TAB MANAGEMENT (0=Video, 1=News, 2=Social, 3=Profile)
+  int _selectedTabIndex = 1;
+
+  // 👇 NEWS TAB: Category filtering
+  int? _selectedCategoryId;
+  List<int> _selectedCategoryIds = [];
+
+  // 👇 HORIZONTAL PAGE NAVIGATION
+  late PageController _horizontalPageController;
+  DateTime? _lastTabTapTime;
+  int? _lastTappedTabIndex;
+  late ScrollController _categoryScrollController;
   static const int LOAD_MORE_THRESHOLD = 3;
   static const int PAGE_SIZE = 25;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = ['Education', 'Environment', 'International'];
-
-  final PageController _pageController = PageController(keepPage: true, viewportFraction: 1.0);
   late AnimationController _animationController;
   late Animation<double> _rotationAnimation;
-  late ScrollController _categoryScrollController;
-
   final Map<String, List<Map<String, dynamic>>> _postComments = {};
   final Map<String, bool> _showCommentsMap = {};
   final Map<String, bool> _isLoadingCommentsMap = {};
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
-  List<Map<String, dynamic>> _categoryList = [];
-
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
+  DateTime? _loadingStartTime;
+
+  // 👇 Profile state management
+  Map<String, dynamic>? _userProfile;
+  Map<String, dynamic>? _userStats;
+  bool _isProfileLoading = true;
+  int _articlesReadCount = 0;
+  bool _isStatsLoading = true;
+  List<Map<String, dynamic>> _friends = [];
+  bool _isFriendsLoading = true;
+  int _friendRequestsCount = 0;
+  bool _isFriendRequestsLoading = true;
 
   @override
   void initState() {
     super.initState();
     _categoryScrollController = ScrollController();
+    _horizontalPageController = PageController();
     _initializeAnimations();
     _refreshUserDisplayName();
     _loadInitialData();
-    _pageController.addListener(_onPageChanged);
+    _loadProfileData(); // 👈 Load profile data on init
   }
 
   @override
   void dispose() {
-    _pageController.removeListener(_onPageChanged);
-    _pageController.dispose();
     _animationController.dispose();
     _categoryScrollController.dispose();
+    _horizontalPageController.dispose();
     for (var controller in _commentControllers.values) {
       controller.dispose();
     }
@@ -149,16 +169,25 @@ class _HomeScreenState extends State<HomeScreen>
         _selectedCategoryIds =
             _selectedCategoryIds.where((id) => _categoryMap.containsKey(id)).toList();
       }
-      _categoryList = _buildCategoryList();
-      _allArticles.clear();
-      _nextCursor = null;
-      _hasMore = true;
-      await _loadMoreArticles(isInitial: true);
-      Future.wait([_loadSocialPosts(), _loadVideoPosts()]);
+      await Future.wait([
+        _loadArticles(isInitial: true),
+        _loadSocialPosts(),
+        _loadVideoPosts(),
+      ]);
       _updateDisplayedItems();
       if (_displayedItems.isNotEmpty && mounted) {
         _preloadImages(_displayedItems, 0);
       }
+      Future.delayed(Duration(milliseconds: 500), () {
+        if (mounted && _horizontalPageController.hasClients) {
+          _horizontalPageController.jumpToPage(1);
+          setState(() {
+            _selectedTabIndex = 1;
+            _selectedCategoryId = null;
+          });
+          _scrollCategoryChipsToIndex(0);
+        }
+      });
     } catch (e) {
       print('❌ HOME: Failed to load: $e');
       if (mounted) _showSnackBar('Failed to load data. Please retry.');
@@ -167,10 +196,123 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Future<void> _loadMoreArticles({bool isInitial = false}) async {
-    if (_isLoadingMore || (!_hasMore && !isInitial)) return;
+  // 👇 PROFILE DATA LOADING (Embedded version)
+  Future<void> _loadProfileData() async {
+    setState(() => _isProfileLoading = true);
     try {
-      if (mounted) setState(() => _isLoadingMore = true);
+      // Load all profile data in parallel
+      await Future.wait([
+        _loadUserProfile(),
+        _loadUserStats(),
+        _loadFriends(),
+        _loadFriendRequestsCount(),
+      ]);
+    } catch (e) {
+      print('❌ Error loading profile data: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load profile'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProfileLoading = false);
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final profile = await UserService.getUserProfile();
+      if (mounted) {
+        setState(() => _userProfile = profile);
+      }
+    } catch (e) {
+      print('❌ Error loading user profile: $e');
+    }
+  }
+
+  Future<void> _loadUserStats() async {
+    setState(() => _isStatsLoading = true);
+    try {
+      try {
+        final stats = await UserService.getUserStats();
+        if (stats != null && mounted) {
+          setState(() {
+            _articlesReadCount = stats['articles_read'] ?? 0;
+            _userStats = stats;
+            _isStatsLoading = false;
+          });
+          return;
+        }
+      } catch (e) {
+        print('⚠️ getUserStats not available: $e');
+      }
+
+      final history = await UserService.getHistory();
+      if (mounted) {
+        setState(() {
+          _articlesReadCount = history.length;
+          _isStatsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _articlesReadCount = 0;
+          _isStatsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadFriends() async {
+    setState(() => _isFriendsLoading = true);
+    try {
+      final response = await SocialApiService.getFriends();
+      if (response['status'] == 'success' && mounted) {
+        final data = response['data'] ?? [];
+        setState(() {
+          _friends = (data as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
+          _isFriendsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isFriendsLoading = false);
+    }
+  }
+
+  Future<void> _loadFriendRequestsCount() async {
+    setState(() => _isFriendRequestsLoading = true);
+    try {
+      final response = await SocialApiService.getFriendRequests();
+      if (response['status'] == 'success' && mounted) {
+        final data = response['data'] ?? [];
+        setState(() {
+          _friendRequestsCount = (data as List).length;
+          _isFriendRequestsLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _friendRequestsCount = 0;
+          _isFriendRequestsLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadArticles({bool isInitial = false}) async {
+    if (_isLoadingMore) return;
+    try {
+      if (mounted) setState(() {
+        _isLoadingMore = true;
+        _loadingStartTime = DateTime.now();
+      });
       final response = await ApiService.getUnifiedFeed(
         limit: PAGE_SIZE,
         cursor: _nextCursor,
@@ -192,33 +334,15 @@ class _HomeScreenState extends State<HomeScreen>
           _nextCursor = response['next_cursor'];
           _hasMore = response['has_more'] ?? (response['next_cursor'] != null);
         });
-        _updateDisplayedItems();
       }
     } catch (e) {
       print('❌ EXCEPTION loading articles: $e');
     } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted) setState(() {
+        _isLoadingMore = false;
+        _loadingStartTime = null;
+      });
     }
-  }
-
-  void _updateDisplayedItems() {
-    if (!mounted) return;
-    setState(() {
-      if (_selectedCategoryId == null) {
-        _displayedItems = List.from(_allArticles);
-      } else if (_selectedCategoryId == SOCIAL_CATEGORY_ID) {
-        _displayedItems = List.from(_socialPosts);
-      } else if (_selectedCategoryId == VIDEO_CATEGORY_ID) {
-        _displayedItems = List.from(_videoPosts);
-      } else {
-        _displayedItems = _allArticles
-            .where((article) => article['category_id'] == _selectedCategoryId)
-            .toList();
-        if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
-          Future.delayed(Duration.zero, () => _loadMoreArticles());
-        }
-      }
-    });
   }
 
   Future<void> _loadSocialPosts() async {
@@ -231,10 +355,6 @@ class _HomeScreenState extends State<HomeScreen>
           setState(() {
             _socialPosts = postsList.map((post) => _formatSocialPost(post, locallyLikedPosts)).toList();
           });
-          if (_selectedCategoryId == SOCIAL_CATEGORY_ID) {
-            _updateDisplayedItems();
-            _preloadImages(_socialPosts, 0);
-          }
         }
       }
     } catch (e) {
@@ -258,8 +378,6 @@ class _HomeScreenState extends State<HomeScreen>
       'created_at': post['created_at'],
       'likes': likesCount,
       'isLiked': apiLiked || localLiked,
-      'category_id': SOCIAL_CATEGORY_ID,
-      'category': 'Social Posts',
       'image_url': post['image_url'],
     };
   }
@@ -278,8 +396,6 @@ class _HomeScreenState extends State<HomeScreen>
           'created_at': DateTime.now().subtract(Duration(hours: index * 2)).toIso8601String(),
           'likes': 100 + (index * 50),
           'isLiked': false,
-          'category_id': VIDEO_CATEGORY_ID,
-          'category': 'Video',
           'video_url': 'assets/videos/ajay$videoNum.mp4',
         };
       });
@@ -333,68 +449,93 @@ class _HomeScreenState extends State<HomeScreen>
     return contents[(num - 1) % contents.length];
   }
 
-  void _onPageChanged() {
-    final page = _pageController.page?.round() ?? 0;
-    if (page != _currentIndex && page < _displayedItems.length) {
-      setState(() => _currentIndex = page);
-      final item = _displayedItems[page];
-      if (item['type'] == 'article') {
-        UserService.addToHistory(item['id'] as int);
+  void _updateDisplayedItems() {
+    if (!mounted) return;
+    setState(() {
+      if (_selectedTabIndex == 0) {
+        _displayedItems = List.from(_videoPosts);
+      } else if (_selectedTabIndex == 1) {
+        if (_selectedCategoryId == null) {
+          _displayedItems = List.from(_allArticles);
+        } else {
+          _displayedItems = _allArticles
+              .where((article) => article['category_id'] == _selectedCategoryId)
+              .toList();
+          if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
+            Future.delayed(Duration.zero, () => _loadArticles());
+          }
+        }
+      } else if (_selectedTabIndex == 2) {
+        _displayedItems = List.from(_socialPosts);
+      } else {
+        _displayedItems = [];
       }
-      if (page + 1 < _displayedItems.length) {
-        _preloadImages(_displayedItems, page + 1);
-      }
-      final remainingItems = _displayedItems.length - page;
-      if (remainingItems <= LOAD_MORE_THRESHOLD && _hasMore && !_isLoadingMore) {
-        _loadMoreArticles();
-      }
+    });
+  }
+
+  void _selectCategory(int? categoryId) async {
+    if (categoryId == _selectedCategoryId) return;
+    setState(() {
+      _selectedTabIndex = 1;
+      _selectedCategoryId = categoryId;
+      _currentIndex = 0;
+    });
+    if (categoryId != null) {
+      setState(() {
+        _allArticles.clear();
+        _nextCursor = null;
+        _hasMore = true;
+      });
+      await _loadArticles(isInitial: true);
+    }
+    _updateDisplayedItems();
+    if (_displayedItems.isNotEmpty && mounted) {
+      _preloadImages(_displayedItems, 0);
+    }
+    _scrollToCategoryPage(categoryId);
+  }
+
+  void _scrollToCategoryPage(int? categoryId) {
+    final categoryList = _buildCategoryList();
+    final index = categoryList.indexWhere((cat) => cat['id'] == categoryId);
+    if (index != -1) {
+      final targetPage = 1 + index;
+      _horizontalPageController.animateToPage(
+        targetPage,
+        duration: Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      _scrollCategoryChipsToIndex(index);
     }
   }
 
-  void _onHorizontalDragEnd(DragEndDetails details) {
-    final dragEnd = details.primaryVelocity ?? 0;
-    if (dragEnd.abs() < 300) return;
-    if (dragEnd < -300) {
-      _switchToNextCategory();
-    } else if (dragEnd > 300) {
-      _switchToPreviousCategory();
-    }
-  }
-
-  void _switchToNextCategory() {
-    if (_categoryList.isEmpty) return;
-    final currentIndex = _categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (currentIndex != -1 && currentIndex < _categoryList.length - 1) {
-      final nextCategory = _categoryList[currentIndex + 1];
-      _selectCategory(nextCategory['id']);
-      _scrollToCategoryItem(currentIndex + 1);
-    }
-  }
-
-  void _switchToPreviousCategory() {
-    if (_categoryList.isEmpty) return;
-    final currentIndex = _categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (currentIndex > 0) {
-      final prevCategory = _categoryList[currentIndex - 1];
-      _selectCategory(prevCategory['id']);
-      _scrollToCategoryItem(currentIndex - 1);
-    }
-  }
-
-  void _scrollToCategoryItem(int index) {
+  void _scrollCategoryChipsToIndex(int index) {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_categoryScrollController.hasClients) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final categoryWidth = 80.0;
-        final centerOffset = (index * (categoryWidth + 16)) - (screenWidth / 2) + (categoryWidth / 2);
-        final offset = centerOffset.clamp(0.0, _categoryScrollController.position.maxScrollExtent);
+        final itemWidth = 80.0;
+        final spacing = 16.0;
+        final totalWidth = itemWidth + spacing;
+        final targetOffset = (index * totalWidth) -
+            (MediaQuery.of(context).size.width / 2) +
+            (itemWidth / 2);
+        final clampedOffset = targetOffset.clamp(0.0, _categoryScrollController.position.maxScrollExtent);
         _categoryScrollController.animateTo(
-          offset,
+          clampedOffset,
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
         );
       }
     });
+  }
+
+  void _onVerticalDragEnd(DragEndDetails details) {
+    final dragEnd = details.primaryVelocity ?? 0;
+    if (dragEnd.abs() < 300) return;
+    if (dragEnd < -300 && _currentIndex < _displayedItems.length - 1) {
+      _currentIndex++;
+    } else if (dragEnd > 300 && _currentIndex > 0) {
+      _currentIndex--;
+    }
   }
 
   void _toggleSpeedDial() {
@@ -404,41 +545,114 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  void _selectCategory(int? categoryId, {bool jumpToPage = true}) async {
-    if (categoryId == _selectedCategoryId) return;
-    setState(() {
-      _selectedCategoryId = categoryId;
-      _currentIndex = 0;
-    });
-    if (jumpToPage && _pageController.hasClients) {
-      _pageController.jumpToPage(0);
+  // 👇 FIXED: Tab tap → Page change + ALWAYS reset News to "All"
+  void _onTabChanged(int index) {
+    final now = DateTime.now();
+    final wasDoubleTap = _lastTappedTabIndex == index &&
+        _lastTabTapTime != null &&
+        now.difference(_lastTabTapTime!) < Duration(milliseconds: 300);
+    if (wasDoubleTap) {
+      _handleRefresh();
+      return;
     }
-    if (categoryId == SOCIAL_CATEGORY_ID) {
-      if (_socialPosts.isEmpty) await _loadSocialPosts();
+    _lastTabTapTime = now;
+    _lastTappedTabIndex = index;
+    final categoryList = _buildCategoryList();
+    final totalNewsPages = categoryList.length;
+    int targetPage;
+    if (index == 0) {
+      targetPage = 0;
+    } else if (index == 1) {
+      targetPage = 1; // ALWAYS "All" category
+      setState(() => _selectedCategoryId = null);
+    } else if (index == 2) {
+      targetPage = totalNewsPages + 1; // Social
+    } else {
+      targetPage = totalNewsPages + 2; // Profile (now embedded)
+    }
+    _horizontalPageController.animateToPage(
+      targetPage,
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  // 👇 FIXED: CRITICAL - Social → News swipe ALWAYS resets to "All" category
+  void _onHorizontalPageChanged(int pageIndex) {
+    final categoryList = _buildCategoryList();
+    final totalNewsPages = categoryList.length;
+    final socialPageIndex = totalNewsPages + 1;
+    final profilePageIndex = totalNewsPages + 2;
+    int newTabIndex;
+    int? newCategoryId;
+
+    // 👉 CRITICAL FIX: Coming FROM Social → ALWAYS force "All" category (page 1)
+    if (_selectedTabIndex == 2 && pageIndex >= 1 && pageIndex <= totalNewsPages) {
+      _horizontalPageController.animateToPage(
+        1,
+        duration: Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+      );
+      setState(() {
+        _selectedTabIndex = 1;
+        _selectedCategoryId = null;
+      });
       _updateDisplayedItems();
-    } else if (categoryId == VIDEO_CATEGORY_ID) {
-      if (_videoPosts.isEmpty) await _loadVideoPosts();
+      _scrollCategoryChipsToIndex(0);
+      return;
+    }
+
+    if (pageIndex == 0) {
+      newTabIndex = 0;
+      newCategoryId = null;
+    } else if (pageIndex >= 1 && pageIndex <= totalNewsPages) {
+      newTabIndex = 1;
+      final categoryIndex = pageIndex - 1;
+      newCategoryId = categoryList[categoryIndex]['id'];
+      _scrollCategoryChipsToIndex(categoryIndex);
+    } else if (pageIndex == socialPageIndex) {
+      newTabIndex = 2;
+      newCategoryId = null;
+    } else if (pageIndex == profilePageIndex) {
+      newTabIndex = 3;
+      newCategoryId = null;
+
+      // 👉 AUTO-REFRESH profile when tab becomes visible
+      if (_selectedTabIndex != 3) {
+        _loadProfileData();
+      }
+    } else {
+      newTabIndex = 1;
+      newCategoryId = null;
+    }
+
+    if (newTabIndex != _selectedTabIndex || newCategoryId != _selectedCategoryId) {
+      setState(() {
+        _selectedTabIndex = newTabIndex;
+        _selectedCategoryId = newCategoryId;
+      });
       _updateDisplayedItems();
-      // Auto-play first video after a short delay
+    }
+
+    if (_displayedItems.isNotEmpty && mounted) {
+      _preloadImages(_displayedItems, 0);
+    }
+
+    if (pageIndex == 0 && _videoPosts.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 300), () {
-        if (_videoPosts.isNotEmpty && mounted) {
+        if (mounted) {
           final firstId = _videoPosts[0]['id'];
           final key = _videoKeys[firstId];
           key?.currentState?.forcePlay();
         }
       });
-    } else {
-      setState(() {
-        _allArticles.clear();
-        _nextCursor = null;
-        _hasMore = true;
-      });
-      await _loadMoreArticles(isInitial: true);
-      _updateDisplayedItems();
     }
-    if (_displayedItems.isNotEmpty && mounted) {
-      _preloadImages(_displayedItems, 0);
-    }
+  }
+
+  // 👇 FIXED: Total pages = Video(1) + News(N) + Social(1) + Profile(1) = N + 3
+  int _getTotalPageCount() {
+    final categoryList = _buildCategoryList();
+    return 1 + categoryList.length + 2;
   }
 
   Future<void> _handleRefresh() async {
@@ -446,6 +660,12 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _isRefreshing = true);
     _preloadedImages.clear();
     await _loadInitialData();
+
+    // 👉 Also refresh profile on pull-to-refresh
+    if (_selectedTabIndex == 3) {
+      await _loadProfileData();
+    }
+
     if (mounted) {
       setState(() => _isRefreshing = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -465,7 +685,11 @@ class _HomeScreenState extends State<HomeScreen>
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 2),
-        action: SnackBarAction(label: 'Retry', textColor: Colors.white, onPressed: _loadInitialData),
+        action: SnackBarAction(
+          label: 'Retry',
+          textColor: Colors.white,
+          onPressed: _loadInitialData,
+        ),
       ),
     );
   }
@@ -659,28 +883,491 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  void _goToProfile() async {
-    final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
-    if (result != null && result is Map && result['action'] == 'read_article') {
-      _navigateToArticle(result['article_id']);
-    } else if (mounted) {
-      await _loadInitialData();
-    }
-  }
-
   void _goToSettings() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
     if (mounted) await _loadInitialData();
   }
 
   void _navigateToArticle(int articleId) {
-    final index = _displayedItems.indexWhere((item) => item['type'] == 'article' && item['id'] == articleId);
+    final index = _displayedItems.indexWhere(
+          (item) => item['type'] == 'article' && item['id'] == articleId,
+    );
     if (index != -1) {
       setState(() => _currentIndex = index);
-      if (_pageController.hasClients) {
-        _pageController.jumpToPage(index);
-      }
     }
+  }
+
+  void _handleCreatePost() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+    );
+    if (result == true && mounted) {
+      await _loadSocialPosts();
+      _updateDisplayedItems();
+    }
+  }
+
+  List<Map<String, dynamic>> _buildCategoryList() {
+    final List<Map<String, dynamic>> categoryList = [
+      {'id': null, 'name': 'All'},
+    ];
+    if (_selectedCategoryIds.isNotEmpty) {
+      for (var categoryId in _selectedCategoryIds) {
+        if (_categoryMap.containsKey(categoryId)) {
+          categoryList.add({'id': categoryId, 'name': _categoryMap[categoryId]!});
+        }
+      }
+    } else {
+      categoryList.addAll(
+        _categoryMap.entries.map((e) => {'id': e.key, 'name': e.value}).toList(),
+      );
+    }
+    return categoryList;
+  }
+
+  // 👇 PROFILE UI BUILDERS (Embedded version)
+  Future<void> _editProfile() async {
+    if (_userProfile == null) return;
+
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => EditProfileScreen(
+          userProfile: _userProfile!,
+        ),
+      ),
+    );
+
+    if (result == true && mounted) {
+      await _loadProfileData();
+    }
+  }
+
+  void _showMyPosts(BuildContext context) {
+    final userId = _userProfile?['id'];
+    if (userId != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MyPostsScreen(userId: userId),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User ID not available')),
+      );
+    }
+  }
+
+  void _showFriendRequests(BuildContext context) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (context) => const FriendRequestsScreen()),
+    );
+
+    if (result == true && mounted) {
+      await Future.wait([
+        _loadFriendRequestsCount(),
+        _loadFriends(),
+      ]);
+    }
+  }
+
+  void _showAboutDialog(BuildContext context) {
+    showAboutDialog(
+      context: context,
+      applicationName: 'Joy Scroll App',
+      applicationVersion: '1.0.0',
+      applicationIcon: Container(
+        width: 56,
+        height: 56,
+        decoration: const BoxDecoration(
+          color: Color(0xFF68BB59),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(Icons.check, color: Colors.white, size: 32),
+      ),
+      children: const [
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            'Bringing you positive, AI-powered news stories that brighten your day.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionCard(BuildContext context, {required Widget child}) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: primaryColor.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.25)
+                : Colors.grey.withOpacity(0.12),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildArticlesReadCard() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return GestureDetector(
+      onTap: () async {
+        try {
+          final result = await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ReadingHistoryScreen(),
+            ),
+          );
+
+          // Handle "Read Again" action from Reading History
+          if (result != null &&
+              result is Map &&
+              result['action'] == 'read_article' &&
+              mounted) {
+
+            // Navigate back to News tab (All category)
+            _horizontalPageController.animateToPage(
+              1,
+              duration: Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+            );
+
+            setState(() {
+              _selectedTabIndex = 1;
+              _selectedCategoryId = null;
+            });
+
+            // Open the article after navigation completes
+            Future.delayed(Duration(milliseconds: 400), () {
+              if (mounted) {
+                _navigateToArticle(result['article_id']);
+              }
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Could not open Reading History'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: primaryColor.withOpacity(0.3),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.25)
+                  : Colors.grey.withOpacity(0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.2),
+                    primaryColor.withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.article_outlined,
+                color: primaryColor,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Articles Read',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: (isDark ? Colors.white : theme.colorScheme.onSurface).withOpacity(0.85),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '$_articlesReadCount',
+                    style: theme.textTheme.displaySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 18,
+              color: primaryColor.withOpacity(0.8),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 👇 EMBEDDED PROFILE PAGE (replaces placeholder)
+  Widget _buildProfilePage() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    // Show loading state initially
+    if (_isProfileLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: primaryColor),
+            const SizedBox(height: 16),
+            Text(
+              'Loading profile...',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.grey[600],
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayName = _userProfile?['display_name'] ?? 'Good News Reader';
+    final email = _userProfile?['email'] ?? 'No email available';
+
+    return CustomScrollView(
+      slivers: [
+        // Profile Header
+        SliverToBoxAdapter(
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundColor: primaryColor.withOpacity(0.15),
+                      child: Text(
+                        displayName[0].toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 40,
+                          color: primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: _editProfile,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.edit,
+                            size: 18,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  displayName,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  email,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.75),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+        // Articles Read Card
+        SliverToBoxAdapter(
+          child: _isStatsLoading
+              ? Center(child: CircularProgressIndicator(color: primaryColor))
+              : _buildArticlesReadCard(),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+        // Quick Actions
+        SliverToBoxAdapter(
+          child: _buildSectionCard(
+            context,
+            child: QuickActionsWidget(
+              onMyPostsTap: () => _showMyPosts(context),
+              onFriendRequestsTap: () => _showFriendRequests(context),
+              onSettingsTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              ),
+              friendRequestsCount: _friendRequestsCount,
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+        // Friends Section
+        SliverToBoxAdapter(
+          child: _buildSectionCard(
+            context,
+            child: FriendsSectionWidget(
+              friends: _friends,
+              isLoading: _isFriendsLoading,
+              onFriendsUpdated: _loadFriends,
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+        // Menu List
+        SliverToBoxAdapter(
+          child: _buildSectionCard(
+            context,
+            child: MenuList(
+              items: [
+                MenuItem(
+                  title: 'Reading History',
+                  icon: Icons.history,
+                  onTap: () async {
+                    try {
+                      final result = await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const ReadingHistoryScreen(),
+                        ),
+                      );
+
+                      // Handle "Read Again" action
+                      if (result != null &&
+                          result is Map &&
+                          result['action'] == 'read_article' &&
+                          mounted) {
+
+                        _horizontalPageController.animateToPage(
+                          1,
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+
+                        setState(() {
+                          _selectedTabIndex = 1;
+                          _selectedCategoryId = null;
+                        });
+
+                        Future.delayed(Duration(milliseconds: 400), () {
+                          if (mounted) {
+                            _navigateToArticle(result['article_id']);
+                          }
+                        });
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Could not open Reading History'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                MenuItem(
+                  title: 'Settings',
+                  icon: Icons.settings_outlined,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  ),
+                ),
+                MenuItem(
+                  title: 'Blocked Users',
+                  icon: Icons.block,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const BlockedUsersScreen(),
+                      ),
+                    );
+                  },
+                ),
+                MenuItem(
+                  title: 'About',
+                  icon: Icons.info_outline,
+                  onTap: () => _showAboutDialog(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+      ],
+    );
   }
 
   @override
@@ -692,18 +1379,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         child: Stack(
           children: [
             _buildMainContent(categoryList),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: _buildCategoryChipsScrollable(categoryList),
-              ),
-            ),
-            // ✅ CONDITIONAL FAB: Hide on Video Tab
-            if (_showFab && _selectedCategoryId != VIDEO_CATEGORY_ID) _buildSpeedDial(),
-            if (_isLoadingMore && !_isInitialLoading)
+            if (_showFab && _selectedTabIndex == 2) _buildSpeedDial(),
+            if (_isLoadingMore &&
+                !_isInitialLoading &&
+                _loadingStartTime != null &&
+                DateTime.now().difference(_loadingStartTime!).inMilliseconds > 300)
               Positioned(
                 bottom: 85,
                 left: 0,
@@ -749,7 +1429,13 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       height: isSmallScreen ? 60 : 65,
       decoration: BoxDecoration(
         color: isDark ? Colors.grey[900] : Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -760,31 +1446,29 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               icon: Icons.video_library_outlined,
               activeIcon: Icons.video_library,
               label: 'Video',
-              isActive: _selectedCategoryId == VIDEO_CATEGORY_ID,
-              onTap: () => _selectCategory(VIDEO_CATEGORY_ID, jumpToPage: true),
+              isActive: _selectedTabIndex == 0,
+              onTap: () => _onTabChanged(0),
             ),
             _buildNavItem(
-              icon: Icons.add_circle_outline,
-              activeIcon: Icons.add_circle,
-              label: 'Add',
-              isActive: false,
-              onTap: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CreatePostScreen()),
-                );
-                if (result == true && mounted) {
-                  await _loadSocialPosts();
-                  _updateDisplayedItems();
-                }
-              },
+              icon: Icons.article_outlined,
+              activeIcon: Icons.article,
+              label: 'News',
+              isActive: _selectedTabIndex == 1,
+              onTap: () => _onTabChanged(1),
+            ),
+            _buildNavItem(
+              icon: Icons.people_outline,
+              activeIcon: Icons.people,
+              label: 'Social',
+              isActive: _selectedTabIndex == 2,
+              onTap: () => _onTabChanged(2),
             ),
             _buildNavItem(
               icon: Icons.person_outline,
               activeIcon: Icons.person,
               label: 'Profile',
-              isActive: false,
-              onTap: _goToProfile,
+              isActive: _selectedTabIndex == 3,
+              onTap: () => _onTabChanged(3),
             ),
           ],
         ),
@@ -823,7 +1507,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                 ),
                 child: Icon(
                   isActive ? activeIcon : icon,
-                  color: isActive ? primaryColor : isDark ? Colors.white70 : Colors.grey[600],
+                  color: isActive
+                      ? primaryColor
+                      : isDark
+                      ? Colors.white70
+                      : Colors.grey[600],
                   size: isSmallScreen ? 20 : 24,
                 ),
               ),
@@ -836,7 +1524,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                   style: TextStyle(
                     fontSize: isSmallScreen ? 9 : 10,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    color: isActive ? primaryColor : isDark ? Colors.white60 : Colors.grey[600],
+                    color: isActive
+                        ? primaryColor
+                        : isDark
+                        ? Colors.white60
+                        : Colors.grey[600],
                   ),
                 ),
               ),
@@ -848,36 +1540,146 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   Widget _buildMainContent(List<Map<String, dynamic>> categoryList) {
+    final pageCount = _getTotalPageCount();
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      color: Theme.of(context).colorScheme.primary,
+      strokeWidth: 2.5,
+      child: _isInitialLoading
+          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
+          : PageView.builder(
+        controller: _horizontalPageController,
+        scrollDirection: Axis.horizontal,
+        physics: const ClampingScrollPhysics(),
+        itemCount: pageCount,
+        onPageChanged: _onHorizontalPageChanged,
+        itemBuilder: (context, pageIndex) {
+          final totalNewsPages = categoryList.length;
+          if (pageIndex == 0) {
+            return _buildTabContent(
+              items: _videoPosts,
+              itemBuilder: _buildVideoPost,
+            );
+          } else if (pageIndex >= 1 && pageIndex <= totalNewsPages) {
+            final categoryIndex = pageIndex - 1;
+            final category = categoryList[categoryIndex];
+            final categoryId = category['id'];
+            List<Map<String, dynamic>> filteredArticles;
+            if (categoryId == null) {
+              filteredArticles = _allArticles;
+            } else {
+              filteredArticles = _allArticles
+                  .where((article) => article['category_id'] == categoryId)
+                  .toList();
+            }
+            return _buildNewsTabContent(
+              categoryName: category['name'],
+              items: filteredArticles,
+              showEmptyState: filteredArticles.isEmpty && !_isLoadingMore,
+              categoryList: categoryList,
+              activeCategoryIndex: categoryIndex,
+            );
+          } else if (pageIndex == totalNewsPages + 1) {
+            return _buildTabContent(
+              items: _socialPosts,
+              itemBuilder: _buildSocialPost,
+            );
+          } else if (pageIndex == totalNewsPages + 2) {
+            // ✅ EMBEDDED PROFILE - No navigation, inline content
+            return _buildProfilePage();
+          } else {
+            return Container();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildNewsTabContent({
+    required String categoryName,
+    required List<Map<String, dynamic>> items,
+    required bool showEmptyState,
+    required List<Map<String, dynamic>> categoryList,
+    required int activeCategoryIndex,
+  }) {
     return Column(
       children: [
-        SizedBox(height: 50),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _handleRefresh,
-            color: Theme.of(context).colorScheme.primary,
-            strokeWidth: 2.5,
-            child: _isInitialLoading
-                ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
-                : _displayedItems.isEmpty
-                ? _buildEmptyState()
-                : GestureDetector(
-              onHorizontalDragEnd: _onHorizontalDragEnd,
-              child: PageView.builder(
-                scrollDirection: Axis.vertical,
-                controller: _pageController,
-                physics: const ClampingScrollPhysics(),
-                itemCount: _displayedItems.length,
-                itemBuilder: (context, index) {
-                  final item = _displayedItems[index];
-                  if (item['type'] == 'social_post') {
-                    return _buildSocialPost(item);
-                  } else if (item['type'] == 'video_post') {
-                    return _buildVideoPost(item);
-                  } else {
-                    return _buildArticle(item);
-                  }
-                },
+        Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
+            ],
+          ),
+          child: ListView.builder(
+            controller: _categoryScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: categoryList.length,
+            itemBuilder: (context, index) {
+              final category = categoryList[index];
+              final isSelected = index == activeCategoryIndex;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              final primaryColor = Theme.of(context).colorScheme.primary;
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: GestureDetector(
+                  onTap: () {
+                    _selectCategory(category['id']);
+                    _scrollCategoryChipsToIndex(index);
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        category['name'],
+                        style: TextStyle(
+                          color: isSelected
+                              ? primaryColor
+                              : isDark ? Colors.white60 : Colors.grey[600],
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: isSelected ? 15 : 13,
+                        ),
+                      ),
+                      if (isSelected)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            height: 2.5,
+                            width: 30,
+                            decoration: BoxDecoration(
+                              color: primaryColor,
+                              borderRadius: BorderRadius.circular(1.5),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Expanded(
+          child: GestureDetector(
+            onVerticalDragEnd: _onVerticalDragEnd,
+            child: PageView.builder(
+              scrollDirection: Axis.vertical,
+              physics: const ClampingScrollPhysics(),
+              itemCount: items.isEmpty && showEmptyState ? 1 : items.length,
+              itemBuilder: (context, index) {
+                if (items.isEmpty && showEmptyState) {
+                  return _buildEmptyStateForTab(categoryName);
+                }
+                final item = items[index];
+                return _buildArticle(item);
+              },
             ),
           ),
         ),
@@ -885,62 +1687,24 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  Widget _buildCategoryChipsScrollable(List<Map<String, dynamic>> categoryList) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    return Container(
-      height: 45,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: ListView.builder(
-        controller: _categoryScrollController,
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: categoryList.length,
+  Widget _buildTabContent({
+    required List<Map<String, dynamic>> items,
+    required Widget Function(Map<String, dynamic>) itemBuilder,
+  }) {
+    return GestureDetector(
+      onVerticalDragEnd: _onVerticalDragEnd,
+      child: PageView.builder(
+        scrollDirection: Axis.vertical,
+        physics: const ClampingScrollPhysics(),
+        itemCount: items.isEmpty ? 1 : items.length,
         itemBuilder: (context, index) {
-          final category = categoryList[index];
-          final isSelected = category['id'] == _selectedCategoryId;
-          return Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: GestureDetector(
-              onTap: () {
-                _selectCategory(category['id'], jumpToPage: true);
-                _scrollToCategoryItem(index);
-              },
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    category['name'],
-                    style: TextStyle(
-                      color: isSelected
-                          ? primaryColor
-                          : isDark ? Colors.white60 : Colors.grey[600],
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      fontSize: isSelected ? 15 : 13,
-                    ),
-                  ),
-                  if (isSelected)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Container(
-                        height: 2.5,
-                        width: 30,
-                        decoration: BoxDecoration(
-                          color: primaryColor,
-                          borderRadius: BorderRadius.circular(1.5),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          );
+          if (items.isEmpty) {
+            return _buildEmptyStateForTab(
+              _selectedTabIndex == 0 ? 'Video' : _selectedTabIndex == 2 ? 'Social' : 'News',
+            );
+          }
+          final item = items[index];
+          return itemBuilder(item);
         },
       ),
     );
@@ -970,6 +1734,14 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         onToggleComments: _toggleCommentsForPost,
         onPostComment: _postCommentOnSocialPost,
         onShare: _shareArticle,
+        onAddFriend: (post) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Now following ${post['author']}!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
         onShowFullImage: _showFullImageDialog,
       ),
     );
@@ -995,12 +1767,15 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       onToggle: _toggleSpeedDial,
       actions: [
         SpeedDialAction(
-          bottom: 210,
+          bottom: 110,
           icon: Icons.post_add_outlined,
           label: 'Friends Posts',
           onTap: () {
             _toggleSpeedDial();
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const FriendsPostsScreen()));
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const FriendsPostsScreen()),
+            );
           },
         ),
         SpeedDialAction(
@@ -1017,25 +1792,53 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             );
           },
         ),
-        // 👇👇 खालील नवीन action जोडा 👇👇
         SpeedDialAction(
-          bottom: 110, // 👈 position slightly above "Add Friend"
-          icon: Icons.chat_bubble_outline,
-          label: 'Messages',
+          bottom: 210,
+          icon: Icons.edit,
+          label: 'Create Post',
           onTap: () {
             _toggleSpeedDial();
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MessagesScreen()),
-            );
+            _handleCreatePost();
           },
         ),
       ],
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyStateForTab(String tabName) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    String message = '';
+    String subMessage = '';
+    IconData icon = Icons.info_outline;
+    VoidCallback? onPressed;
+    String buttonText = '';
+    IconData buttonIcon = Icons.refresh;
+    if (tabName == 'Video') {
+      message = 'No videos yet!';
+      subMessage = 'Videos will appear here soon!';
+      icon = Icons.video_library_outlined;
+      onPressed = null;
+      buttonText = 'Coming Soon';
+    } else if (tabName == 'News' || tabName == 'All') {
+      message = 'No articles yet!';
+      subMessage = _hasMore ? 'Loading...' : 'Try a different category.';
+      icon = Icons.article_outlined;
+      onPressed = _handleRefresh;
+      buttonText = 'Refresh';
+    } else if (tabName == 'Social') {
+      message = 'No social posts yet!';
+      subMessage = 'Be the first to share something positive!';
+      icon = Icons.people_outline;
+      onPressed = _handleCreatePost;
+      buttonText = 'Create Post';
+      buttonIcon = Icons.edit;
+    } else {
+      message = 'No articles in $tabName';
+      subMessage = 'Try another category.';
+      icon = Icons.category_outlined;
+      onPressed = () => _selectCategory(null);
+      buttonText = 'View All';
+    }
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1043,21 +1846,13 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              _selectedCategoryId == SOCIAL_CATEGORY_ID
-                  ? Icons.people_outline
-                  : _selectedCategoryId == VIDEO_CATEGORY_ID
-                  ? Icons.video_library_outlined
-                  : Icons.article_outlined,
+              icon,
               size: 64,
               color: isDark ? Colors.white38 : Colors.grey[400],
             ),
             const SizedBox(height: 16),
             Text(
-              _selectedCategoryId == SOCIAL_CATEGORY_ID
-                  ? 'No social posts yet!'
-                  : _selectedCategoryId == VIDEO_CATEGORY_ID
-                  ? 'No videos yet!'
-                  : 'No articles in this category!',
+              message,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 color: isDark ? Colors.white70 : Colors.grey[600],
               ),
@@ -1065,79 +1860,37 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             ),
             const SizedBox(height: 8),
             Text(
-              _selectedCategoryId == SOCIAL_CATEGORY_ID
-                  ? 'Be the first to share something positive!'
-                  : _selectedCategoryId == VIDEO_CATEGORY_ID
-                  ? 'Add videos to see them here!'
-                  : _hasMore
-                  ? 'Loading...'
-                  : 'Try a different category.',
+              subMessage,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: isDark ? Colors.white54 : Colors.grey[500],
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: _selectedCategoryId == SOCIAL_CATEGORY_ID
-                  ? () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CreatePostScreen()),
-                );
-                if (result == true && mounted) {
-                  await _loadSocialPosts();
-                  _updateDisplayedItems();
-                }
-              }
-                  : _selectedCategoryId == VIDEO_CATEGORY_ID
-                  ? null
-                  : _handleRefresh,
-              icon: Icon(_selectedCategoryId == SOCIAL_CATEGORY_ID ? Icons.edit : Icons.refresh),
-              label: Text(
-                _selectedCategoryId == SOCIAL_CATEGORY_ID
-                    ? 'Create Post'
-                    : _selectedCategoryId == VIDEO_CATEGORY_ID
-                    ? 'Coming Soon'
-                    : 'Refresh',
+            if (onPressed != null)
+              ElevatedButton.icon(
+                onPressed: onPressed,
+                icon: Icon(buttonIcon),
+                label: Text(buttonText),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
               ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-
-  List<Map<String, dynamic>> _buildCategoryList() {
-    final List<Map<String, dynamic>> categoryList = [
-      {'id': null, 'name': 'All'},
-      {'id': SOCIAL_CATEGORY_ID, 'name': '👥 Social'},
-    ];
-    if (_selectedCategoryIds.isNotEmpty) {
-      for (var categoryId in _selectedCategoryIds) {
-        if (_categoryMap.containsKey(categoryId)) {
-          categoryList.add({'id': categoryId, 'name': _categoryMap[categoryId]});
-        }
-      }
-    } else {
-      categoryList.addAll(_categoryMap.entries.map((e) => {'id': e.key, 'name': e.value}).toList());
-    }
-    return categoryList;
-  }
 }
 
-// ==================== VIDEO POST WIDGET (WITH forcePlay SUPPORT) ====================
+// ==================== VIDEO POST WIDGET ====================
 class _VideoPostWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final VoidCallback onToggleLike;
   final VoidCallback onToggleComments;
   final VoidCallback onShare;
-
   const _VideoPostWidget({
     required this.post,
     required this.onToggleLike,
@@ -1150,7 +1903,8 @@ class _VideoPostWidget extends StatefulWidget {
   State<_VideoPostWidget> createState() => _VideoPostWidgetState();
 }
 
-class _VideoPostWidgetState extends State<_VideoPostWidget> with AutomaticKeepAliveClientMixin {
+class _VideoPostWidgetState extends State<_VideoPostWidget>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -1320,21 +2074,30 @@ class _VideoPostWidgetState extends State<_VideoPostWidget> with AutomaticKeepAl
                                 backgroundColor: Colors.white,
                                 child: Text(
                                   widget.post['avatar'] as String,
-                                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
                               Flexible(
                                 child: Text(
                                   widget.post['author'],
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Text(widget.post['title'], style: const TextStyle(color: Colors.white, fontSize: 16)),
+                          Text(
+                            widget.post['title'],
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                          ),
                           const SizedBox(height: 6),
                           Text(
                             widget.post['content'],
@@ -1355,7 +2118,9 @@ class _VideoPostWidgetState extends State<_VideoPostWidget> with AutomaticKeepAl
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _buildActionButton(
-                          icon: widget.post['isLiked'] == true ? Icons.favorite : Icons.favorite_border,
+                          icon: widget.post['isLiked'] == true
+                              ? Icons.favorite
+                              : Icons.favorite_border,
                           label: _formatCount(widget.post['likes']),
                           color: widget.post['isLiked'] == true ? Colors.red : Colors.white,
                           onTap: widget.onToggleLike,

@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+import 'dart:async'; // 👈 CRITICAL FIX: Timer class साठी हे import करा
 
 // ==================== INSHOT STYLE - IMAGE OVERLAY CARD ====================
-class ArticleCardWidget extends StatelessWidget {
+class ArticleCardWidget extends StatefulWidget {
   final Map<String, dynamic> article;
   final Function(Map<String, dynamic>) onTrackRead;
   final Function(Map<String, dynamic>) onShare;
@@ -18,8 +20,22 @@ class ArticleCardWidget extends StatelessWidget {
     required this.onShare,
   }) : super(key: key);
 
+  @override
+  State<ArticleCardWidget> createState() => _ArticleCardWidgetState();
+}
+
+class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   static const Color PRIMARY_GREEN = Color(0xFF10B981);
   static const Color PRIMARY_PINK = Color(0xFFEC4899);
+
+  bool _hasTrackedRead = false; // 👈 TRACK IF ALREADY COUNTED
+  Timer? _visibilityTimer;
+
+  @override
+  void dispose() {
+    _visibilityTimer?.cancel();
+    super.dispose();
+  }
 
   String _getShortTitle(String fullTitle) {
     final words = fullTitle.trim().split(' ');
@@ -28,7 +44,7 @@ class ArticleCardWidget extends StatelessWidget {
   }
 
   Widget _buildDefaultArticleImage() {
-    final title = article['title'] ?? 'No Title';
+    final title = widget.article['title'] ?? 'No Title';
     final shortTitle = _getShortTitle(title);
     return Container(
       decoration: const BoxDecoration(
@@ -90,7 +106,7 @@ class ArticleCardWidget extends StatelessWidget {
   String _getSummaryText(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final charLimit = _getSummaryCharLimit(screenWidth);
-    final cleanContent = _removeAiText(article['content'] ?? 'No content available');
+    final cleanContent = _removeAiText(widget.article['content'] ?? 'No content available');
     if (cleanContent.length <= charLimit) return cleanContent;
     final truncated = cleanContent.substring(0, charLimit);
     final lastSpace = truncated.lastIndexOf(' ');
@@ -105,7 +121,7 @@ class ArticleCardWidget extends StatelessWidget {
   }
 
   bool _hasAiRewritingTag() {
-    final content = article['content'] ?? '';
+    final content = widget.article['content'] ?? '';
     final aiPatterns = [
       '[This article was rewritten using A.I]',
       '[This article was rewritten using A.I.]',
@@ -164,7 +180,7 @@ class ArticleCardWidget extends StatelessWidget {
   // ✅ UPDATED: Safe URL opening with error handling
   Future<void> _openInAppBrowser(BuildContext context) async {
     // 1. raw URL मिळवा
-    final rawUrl = article['source_url'] ?? '';
+    final rawUrl = widget.article['source_url'] ?? '';
 
     // 2. string clean करा
     String url = rawUrl.toString().trim();
@@ -216,25 +232,43 @@ class ArticleCardWidget extends StatelessWidget {
     );
   }
 
+  // 👇 NEW: Track article as "read" when visible for 2+ seconds
+  void _onVisibilityChanged(VisibilityInfo info) {
+    // फक्त एकदाच काउंट करा
+    if (_hasTrackedRead || info.visibleFraction < 0.7) return;
+
+    // २ सेकंदासाठी व्हिजिबल असल्यावर काउंट करा
+    _visibilityTimer?.cancel();
+    _visibilityTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted && !_hasTrackedRead) {
+        setState(() => _hasTrackedRead = true);
+        widget.onTrackRead(widget.article); // 👈 TRACK AS READ
+        print('✅ Article ${widget.article['id']} tracked as read (via scroll)');
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final isAiRewritten = article['is_ai_rewritten'] == 1 || article['is_ai_rewritten'] == true || article['is_ai_rewritten'] == '1';
+    final isAiRewritten = widget.article['is_ai_rewritten'] == 1 ||
+        widget.article['is_ai_rewritten'] == true ||
+        widget.article['is_ai_rewritten'] == '1';
     final hasAiTag = _hasAiRewritingTag();
     final showAiTag = isAiRewritten && hasAiTag;
-    final sourceDomain = _getDomainFromUrl(article['source_url']);
-    final timeText = _formatRelativeTime(article['created_at']);
-    final title = article['title'] ?? 'No Title';
+    final sourceDomain = _getDomainFromUrl(widget.article['source_url']);
+    final timeText = _formatRelativeTime(widget.article['created_at']);
+    final title = widget.article['title'] ?? 'No Title';
     final summary = _getSummaryText(context);
     final summaryMaxLines = _getSummaryMaxLines(screenWidth);
     final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 400 ? 260.0 : 240.0;
     final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 400 ? 18.0 : 16.0;
 
     Widget buildImageWidget() {
-      final imageUrl = article['image_url'] as String?;
+      final imageUrl = widget.article['image_url'] as String?;
       if (imageUrl != null && imageUrl.isNotEmpty) {
         return CachedNetworkImage(
           imageUrl: imageUrl,
@@ -259,304 +293,291 @@ class ArticleCardWidget extends StatelessWidget {
       }
     }
 
-    return Container(
-      margin: EdgeInsets.symmetric(
-        horizontal: screenWidth > 600 ? 20.0 : screenWidth > 400 ? 16.0 : 14.0,
-        vertical: screenHeight > 800 ? 12.0 : 10.0,
-      ),
-      constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 450) : null,
-      child: Card(
-        elevation: 8,
-        margin: EdgeInsets.zero,
-        shadowColor: isDark ? PRIMARY_GREEN.withOpacity(0.4) : Colors.black.withOpacity(0.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        color: isDark ? const Color(0xFF121212) : Colors.white,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: Stack(
-            children: [
-              SizedBox(
-                height: imageHeight,
-                width: double.infinity,
-                child: Hero(
-                  tag: 'article_${article['id']}',
-                  child: buildImageWidget(),
-                ),
-              ),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 80,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        isDark ? Colors.black.withOpacity(0.7) : Colors.black.withOpacity(0.5),
-                        Colors.transparent,
-                      ],
-                    ),
+    // 👇 WRAP ENTIRE CARD IN VisibilityDetector
+    return VisibilityDetector(
+      key: Key('article_${widget.article['id']}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Container(
+        margin: EdgeInsets.symmetric(
+          horizontal: screenWidth > 600 ? 20.0 : screenWidth > 400 ? 16.0 : 14.0,
+          vertical: screenHeight > 800 ? 12.0 : 10.0,
+        ),
+        constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 450) : null,
+        child: Card(
+          elevation: 8,
+          margin: EdgeInsets.zero,
+          shadowColor: isDark ? PRIMARY_GREEN.withOpacity(0.4) : Colors.black.withOpacity(0.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          color: isDark ? const Color(0xFF121212) : Colors.white,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Stack(
+              children: [
+                SizedBox(
+                  height: imageHeight,
+                  width: double.infinity,
+                  child: Hero(
+                    tag: 'article_${widget.article['id']}',
+                    child: buildImageWidget(),
                   ),
                 ),
-              ),
-              Positioned(
-                top: 16,
-                right: 16,
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        isDark ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.95),
-                        isDark ? Colors.white.withOpacity(0.88) : Colors.white.withOpacity(0.88),
-                      ],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: isDark ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.35),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => onShare(article),
-                      borderRadius: BorderRadius.circular(50),
-                      splashColor: Colors.grey.withOpacity(0.3),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        child: Icon(Icons.share_rounded, color: colorScheme.primary, size: 24),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                top: imageHeight,
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    left: contentPadding,
-                    right: contentPadding,
-                    top: 12,
-                    bottom: contentPadding,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? PRIMARY_GREEN.withOpacity(0.3)
-                                  : PRIMARY_GREEN.withOpacity(0.28),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isDark
-                                    ? PRIMARY_GREEN.withOpacity(0.5)
-                                    : PRIMARY_GREEN.withOpacity(0.5),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              article['category'] ?? 'News',
-                              style: GoogleFonts.poppins(
-                                color: isDark ? Colors.white : Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: screenWidth > 600 ? 11 : 10.5,
-                                letterSpacing: 0.4,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
-                          const SizedBox(width: 4),
-                          Text(
-                            timeText,
-                            style: GoogleFonts.inter(
-                              color: isDark ? Colors.white60 : Colors.black45,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          isDark ? Colors.black.withOpacity(0.7) : Colors.black.withOpacity(0.5),
+                          Colors.transparent,
                         ],
                       ),
-                      SizedBox(height: screenWidth > 600 ? 8 : 6),
-                      Text(
-                        title,
-                        style: GoogleFonts.merriweather(
-                          fontSize: screenWidth > 600 ? 18.5 : screenWidth > 400 ? 17.5 : 16.5,
-                          fontWeight: FontWeight.w900,
-                          height: 1.15,
-                          color: isDark ? Colors.white : Colors.black,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: screenWidth > 600 ? 6 : 5),
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withOpacity(0.2)
-                                  : Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.3)
-                                    : Colors.white.withOpacity(0.3),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.language_rounded, size: screenWidth > 600 ? 12 : 11, color: isDark ? Colors.white : Colors.black),
-                                const SizedBox(width: 4),
-                                Text(
-                                  sourceDomain,
-                                  style: GoogleFonts.inter(
-                                    fontSize: screenWidth > 600 ? 11 : 10.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? Colors.white : Colors.black,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (showAiTag)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                    colors: [PRIMARY_GREEN, PRIMARY_PINK],
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: PRIMARY_GREEN.withOpacity(0.6),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.auto_awesome, color: Colors.white, size: screenWidth > 600 ? 12 : 11),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'AI Enhanced',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: screenWidth > 600 ? 9 : 8.5,
-                                        letterSpacing: 0.3,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 16,
+                  right: 16,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          isDark ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.95),
+                          isDark ? Colors.white.withOpacity(0.88) : Colors.white.withOpacity(0.88),
                         ],
                       ),
-                      SizedBox(height: screenWidth > 600 ? 8 : 6),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Text(
-                            summary,
-                            style: GoogleFonts.inter(
-                              fontSize: screenWidth > 600 ? 14.5 : screenWidth > 400 ? 12.5 : 12,
-                              height: 1.5,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                              letterSpacing: 0.15,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: isDark ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.35),
+                          blurRadius: 15,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => widget.onShare(widget.article),
+                        borderRadius: BorderRadius.circular(50),
+                        splashColor: Colors.grey.withOpacity(0.3),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          child: Icon(Icons.share_rounded, color: colorScheme.primary, size: 24),
                         ),
                       ),
-                      SizedBox(height: screenWidth > 600 ? 12 : 10),
-                      // 👇 "Read Full Article" button — now safe!
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            onTrackRead(article);
-                            _openInAppBrowser(context); // ✅ Safe call
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [PRIMARY_GREEN, PRIMARY_PINK],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  top: imageHeight,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: contentPadding,
+                      right: contentPadding,
+                      top: 12,
+                      bottom: contentPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 👇 CATEGORY TAG REMOVED - ONLY TIMESTAMP REMAINS
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
+                            const SizedBox(width: 4),
+                            Text(
+                              timeText,
+                              style: GoogleFonts.inter(
+                                color: isDark ? Colors.white60 : Colors.black45,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
                               ),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: PRIMARY_GREEN.withOpacity(0.6),
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 4),
-                                  spreadRadius: 1,
-                                ),
-                              ],
                             ),
-                            child: Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.symmetric(
-                                horizontal: screenWidth > 600 ? 20 : 18,
-                                vertical: screenWidth > 600 ? 13 : 12,
+                          ],
+                        ),
+                        SizedBox(height: screenWidth > 600 ? 8 : 6),
+                        Text(
+                          title,
+                          style: GoogleFonts.merriweather(
+                            fontSize: screenWidth > 600 ? 18.5 : screenWidth > 400 ? 17.5 : 16.5,
+                            fontWeight: FontWeight.w900,
+                            height: 1.15,
+                            color: isDark ? Colors.white : Colors.black,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: screenWidth > 600 ? 6 : 5),
+                        // 👇 NEWS SOURCE + AI TAGS KEPT BELOW TITLE
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.2)
+                                    : Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.3)
+                                      : Colors.white.withOpacity(0.3),
+                                  width: 1,
+                                ),
                               ),
                               child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.auto_stories_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
-                                  const SizedBox(width: 10),
-                                  Flexible(
-                                    child: Text(
-                                      'Read Full Article',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: screenWidth > 600 ? 15 : 14,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        letterSpacing: 0.6,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
+                                  Icon(Icons.language_rounded, size: screenWidth > 600 ? 12 : 11, color: isDark ? Colors.white : Colors.black),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sourceDomain,
+                                    style: GoogleFonts.inter(
+                                      fontSize: screenWidth > 600 ? 11 : 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white : Colors.black,
+                                      letterSpacing: 0.3,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Icon(Icons.arrow_forward_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
                                 ],
                               ),
                             ),
+                            if (showAiTag)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [PRIMARY_GREEN, PRIMARY_PINK],
+                                    ),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: PRIMARY_GREEN.withOpacity(0.6),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.auto_awesome, color: Colors.white, size: screenWidth > 600 ? 12 : 11),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'AI Enhanced',
+                                        style: GoogleFonts.poppins(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: screenWidth > 600 ? 9 : 8.5,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: screenWidth > 600 ? 8 : 6),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Text(
+                              summary,
+                              style: GoogleFonts.inter(
+                                fontSize: screenWidth > 600 ? 14.5 : screenWidth > 400 ? 12.5 : 12,
+                                height: 1.5,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                letterSpacing: 0.15,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: screenWidth > 600 ? 12 : 10),
+                        // 👇 "Read Full Article" button — now safe!
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              // फक्त एकदाच काउंट करा (जर आधीच काउंट झाले नसेल)
+                              if (!_hasTrackedRead) {
+                                setState(() => _hasTrackedRead = true);
+                                widget.onTrackRead(widget.article);
+                                print('✅ Article ${widget.article['id']} tracked as read (via tap)');
+                              }
+                              _openInAppBrowser(context);
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                            child: Ink(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [PRIMARY_GREEN, PRIMARY_PINK],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: PRIMARY_GREEN.withOpacity(0.6),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth > 600 ? 20 : 18,
+                                  vertical: screenWidth > 600 ? 13 : 12,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.auto_stories_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
+                                    const SizedBox(width: 10),
+                                    Flexible(
+                                      child: Text(
+                                        'Read Full Article',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: screenWidth > 600 ? 15 : 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                          letterSpacing: 0.6,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.arrow_forward_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

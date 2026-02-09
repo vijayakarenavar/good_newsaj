@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 
-/// Widget for displaying a social post card with comments
+/// Widget for displaying a social post card with comments and friend actions
 class SocialPostCardWidget extends StatelessWidget {
   final Map<String, dynamic> post;
   final List<Map<String, dynamic>> comments;
@@ -13,6 +13,7 @@ class SocialPostCardWidget extends StatelessWidget {
   final Function(String) onToggleComments;
   final Function(String) onPostComment;
   final Function(Map<String, dynamic>) onShare;
+  final Function(Map<String, dynamic>)? onAddFriend; // 👈 NEW: Optional add friend callback
   final Function(BuildContext, String) onShowFullImage;
 
   const SocialPostCardWidget({
@@ -26,6 +27,7 @@ class SocialPostCardWidget extends StatelessWidget {
     required this.onToggleComments,
     required this.onPostComment,
     required this.onShare,
+    this.onAddFriend, // 👈 NEW: Optional parameter
     required this.onShowFullImage,
   }) : super(key: key);
 
@@ -45,10 +47,6 @@ class SocialPostCardWidget extends StatelessWidget {
           _buildHeader(context),
 
           const SizedBox(height: 24),
-
-          // Title
-          // if (post['title'] != null && post['title'].toString().isNotEmpty)
-          //   _buildTitle(context),
 
           // Scrollable Content
           Expanded(
@@ -73,7 +71,7 @@ class SocialPostCardWidget extends StatelessWidget {
             ),
           ),
 
-          // Action Buttons
+          // Action Buttons - UPDATED WITH ADD FRIEND BUTTON (SAME SIZE + TEXT ONLY)
           _buildActionButtons(context, postId),
         ],
       ),
@@ -81,7 +79,6 @@ class SocialPostCardWidget extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    // 🎨 DARK MODE FIX: Theme-aware colors
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final timestampColor = isDark ? Colors.white70 : Colors.grey[600];
 
@@ -140,21 +137,7 @@ class SocialPostCardWidget extends StatelessWidget {
     );
   }
 
-  // Widget _buildTitle(BuildContext context) {
-  //   return Padding(
-  //     padding: const EdgeInsets.only(bottom: 16),
-  //     child: Text(
-  //       post['title'],
-  //       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-  //         fontWeight: FontWeight.bold,
-  //         height: 1.3,
-  //       ),
-  //     ),
-  //   );
-  // }
-
   Widget _buildImage(BuildContext context, dynamic imageUrl) {
-    // 🎨 DARK MODE FIX: Theme-aware placeholder colors
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final placeholderBgColor = isDark ? Colors.grey[850] : Colors.grey[200];
     final errorIconColor = isDark ? Colors.grey[600] : Colors.grey[400];
@@ -171,8 +154,8 @@ class SocialPostCardWidget extends StatelessWidget {
             imageUrl: imageUrl.toString(),
             fit: BoxFit.cover,
             width: double.infinity,
-            memCacheWidth: 800, // 🚀 OPTIMIZATION: Resize for memory
-            memCacheHeight: 800,
+            memCacheWidth: 800,
+            memCacheHeight: 900,
             placeholder: (context, url) => Container(
               height: 300,
               color: placeholderBgColor,
@@ -204,7 +187,6 @@ class SocialPostCardWidget extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context) {
-    // 🎨 DARK MODE FIX: Theme-aware content text
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final contentColor = isDark ? Colors.white70 : Colors.grey[900];
 
@@ -219,7 +201,6 @@ class SocialPostCardWidget extends StatelessWidget {
   }
 
   Widget _buildCommentsSection(BuildContext context) {
-    // 🎨 DARK MODE FIX: Theme-aware divider and text
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final emptyTextColor = isDark ? Colors.grey[500] : Colors.grey;
 
@@ -276,7 +257,6 @@ class SocialPostCardWidget extends StatelessWidget {
   }
 
   Widget _buildCommentItem(BuildContext context, Map<String, dynamic> comment) {
-    // 🎨 DARK MODE FIX: Theme-aware comment colors
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final timestampColor = isDark ? Colors.white60 : Colors.grey[600];
 
@@ -330,82 +310,135 @@ class SocialPostCardWidget extends StatelessWidget {
     );
   }
 
+  // ✅ UPDATED METHOD: Same size buttons + "Add" button with TEXT ONLY (no icon)
   Widget _buildActionButtons(BuildContext context, String postId) {
-    // 🎨 DARK MODE FIX: Theme-aware TextField
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? Colors.grey[700] : Colors.grey[300];
+    final theme = Theme.of(context);
+    final surfaceColor = theme.colorScheme.surface;
+
+    // ✅ EXACT SAME COLORS AS YOUR ARTICLE CARD'S "READ FULL ARTICLE" BUTTON
+    const Color PRIMARY_GREEN = Color(0xFF10B981);
+    const Color PRIMARY_PINK = Color(0xFFEC4899);
+
+    // 👇 REVISED: Gradient button builder with NULLABLE icon + fixed size
+    Widget _buildGradientButton({
+      IconData? icon, // ✅ Nullable - icon optional
+      String? label,
+      required VoidCallback onPressed,
+      bool isLoading = false,
+      bool isSelected = false,
+    }) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(18),
+          splashColor: Colors.white.withOpacity(0.2),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [PRIMARY_GREEN, PRIMARY_PINK],
+              ),
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: PRIMARY_GREEN.withOpacity(0.6),
+                  blurRadius: 12,
+                  offset: const Offset(0, 3),
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: SizedBox(
+              height: 40, // ✅ Fixed height for ALL buttons
+              width: double.infinity,
+              child: Center(
+                child: isLoading
+                    ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+                    : icon != null
+                    ? Icon(
+                  icon,
+                  size: 20,
+                  color: isSelected ? Colors.redAccent : Colors.white,
+                )
+                    : Text( // ✅ ONLY TEXT WHEN icon IS NULL
+                  label ?? 'Add',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.only(top: 12, bottom: 10),
       child: Column(
         children: [
+          // 👇 ALL BUTTONS SAME SIZE (60x40) + "Add" button TEXT ONLY
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
+              // Like Button - ICON ONLY
+              SizedBox(
+                width: 60,
+                child: _buildGradientButton(
+                  icon: post['isLiked'] ? Icons.favorite : Icons.favorite_border,
                   onPressed: () => onToggleLike(post),
-                  icon: Icon(
-                    post['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                    color: post['isLiked'] ? Colors.red : Colors.white,
-                  ),
-                  label: Text('${post['likes']}'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                  isSelected: post['isLiked'],
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: isLoadingComments ? null : () => onToggleComments(postId),
-                  icon: isLoadingComments
-                      ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                      : Icon(
-                    showComments ? Icons.comment : Icons.comment_outlined,
-                  ),
-                  label: const Text('Comment'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+
+              // Comment Button - ICON ONLY
+              SizedBox(
+                width: 60,
+                child: _buildGradientButton(
+                  icon: showComments ? Icons.comment : Icons.comment_outlined,
+                  onPressed: isLoadingComments ? () {} : () => onToggleComments(postId),
+                  isLoading: isLoadingComments,
                 ),
               ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                onPressed: () => onShare(post),
-                icon: const Icon(Icons.share, size: 18),
-                label: const Text(''),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.tertiary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+
+              // Share Button - ICON ONLY
+              SizedBox(
+                width: 60,
+                child: _buildGradientButton(
+                  icon: Icons.share_outlined,
+                  onPressed: () => onShare(post),
                 ),
               ),
+
+              // 👉 Add Friend Button - TEXT ONLY (NO ICON)
+              if (onAddFriend != null)
+                SizedBox(
+                  width: 60, // ✅ Same width as others
+                  child: _buildGradientButton(
+                    icon: null, // ✅ ICON NAKO - null pass kela
+                    label: 'Add', // ✅ FKT TEXT
+                    onPressed: () => onAddFriend!(post),
+                  ),
+                ),
             ],
           ),
 
-          // Comment input
+          // Comment input (only visible when comments are open) - UNCHANGED
           if (showComments) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -435,11 +468,15 @@ class SocialPostCardWidget extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => onPostComment(postId),
-                  icon: Icon(Icons.send, color: Theme.of(context).colorScheme.primary),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.15), // Match article card green
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    padding: const EdgeInsets.all(8),
+                    onPressed: () => onPostComment(postId),
+                    icon: const Icon(Icons.send, color: Color(0xFF10B981), size: 20),
                   ),
                 ),
               ],
