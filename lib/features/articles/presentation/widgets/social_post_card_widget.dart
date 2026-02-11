@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:good_news/core/themes/app_theme.dart';
 
 /// Widget for displaying a social post card with comments and friend actions
+/// ✅ SOLID THEME COLOR (NO GRADIENT) - 4 BUTTONS WITH RED HEART + SHAPE-ACCURATE WHITE BORDER
 class SocialPostCardWidget extends StatelessWidget {
   final Map<String, dynamic> post;
   final List<Map<String, dynamic>> comments;
@@ -13,7 +15,7 @@ class SocialPostCardWidget extends StatelessWidget {
   final Function(String) onToggleComments;
   final Function(String) onPostComment;
   final Function(Map<String, dynamic>) onShare;
-  final Function(Map<String, dynamic>)? onAddFriend; // 👈 NEW: Optional add friend callback
+  final Function(Map<String, dynamic>)? onAddFriend;
   final Function(BuildContext, String) onShowFullImage;
 
   const SocialPostCardWidget({
@@ -27,7 +29,7 @@ class SocialPostCardWidget extends StatelessWidget {
     required this.onToggleComments,
     required this.onPostComment,
     required this.onShare,
-    this.onAddFriend, // 👈 NEW: Optional parameter
+    this.onAddFriend,
     required this.onShowFullImage,
   }) : super(key: key);
 
@@ -35,6 +37,9 @@ class SocialPostCardWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final postId = post['id'] as String;
     final imageUrl = post['image_url'];
+
+    // ✅ GET THEME COLOR DIRECTLY (NO GRADIENT)
+    final themeColor = Theme.of(context).colorScheme.primary;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -71,8 +76,8 @@ class SocialPostCardWidget extends StatelessWidget {
             ),
           ),
 
-          // Action Buttons - UPDATED WITH ADD FRIEND BUTTON (SAME SIZE + TEXT ONLY)
-          _buildActionButtons(context, postId),
+          // ✅ ACTION BUTTONS - SOLID THEME COLOR WITH RED HEART
+          _buildActionButtons(context, postId, themeColor),
         ],
       ),
     );
@@ -310,74 +315,101 @@ class SocialPostCardWidget extends StatelessWidget {
     );
   }
 
-  // ✅ UPDATED METHOD: Same size buttons + "Add" button with TEXT ONLY (no icon)
-  Widget _buildActionButtons(BuildContext context, String postId) {
+  // ✅ ACTION BUTTONS WITH SHAPE-ACCURATE WHITE BORDER
+  Widget _buildActionButtons(BuildContext context, String postId, Color themeColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final borderColor = isDark ? Colors.grey[700] : Colors.grey[300];
-    final theme = Theme.of(context);
-    final surfaceColor = theme.colorScheme.surface;
 
-    // ✅ EXACT SAME COLORS AS YOUR ARTICLE CARD'S "READ FULL ARTICLE" BUTTON
-    const Color PRIMARY_GREEN = Color(0xFF10B981);
-    const Color PRIMARY_PINK = Color(0xFFEC4899);
+    // ✅ LIGHTER BUTTON COLOR (95% opacity for better visibility)
+    final lighterThemeColor = themeColor.withOpacity(0.95);
 
-    // 👇 REVISED: Gradient button builder with NULLABLE icon + fixed size
-    Widget _buildGradientButton({
-      IconData? icon, // ✅ Nullable - icon optional
+    // ❤️ HEART ICON BUILDER (SHAPE-ACCURATE WHITE BORDER)
+    Widget _buildHeartIcon(IconData icon, bool isSelected, bool isLikeButton) {
+      if (isLikeButton) {
+        if (isSelected) {
+          // ✅ RED HEART WITH WHITE BORDER IN HEART SHAPE (NOT CIRCULAR)
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // White border (slightly larger size)
+              Icon(
+                Icons.favorite,
+                size: 24, // 2px larger for border
+                color: Colors.white,
+              ),
+              // Red heart (slightly smaller size)
+              Icon(
+                Icons.favorite,
+                size: 22, // standard size
+                color: Colors.red,
+              ),
+            ],
+          );
+        } else {
+          // ⚪ WHITE OUTLINE HEART (NOT LIKED)
+          return Icon(
+            Icons.favorite_border,
+            size: 22,
+            color: Colors.white,
+          );
+        }
+      }
+
+      // Other icons (comment, share)
+      return Icon(
+        icon,
+        size: 22,
+        color: isSelected ? Colors.red : Colors.white,
+      );
+    }
+
+    Widget _buildSolidButton({
+      IconData? icon,
       String? label,
       required VoidCallback onPressed,
       bool isLoading = false,
       bool isSelected = false,
+      bool isLikeButton = false,
     }) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
+      return Container(
+        width: 60,
+        height: 40,
+        margin: const EdgeInsets.symmetric(horizontal: 4), // ✅ LESS SPACE BETWEEN BUTTONS
+        decoration: BoxDecoration(
+          color: lighterThemeColor, // ✅ BUTTON ALWAYS THEME COLOR (NEVER RED)
           borderRadius: BorderRadius.circular(18),
-          splashColor: Colors.white.withOpacity(0.2),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [PRIMARY_GREEN, PRIMARY_PINK],
-              ),
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: PRIMARY_GREEN.withOpacity(0.6),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                  spreadRadius: 1,
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: lighterThemeColor.withOpacity(0.6),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
-            child: SizedBox(
-              height: 40, // ✅ Fixed height for ALL buttons
-              width: double.infinity,
-              child: Center(
-                child: isLoading
-                    ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                    : icon != null
-                    ? Icon(
-                  icon,
-                  size: 20,
-                  color: isSelected ? Colors.redAccent : Colors.white,
-                )
-                    : Text( // ✅ ONLY TEXT WHEN icon IS NULL
-                  label ?? 'Add',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onPressed,
+            splashColor: Colors.white.withOpacity(0.3),
+            child: Center(
+              child: isLoading
+                  ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+                  : icon != null
+                  ? _buildHeartIcon(icon, isSelected, isLikeButton)
+                  : Text( // ✅ "Add" BUTTON - TEXT ONLY (NO ICON)
+                label ?? 'Add',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
@@ -387,56 +419,45 @@ class SocialPostCardWidget extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.only(top: 12, bottom: 10),
+      padding: const EdgeInsets.only(top: 16, bottom: 10),
       child: Column(
         children: [
-          // 👇 ALL BUTTONS SAME SIZE (60x40) + "Add" button TEXT ONLY
+          // ✅ CENTERED BUTTONS WITH LESS SPACE
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Like Button - ICON ONLY
-              SizedBox(
-                width: 60,
-                child: _buildGradientButton(
-                  icon: post['isLiked'] ? Icons.favorite : Icons.favorite_border,
-                  onPressed: () => onToggleLike(post),
-                  isSelected: post['isLiked'],
-                ),
+              // 1. LIKE BUTTON (RED HEART WITH SHAPE-ACCURATE WHITE BORDER)
+              _buildSolidButton(
+                icon: post['isLiked'] ? Icons.favorite : Icons.favorite_border,
+                onPressed: () => onToggleLike(post),
+                isSelected: post['isLiked'],
+                isLikeButton: true,
               ),
 
-              // Comment Button - ICON ONLY
-              SizedBox(
-                width: 60,
-                child: _buildGradientButton(
-                  icon: showComments ? Icons.comment : Icons.comment_outlined,
-                  onPressed: isLoadingComments ? () {} : () => onToggleComments(postId),
-                  isLoading: isLoadingComments,
-                ),
+              // 2. COMMENT BUTTON
+              _buildSolidButton(
+                icon: showComments ? Icons.comment : Icons.comment_outlined,
+                onPressed: isLoadingComments ? () {} : () => onToggleComments(postId),
+                isLoading: isLoadingComments,
               ),
 
-              // Share Button - ICON ONLY
-              SizedBox(
-                width: 60,
-                child: _buildGradientButton(
-                  icon: Icons.share_outlined,
-                  onPressed: () => onShare(post),
-                ),
+              // 3. SHARE BUTTON
+              _buildSolidButton(
+                icon: Icons.share_outlined,
+                onPressed: () => onShare(post),
               ),
 
-              // 👉 Add Friend Button - TEXT ONLY (NO ICON)
+              // 4. ADD BUTTON (TEXT ONLY)
               if (onAddFriend != null)
-                SizedBox(
-                  width: 60, // ✅ Same width as others
-                  child: _buildGradientButton(
-                    icon: null, // ✅ ICON NAKO - null pass kela
-                    label: 'Add', // ✅ FKT TEXT
-                    onPressed: () => onAddFriend!(post),
-                  ),
+                _buildSolidButton(
+                  icon: null,
+                  label: 'Add',
+                  onPressed: () => onAddFriend!(post),
                 ),
             ],
           ),
 
-          // Comment input (only visible when comments are open) - UNCHANGED
+          // Comment input section
           if (showComments) ...[
             const SizedBox(height: 16),
             Row(
@@ -470,13 +491,13 @@ class SocialPostCardWidget extends StatelessWidget {
                 const SizedBox(width: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withOpacity(0.15), // Match article card green
+                    color: lighterThemeColor.withOpacity(0.15),
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
                     padding: const EdgeInsets.all(8),
                     onPressed: () => onPostComment(postId),
-                    icon: const Icon(Icons.send, color: Color(0xFF10B981), size: 20),
+                    icon: Icon(Icons.send, color: lighterThemeColor, size: 20),
                   ),
                 ),
               ],

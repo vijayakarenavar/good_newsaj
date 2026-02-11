@@ -21,7 +21,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   String _visibility = 'Public';
   File? _selectedImageFile;
   String? _uploadedImageUrl;
-  String? _uploadError; // ✅ Track upload errors
+  String? _uploadError;
 
   @override
   void initState() {
@@ -44,11 +44,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
   }
 
   bool get _canPost => _textController.text.trim().isNotEmpty && !_isPosting && !_isUploadingImage;
-
-  Color get _buttonBackgroundColor {
-    if (_isPosting || _isUploadingImage) return ThemeTokens.buttonDisabled;
-    return _canPost ? ThemeTokens.buttonEnabled : ThemeTokens.buttonDisabled;
-  }
 
   Future<void> _createPost() async {
     if (!_canPost) return;
@@ -299,13 +294,11 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  /// ✅ FIXED: Proper image handling with error tracking
   Future<void> _handleImageSelection(File imageFile) async {
     try {
       print('📸 IMAGE HANDLING: Starting...');
       print('📸 IMAGE HANDLING: File path: ${imageFile.path}');
 
-      // ✅ Step 1: Verify file exists
       if (!await imageFile.exists()) {
         print('❌ IMAGE HANDLING: File does not exist!');
         _showError('Image file not found');
@@ -313,7 +306,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       }
       print('✅ IMAGE HANDLING: File exists');
 
-      // ✅ Step 2: Check file size
       final fileSizeInBytes = await imageFile.length();
       final fileSizeInMB = fileSizeInBytes / (1024 * 1024);
       print('📦 IMAGE HANDLING: File size: ${fileSizeInMB.toStringAsFixed(2)} MB');
@@ -323,7 +315,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         return;
       }
 
-      // ✅ Step 3: Update UI to show uploading state
       setState(() {
         _selectedImageFile = imageFile;
         _isUploadingImage = true;
@@ -353,14 +344,12 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
         );
       }
 
-      // ✅ Step 4: Call upload API
       print('📤 IMAGE HANDLING: Calling upload API...');
       final uploadResponse = await SocialApiService.uploadPostImage(imageFile);
 
       print('📤 IMAGE HANDLING: Upload response: $uploadResponse');
       print('📤 IMAGE HANDLING: Response status: ${uploadResponse['status']}');
 
-      // ✅ Step 5: Handle response
       if (uploadResponse['status'] == 'success') {
         final imageUrl = uploadResponse['image_url'];
 
@@ -405,7 +394,6 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     }
   }
 
-  /// ✅ Show error message
   void _showError(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -473,77 +461,66 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text('Create Post'),
-        actions: [
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            child: ElevatedButton(
-              onPressed: _canPost ? _createPost : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _isPosting || _isUploadingImage
-                    ? colorScheme.secondary
-                    : (_canPost ? colorScheme.primary : colorScheme.secondary.withOpacity(0.5)),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: _isPosting
-                  ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-                  : const Text(
-                'Post',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-        ],
+        // ✅ REMOVED Post button from AppBar - it's now in the body opposite to ME
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ✅ FIXED LAYOUT: ME (left) + You/Public (middle) + Post Button (right - opposite to ME)
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // ✅ ME Avatar (bigger) - LEFT SIDE
                 CircleAvatar(
-                  radius: 20,
+                  radius: 36,
                   backgroundColor: colorScheme.primary.withOpacity(0.2),
                   child: Text(
                     'ME',
                     style: TextStyle(
                       color: colorScheme.primary,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'You',
-                        style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface),
+                const SizedBox(width: 16),
+                // ✅ You + Public stacked vertically (MIDDLE)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'You',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
                       ),
-                      DropdownButton<String>(
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceVariant.withOpacity(0.5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: DropdownButton<String>(
                         value: _visibility,
                         dropdownColor: theme.cardTheme.color ?? colorScheme.surfaceVariant,
                         underline: Container(),
-                        style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
+                        isExpanded: true,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                         items: ['Public', 'Friends Only', 'Private'].map((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
                             child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
                                   value == 'Public'
@@ -551,11 +528,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                       : value == 'Friends Only'
                                       ? Icons.people
                                       : Icons.lock,
-                                  size: 14,
+                                  size: 16,
                                   color: colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 4),
-                                Text(value),
+                                const SizedBox(width: 6),
+                                Text(
+                                  value,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ],
                             ),
                           );
@@ -566,16 +549,50 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           });
                         },
                       ),
-                    ],
+                    ),
+                  ],
+                ),
+                const Spacer(), // ✅ PUSHES Post button to the RIGHT
+                // ✅ Post Button - EXACTLY OPPOSITE TO ME (RIGHT SIDE)
+                ElevatedButton(
+                  onPressed: _canPost ? _createPost : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isPosting || _isUploadingImage
+                        ? colorScheme.secondary
+                        : (_canPost ? colorScheme.primary : colorScheme.secondary.withOpacity(0.5)),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: _isPosting
+                      ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                      : const Text(
+                    'Post',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
 
+            // ✅ Text input with reduced left padding
             Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                 child: TextField(
                   controller: _textController,
                   maxLines: 8,
@@ -583,10 +600,14 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                   style: textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface,
                     height: 1.5,
+                    fontSize: 16,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Share something positive that happened today... (Required)',
-                    hintStyle: textTheme.bodyLarge?.copyWith(color: colorScheme.onSurfaceVariant),
+                    hintStyle: textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
                     border: InputBorder.none,
                   ),
                 ),
@@ -602,7 +623,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 decoration: BoxDecoration(
                   color: Colors.red.withOpacity(0.1),
                   border: Border.all(color: Colors.red),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -612,12 +633,16 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                       style: textTheme.bodyMedium?.copyWith(
                         color: Colors.red,
                         fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       _uploadError!,
-                      style: textTheme.bodySmall?.copyWith(color: Colors.red),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: Colors.red,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -627,6 +652,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: Stack(
                     children: [
                       Column(
@@ -647,12 +673,17 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                 Icon(
                                   _isUploadingImage ? Icons.cloud_upload : Icons.check_circle,
                                   color: _isUploadingImage ? colorScheme.secondary : Colors.green,
+                                  size: 20,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
                                     _isUploadingImage ? 'Uploading...' : 'Image uploaded',
-                                    style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
                                 if (!_isUploadingImage)
@@ -661,7 +692,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                     icon: const Icon(
                                       Icons.close,
                                       color: Colors.red,
-                                      size: 20,
+                                      size: 22,
                                     ),
                                     tooltip: 'Remove image',
                                   ),
@@ -694,26 +725,29 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 icon: Icon(
                   Icons.photo_camera_outlined,
                   color: _isUploadingImage ? Colors.grey : colorScheme.primary,
+                  size: 20,
                 ),
                 label: Text(
                   _selectedImageFile == null ? 'Add Photo (Optional)' : 'Change Photo',
                   style: textTheme.labelLarge?.copyWith(
                     color: _isUploadingImage ? Colors.grey : colorScheme.primary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(
                     color: _isUploadingImage ? Colors.grey : colorScheme.primary,
-                    width: 1,
+                    width: 1.5,
                   ),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
           ],
         ),
       ),
