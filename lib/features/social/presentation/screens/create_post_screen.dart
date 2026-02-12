@@ -97,7 +97,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
       );
 
       print('📝 CREATE POST: Response status: ${response['status']}');
-      print('📝 CREATE POST: Response data: $response');
+      print('📝 CREATE POST: Response  $response');
 
       if (response['status'] == 'success') {
         if (mounted) {
@@ -451,6 +451,7 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
+    final primaryColor = colorScheme.primary;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -460,229 +461,320 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Create Post'),
-        // ✅ REMOVED Post button from AppBar - it's now in the body opposite to ME
+        title: Padding(
+          padding: const EdgeInsets.all(3.0),
+          child: const Text('Create Post'),
+        ),
+        centerTitle: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ FIXED LAYOUT: ME (left) + You/Public (middle) + Post Button (right - opposite to ME)
+            // ✅ FINAL LAYOUT: ME (left) + You/Public ▼ (middle) + POST BUTTON (right)
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // ✅ ME Avatar (bigger) - LEFT SIDE
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: colorScheme.primary.withOpacity(0.2),
-                  child: Text(
-                    'ME',
-                    style: TextStyle(
-                      color: colorScheme.primary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 20,
+                // ✅ "ME" AVATAR - Gradient + Shadow सह
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        primaryColor.withOpacity(0.9),
+                        primaryColor.withOpacity(0.6),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      'me',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
-                // ✅ You + Public stacked vertically (MIDDLE)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'You',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.onSurface,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceVariant.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _visibility,
-                        dropdownColor: theme.cardTheme.color ?? colorScheme.surfaceVariant,
-                        underline: Container(),
-                        isExpanded: true,
-                        style: textTheme.bodyMedium?.copyWith(
+                // ✅ "YOU" + VISIBILITY DROPDOWN (WITH ▼ ARROW)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // ✅ "You" लहान फॉन्टमध्ये (14)
+                      Text(
+                        'You',
+                        style: textTheme.titleLarge?.copyWith(
                           color: colorScheme.onSurface,
                           fontSize: 14,
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
                         ),
-                        items: ['Public', 'Friends Only', 'Private'].map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  value == 'Public'
-                                      ? Icons.public
-                                      : value == 'Friends Only'
-                                      ? Icons.people
-                                      : Icons.lock,
-                                  size: 16,
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  value,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _visibility = newValue!;
-                          });
-                        },
                       ),
-                    ),
-                  ],
-                ),
-                const Spacer(), // ✅ PUSHES Post button to the RIGHT
-                // ✅ Post Button - EXACTLY OPPOSITE TO ME (RIGHT SIDE)
-                ElevatedButton(
-                  onPressed: _canPost ? _createPost : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isPosting || _isUploadingImage
-                        ? colorScheme.secondary
-                        : (_canPost ? colorScheme.primary : colorScheme.secondary.withOpacity(0.5)),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 2,
+                      const SizedBox(height: 6),
+                      // ✅ VISIBILITY - WITH ▼ ARROW (DEFAULT DROPDOWN)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceVariant.withOpacity(0.7),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: primaryColor.withOpacity(0.4),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: DropdownButton<String>(
+                          value: _visibility,
+                          dropdownColor: theme.cardTheme.color ?? colorScheme.surface,
+                          underline: Container(),
+                          isDense: true,
+                          iconEnabledColor: primaryColor,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          items: ['Public', 'Friends Only', 'Private'].map((String value) {
+                            IconData icon;
+                            switch (value) {
+                              case 'Public':
+                                icon = Icons.public;
+                                break;
+                              case 'Friends Only':
+                                icon = Icons.people;
+                                break;
+                              case 'Private':
+                                icon = Icons.lock;
+                                break;
+                              default:
+                                icon = Icons.public;
+                            }
+
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    icon,
+                                    size: 18,
+                                    color: primaryColor,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    value,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _visibility = newValue!;
+                            });
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  child: _isPosting
-                      ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                      : const Text(
-                    'Post',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
+                ),
+                const SizedBox(width: 12),
+                // ✅ POST BUTTON - ONLY "Post" TEXT
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: _canPost
+                        ? LinearGradient(
+                      colors: [
+                        primaryColor,
+                        primaryColor.withOpacity(0.8),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    )
+                        : null,
+                    color: _canPost ? null : primaryColor.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: _canPost
+                        ? [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.5),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                        : null,
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _canPost ? _createPost : null,
+                      borderRadius: BorderRadius.circular(28),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                        child: Text(
+                          'Post',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
-            // ✅ Text input with reduced left padding
-            Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            // ✅ TEXT INPUT (PROFESSIONAL CARD WITH GRADIENT BORDER)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.3),
+                    primaryColor.withOpacity(0.1),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              padding: const EdgeInsets.all(2),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color ?? colorScheme.surface,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 18),
                 child: TextField(
                   controller: _textController,
                   maxLines: 8,
                   minLines: 8,
                   style: textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface,
-                    height: 1.5,
+                    height: 1.6,
                     fontSize: 16,
                   ),
                   decoration: InputDecoration(
                     hintText: 'Share something positive that happened today... (Required)',
                     hintStyle: textTheme.bodyLarge?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.6),
                       fontSize: 16,
                     ),
                     border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
 
-            // ✅ Show error if upload failed
+            // ✅ UPLOAD ERROR MESSAGE
             if (_uploadError != null)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
-                  border: Border.all(color: Colors.red),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.red.withOpacity(0.08),
+                  border: Border.all(color: Colors.red.withOpacity(0.3), width: 1.5),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Text(
-                      'Upload Error',
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _uploadError!,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: Colors.red,
-                        fontSize: 13,
+                    const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _uploadError!,
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.red,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
 
+            // ✅ IMAGE PREVIEW
             if (_selectedImageFile != null)
               Container(
-                margin: const EdgeInsets.only(bottom: 16),
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
                 child: Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  elevation: 0,
                   child: Stack(
                     children: [
                       Column(
                         children: [
                           ClipRRect(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                            borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                             child: Image.file(
                               _selectedImageFile!,
-                              height: 200,
+                              height: 240,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              filterQuality: FilterQuality.high,
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(12),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: colorScheme.surfaceVariant.withOpacity(0.3),
+                              borderRadius: const BorderRadius.vertical(
+                                bottom: Radius.circular(16),
+                              ),
+                            ),
                             child: Row(
                               children: [
                                 Icon(
                                   _isUploadingImage ? Icons.cloud_upload : Icons.check_circle,
-                                  color: _isUploadingImage ? colorScheme.secondary : Colors.green,
-                                  size: 20,
+                                  color: _isUploadingImage ? primaryColor : Colors.green,
+                                  size: 22,
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
-                                    _isUploadingImage ? 'Uploading...' : 'Image uploaded',
+                                    _isUploadingImage
+                                        ? 'Uploading image...'
+                                        : 'Image ready to share',
                                     style: textTheme.bodyMedium?.copyWith(
                                       color: colorScheme.onSurface,
                                       fontSize: 15,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
@@ -690,9 +782,9 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                                   IconButton(
                                     onPressed: _removeImage,
                                     icon: const Icon(
-                                      Icons.close,
+                                      Icons.close_rounded,
                                       color: Colors.red,
-                                      size: 22,
+                                      size: 24,
                                     ),
                                     tooltip: 'Remove image',
                                   ),
@@ -706,10 +798,13 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.black.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             child: const Center(
-                              child: CircularProgressIndicator(color: Colors.white),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 3,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -718,36 +813,55 @@ class _CreatePostScreenState extends State<CreatePostScreen> {
                 ),
               ),
 
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isUploadingImage ? null : _selectImage,
-                icon: Icon(
-                  Icons.photo_camera_outlined,
-                  color: _isUploadingImage ? Colors.grey : colorScheme.primary,
-                  size: 20,
+            // ✅ ADD PHOTO BUTTON (GRADIENT STYLE)
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    primaryColor.withOpacity(0.15),
+                    primaryColor.withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                label: Text(
-                  _selectedImageFile == null ? 'Add Photo (Optional)' : 'Change Photo',
-                  style: textTheme.labelLarge?.copyWith(
-                    color: _isUploadingImage ? Colors.grey : colorScheme.primary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _isUploadingImage ? Colors.grey : primaryColor.withOpacity(0.4),
+                  width: 2,
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: _isUploadingImage ? Colors.grey : colorScheme.primary,
-                    width: 1.5,
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _isUploadingImage ? null : _selectImage,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_a_photo_outlined,
+                          color: _isUploadingImage ? Colors.grey : primaryColor,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _selectedImageFile == null ? 'Add Photo (Optional)' : 'Change Photo',
+                          style: textTheme.labelLarge?.copyWith(
+                            color: _isUploadingImage ? Colors.grey : primaryColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 30),
           ],
         ),
       ),

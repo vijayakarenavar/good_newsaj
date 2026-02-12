@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:good_news/core/utils/responsive_helper.dart';
 import 'package:good_news/core/services/image_picker_service.dart';
 import 'package:good_news/core/services/notification_service.dart';
@@ -12,7 +13,7 @@ import 'package:good_news/features/profile/presentation/widgets/friends_section.
 import 'package:good_news/features/profile/presentation/widgets/quick_actions.dart';
 import 'package:good_news/features/profile/presentation/widgets/user_activity.dart';
 import 'package:good_news/features/profile/presentation/widgets/stats_row.dart';
-import 'package:good_news/features/profile/presentation/widgets/menu_list.dart'; // ✅ Contains MenuItem class
+import 'package:good_news/features/profile/presentation/widgets/menu_list.dart';
 import 'package:good_news/core/services/social_api_service.dart';
 import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
@@ -47,6 +48,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addObserver(this);
+
     _loadUserData();
     _loadFriends();
     _loadFriendRequestsCount();
@@ -227,6 +229,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     _scrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   void _onScroll() {
@@ -249,7 +253,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     }
   }
 
-  // ✅ ADDED: _buildSectionCard method for bordered sections
   Widget _buildSectionCard({required Widget child}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -333,7 +336,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           color: Theme.of(context).colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.edit,
                           size: 18,
                           color: Colors.white,
@@ -471,6 +474,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SystemChrome.setEnabledSystemUIMode(
+        SystemUiMode.immersiveSticky,
+      );
+    });
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
@@ -494,140 +503,134 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           const SizedBox(width: 8),
         ],
       ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshProfileData,
-          color: Theme.of(context).colorScheme.primary,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: ResponsiveHelper.getResponsivePadding(context).copyWith(
-              bottom: 32,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildAnimatedProfileHeader(),
-                const SizedBox(height: 28),
+      body: RefreshIndicator(
+        onRefresh: _refreshProfileData,
+        color: Theme.of(context).colorScheme.primary,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: ResponsiveHelper.getResponsivePadding(context).copyWith(
+            bottom: 80,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildAnimatedProfileHeader(),
+              const SizedBox(height: 28),
 
-                // Articles Read Card (with border)
-                if (_isStatsLoading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator.adaptive(),
+              if (_isStatsLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator.adaptive(),
+                  ),
+                )
+              else
+                _buildArticlesReadCard(),
+              const SizedBox(height: 28),
+
+              _buildSectionCard(
+                child: QuickActionsWidget(
+                  onMyPostsTap: () => _showMyPosts(context),
+                  onFriendRequestsTap: () => _showFriendRequests(context),
+                  onSettingsTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
                     ),
-                  )
-                else
-                  _buildArticlesReadCard(),
-                const SizedBox(height: 28),
+                  ),
+                  friendRequestsCount: _friendRequestsCount,
+                ),
+              ),
 
-                // Quick Actions — with border box
-                _buildSectionCard(
-                  child: QuickActionsWidget(
-                    onMyPostsTap: () => _showMyPosts(context),
-                    onFriendRequestsTap: () => _showFriendRequests(context),
-                    onSettingsTap: () => Navigator.of(context).push(
+              const SizedBox(height: 28),
+
+              _buildSectionCard(
+                child: FriendsSectionWidget(
+                  friends: _friends,
+                  isLoading: _isFriendsLoading,
+                  onFriendsUpdated: _loadFriendsSilently,
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              MenuList(
+                items: [
+                  MenuItem(
+                    title: 'Reading History',
+                    icon: Icons.history,
+                    onTap: () async {
+                      try {
+                        print('🔍 PROFILE: Opening Reading History...');
+
+                        final result = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ReadingHistoryScreen(),
+                          ),
+                        );
+
+                        print('🔍 PROFILE: ReadingHistoryScreen returned: $result');
+
+                        if (mounted) {
+                          await _loadStats();
+                        }
+
+                        if (result != null &&
+                            result is Map &&
+                            result['action'] == 'read_article') {
+                          print(
+                              '🔍 PROFILE: Detected "Read Again" action for article ${result['article_id']}');
+                          print(
+                              '🔍 PROFILE: Passing result back to HomeScreen and closing ProfileScreen');
+
+                          Navigator.of(context).pop(result);
+                          return;
+                        }
+
+                        print('🔍 PROFILE: No "Read Again" action, staying on ProfileScreen');
+                      } catch (e) {
+                        print('❌ PROFILE: Error in Reading History: $e');
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Could not open Reading History: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  MenuItem(
+                    title: 'Settings',
+                    icon: Icons.settings_outlined,
+                    onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const SettingsScreen(),
                       ),
                     ),
-                    friendRequestsCount: _friendRequestsCount,
                   ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // Friends Section — with border box
-                _buildSectionCard(
-                  child: FriendsSectionWidget(
-                    friends: _friends,
-                    isLoading: _isFriendsLoading,
-                    onFriendsUpdated: _loadFriendsSilently,
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // Menu List — WITHOUT border box (as requested)
-                MenuList(
-                  items: [
-                    MenuItem(
-                      title: 'Reading History',
-                      icon: Icons.history,
-                      onTap: () async {
-                        try {
-                          print('🔍 PROFILE: Opening Reading History...');
-
-                          final result = await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const ReadingHistoryScreen(),
-                            ),
-                          );
-
-                          print('🔍 PROFILE: ReadingHistoryScreen returned: $result');
-
-                          if (mounted) {
-                            await _loadStats();
-                          }
-
-                          if (result != null &&
-                              result is Map &&
-                              result['action'] == 'read_article') {
-                            print(
-                                '🔍 PROFILE: Detected "Read Again" action for article ${result['article_id']}');
-                            print(
-                                '🔍 PROFILE: Passing result back to HomeScreen and closing ProfileScreen');
-
-                            Navigator.of(context).pop(result);
-                            return;
-                          }
-
-                          print('🔍 PROFILE: No "Read Again" action, staying on ProfileScreen');
-                        } catch (e) {
-                          print('❌ PROFILE: Error in Reading History: $e');
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Could not open Reading History: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                    MenuItem(
-                      title: 'Settings',
-                      icon: Icons.settings_outlined,
-                      onTap: () => Navigator.of(context).push(
+                  MenuItem(
+                    title: 'Blocked Users',
+                    icon: Icons.block,
+                    onTap: () {
+                      Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => const SettingsScreen(),
+                          builder: (context) => const BlockedUsersScreen(),
                         ),
-                      ),
-                    ),
-                    MenuItem(
-                      title: 'Blocked Users',
-                      icon: Icons.block,
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const BlockedUsersScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    MenuItem(
-                      title: 'About',
-                      icon: Icons.info_outline,
-                      onTap: () => _showAboutDialog(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
+                      );
+                    },
+                  ),
+                  MenuItem(
+                    title: 'About',
+                    icon: Icons.info_outline,
+                    onTap: () => _showAboutDialog(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+            ],
           ),
         ),
       ),

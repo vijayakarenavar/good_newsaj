@@ -7,7 +7,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:permission_handler/permission_handler.dart';
 
-// ✅ Only ONE definition of FriendsModal
 class FriendsModal extends StatefulWidget {
   const FriendsModal({super.key});
 
@@ -15,7 +14,7 @@ class FriendsModal extends StatefulWidget {
   State<FriendsModal> createState() => _FriendsModalState();
 }
 
-class _FriendsModalState extends State<FriendsModal> {
+class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   bool _showExplanation = true;
   bool _permissionGranted = false;
@@ -24,9 +23,26 @@ class _FriendsModalState extends State<FriendsModal> {
   List<Map<String, dynamic>> _friendSuggestions = [];
   Set<int> _addedFriends = {};
 
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
+    _animationController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   void _requestPermission() async {
@@ -101,10 +117,6 @@ class _FriendsModalState extends State<FriendsModal> {
     try {
       final contacts = <dynamic>[];
       final phoneNumbers = <String>[];
-
-      // ⚠️ Note: You need to actually fetch contacts using a package like "contacts_service"
-      // For now, this is empty — so no suggestions will appear unless you implement it.
-      // If you don't want contact-based suggestions, skip this and only use search.
 
       print('📞 FRIENDS: Processing ${phoneNumbers.length} real contacts');
 
@@ -230,7 +242,6 @@ class _FriendsModalState extends State<FriendsModal> {
             ),
           );
 
-          // ✅ Auto-close after 3 seconds
           Future.delayed(const Duration(seconds: 3), () {
             if (mounted) Navigator.of(context).pop();
           });
@@ -255,143 +266,233 @@ class _FriendsModalState extends State<FriendsModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.9,
-      decoration: const BoxDecoration(
-        color: ThemeTokens.darkBackground,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: ThemeTokens.border)),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Colors.white),
+          ],
+        ),
+        child: Column(
+          children: [
+            // ✅ Header with gradient
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [const Color(0xFF2C2C2E), const Color(0xFF1C1C1E)]
+                      : [Colors.white, Colors.grey.shade50],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                const Expanded(
-                  child: Text(
-                    'Add Friends',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
+                border: Border(
+                  bottom: BorderSide(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                    width: 1,
                   ),
                 ),
-                IconButton(
-                  onPressed: _showSearchDialog,
-                  icon: const Icon(Icons.search, color: Colors.white),
-                ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  // Close button with hover effect
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => Navigator.pop(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? Colors.white : Colors.black87,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Add Friends',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  // Search button with hover effect
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: _showSearchDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: ThemeTokens.primaryGreen.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: ThemeTokens.primaryGreen,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(child: _buildContent()),
-        ],
+            Expanded(child: _buildContent(theme, isDark)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildContent() {
-    if (_showExplanation) return _buildExplanationScreen();
-    if (_isLoading) return _buildLoadingScreen();
-    if (_permissionDenied) return _buildPermissionDeniedScreen();
-    if (_permissionPermanentlyDenied) return _buildPermissionPermanentlyDeniedScreen();
-    if (_permissionGranted) return _buildFriendsList();
-    return _buildExplanationScreen();
+  Widget _buildContent(ThemeData theme, bool isDark) {
+    if (_showExplanation) return _buildExplanationScreen(theme, isDark);
+    if (_isLoading) return _buildLoadingScreen(theme, isDark);
+    if (_permissionDenied) return _buildPermissionDeniedScreen(theme, isDark);
+    if (_permissionPermanentlyDenied) return _buildPermissionPermanentlyDeniedScreen(theme, isDark);
+    if (_permissionGranted) return _buildFriendsList(theme, isDark);
+    return _buildExplanationScreen(theme, isDark);
   }
 
-  Widget _buildExplanationScreen() {
+  Widget _buildExplanationScreen(ThemeData theme, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.contacts, size: 80, color: ThemeTokens.primaryGreen),
-          const SizedBox(height: 24),
-          const Text(
+          // ✅ Animated gradient icon
+          TweenAnimationBuilder(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 800),
+            builder: (context, double value, child) {
+              return Transform.scale(
+                scale: value,
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        ThemeTokens.primaryGreen,
+                        ThemeTokens.primaryGreen.withOpacity(0.7),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: ThemeTokens.primaryGreen.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.people_rounded,
+                    size: 64,
+                    color: Colors.white,
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 32),
+          Text(
             'Find Your Friends',
-            style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 26,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Grant access to your contacts to find friends on Good News. We only use phone numbers to match and never upload contacts without consent.',
-            style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16, height: 1.6),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              height: 1.6,
+              fontSize: 15,
+            ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _requestPermission,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ThemeTokens.primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+          const SizedBox(height: 40),
+          // ✅ Gradient button with shadow
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _requestPermission,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      ThemeTokens.primaryGreen,
+                      ThemeTokens.primaryGreen.withOpacity(0.8),
+                    ],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ThemeTokens.primaryGreen.withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'Add Friends',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
               ),
-              child: const Text('Add Friends', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
           const SizedBox(height: 16),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Skip for now', style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLoadingScreen() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(ThemeTokens.primaryGreen)),
-          SizedBox(height: 16),
-          Text('Finding your friends...', style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPermissionDeniedScreen() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.contacts_outlined, size: 80, color: ThemeTokens.textMuted),
-          const SizedBox(height: 24),
-          const Text('Access Denied', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          const Text(
-            'We need access to your contacts to help you find friends who are using Good News App.',
-            style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16, height: 1.5),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _requestPermission,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ThemeTokens.primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: Text(
+              'Skip for now',
+              style: TextStyle(
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
-              child: const Text('Try Again', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -399,27 +500,155 @@ class _FriendsModalState extends State<FriendsModal> {
     );
   }
 
-  Widget _buildPermissionPermanentlyDeniedScreen() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
+  Widget _buildLoadingScreen(ThemeData theme, bool isDark) {
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.settings, size: 80, color: ThemeTokens.textMuted),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: ThemeTokens.primaryGreen.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(ThemeTokens.primaryGreen),
+              strokeWidth: 3,
+            ),
+          ),
           const SizedBox(height: 24),
-          const Text('Permission Required', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+          Text(
+            'Finding your friends...',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade700,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionDeniedScreen(ThemeData theme, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.contacts_outlined,
+              size: 72,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Access Denied',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 16),
-          const Text(
-            'To find your friends, please enable contacts access in your device settings.',
-            style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16, height: 1.5),
+          Text(
+            'We need access to your contacts to help you find friends who are using Good News App.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              height: 1.5,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () async {
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _requestPermission,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      ThemeTokens.primaryGreen,
+                      ThemeTokens.primaryGreen.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ThemeTokens.primaryGreen.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'Try Again',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPermissionPermanentlyDeniedScreen(ThemeData theme, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.settings_rounded,
+              size: 72,
+              color: Colors.red,
+            ),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            'Permission Required',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'To find your friends, please enable contacts access in your device settings.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+              height: 1.5,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () async {
                 try {
                   await openAppSettings();
                 } catch (e) {
@@ -430,13 +659,37 @@ class _FriendsModalState extends State<FriendsModal> {
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ThemeTokens.primaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: double.infinity,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      ThemeTokens.primaryGreen,
+                      ThemeTokens.primaryGreen.withOpacity(0.8),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: ThemeTokens.primaryGreen.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'Open Settings',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
-              child: const Text('Open Settings', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           ),
         ],
@@ -444,20 +697,41 @@ class _FriendsModalState extends State<FriendsModal> {
     );
   }
 
-  Widget _buildFriendsList() {
+  Widget _buildFriendsList(ThemeData theme, bool isDark) {
     if (_friendSuggestions.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.people_outline, size: 80, color: ThemeTokens.textMuted),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.people_outline_rounded,
+                size: 72,
+                color: isDark ? Colors.grey.shade600 : Colors.grey.shade400,
+              ),
+            ),
             const SizedBox(height: 24),
-            const Text('No friends found', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            Text(
+              'No friends found',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'None of your contacts are using Good News App yet.',
-              style: TextStyle(color: ThemeTokens.textSecondary, fontSize: 16, height: 1.5),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                height: 1.5,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -469,46 +743,121 @@ class _FriendsModalState extends State<FriendsModal> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(
-            '${_friendSuggestions.length} friends found',
-            style: const TextStyle(color: ThemeTokens.textSecondary, fontSize: 14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: ThemeTokens.primaryGreen.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '${_friendSuggestions.length} friends found',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: ThemeTokens.primaryGreen,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
         Expanded(
           child: ListView.builder(
             itemCount: _friendSuggestions.length,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             itemBuilder: (context, index) {
               final friend = _friendSuggestions[index];
               final userId = friend['id'] as int;
               final isAdded = _addedFriends.contains(userId);
 
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: ThemeTokens.cardBackground,
-                  borderRadius: BorderRadius.circular(12),
+                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: ThemeTokens.primaryGreen,
-                    child: Text(
-                      friend['name'][0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  leading: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          ThemeTokens.primaryGreen,
+                          ThemeTokens.primaryGreen.withOpacity(0.7),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                      child: Text(
+                        friend['name'][0].toUpperCase(),
+                        style: TextStyle(
+                          color: ThemeTokens.primaryGreen,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
                     ),
                   ),
-                  title: Text(friend['name'], style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text(friend['phone'], style: const TextStyle(color: ThemeTokens.textSecondary, fontSize: 14)),
-                  trailing: isAdded
-                      ? const Icon(Icons.check_circle, color: ThemeTokens.primaryGreen)
-                      : OutlinedButton(
-                    onPressed: () => _addFriend(friend),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: ThemeTokens.primaryGreen,
-                      side: const BorderSide(color: ThemeTokens.primaryGreen),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      minimumSize: const Size(80, 32),
+                  title: Text(
+                    friend['name'],
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black87,
                     ),
-                    child: const Text('Add'),
+                  ),
+                  subtitle: Text(
+                    friend['phone'],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                    ),
+                  ),
+                  trailing: isAdded
+                      ? Icon(Icons.check_circle_rounded, color: ThemeTokens.primaryGreen, size: 28)
+                      : Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _addFriend(friend),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              ThemeTokens.primaryGreen,
+                              ThemeTokens.primaryGreen.withOpacity(0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: ThemeTokens.primaryGreen.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Text(
+                          'Add',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               );
@@ -579,20 +928,25 @@ class FriendSearchDelegate extends SearchDelegate<String> {
 
   @override
   ThemeData appBarTheme(BuildContext context) {
-    return ThemeData(
-      appBarTheme: const AppBarTheme(
-        backgroundColor: ThemeTokens.darkBackground,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return theme.copyWith(
+      appBarTheme: theme.appBarTheme.copyWith(
+        backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.white),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
-      inputDecorationTheme: const InputDecorationTheme(
-        hintStyle: TextStyle(color: Colors.grey),
+      inputDecorationTheme: InputDecorationTheme(
+        hintStyle: TextStyle(color: isDark ? Colors.grey.shade600 : Colors.grey.shade400),
         border: InputBorder.none,
       ),
-      textTheme: const TextTheme(
-        titleLarge: TextStyle(color: Colors.white, fontSize: 18),
+      textTheme: theme.textTheme.copyWith(
+        titleLarge: TextStyle(
+          color: isDark ? Colors.white : Colors.black87,
+          fontSize: 18,
+        ),
       ),
-      scaffoldBackgroundColor: ThemeTokens.darkBackground,
     );
   }
 
@@ -601,10 +955,11 @@ class FriendSearchDelegate extends SearchDelegate<String> {
 
   @override
   List<Widget>? buildActions(BuildContext context) {
+    final theme = Theme.of(context);
     return [
       if (query.isNotEmpty)
         IconButton(
-          icon: const Icon(Icons.clear),
+          icon: const Icon(Icons.clear_rounded),
           onPressed: () {
             query = '';
             _searchResults = [];
@@ -614,7 +969,7 @@ class FriendSearchDelegate extends SearchDelegate<String> {
           },
         ),
       IconButton(
-        icon: const Icon(Icons.search, color: ThemeTokens.primaryGreen),
+        icon: Icon(Icons.search_rounded, color: ThemeTokens.primaryGreen),
         onPressed: () {
           if (query.trim().isNotEmpty) {
             _performSearch(context);
@@ -627,7 +982,7 @@ class FriendSearchDelegate extends SearchDelegate<String> {
   @override
   Widget buildLeading(BuildContext context) {
     return IconButton(
-      icon: const Icon(Icons.arrow_back),
+      icon: const Icon(Icons.arrow_back_rounded),
       onPressed: () => close(context, ''),
     );
   }
@@ -676,24 +1031,43 @@ class FriendSearchDelegate extends SearchDelegate<String> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     if (query.trim().isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.person_search, size: 72, color: Colors.grey.shade600),
-              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: ThemeTokens.primaryGreen.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.person_search_rounded,
+                  size: 64,
+                  color: ThemeTokens.primaryGreen,
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(
                 'Search for friends',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Enter a name or email, then tap the search icon',
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -703,13 +1077,29 @@ class FriendSearchDelegate extends SearchDelegate<String> {
     }
 
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(color: ThemeTokens.primaryGreen),
-            SizedBox(height: 16),
-            Text('Searching...', style: TextStyle(color: Colors.grey)),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: ThemeTokens.primaryGreen.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: CircularProgressIndicator(
+                color: ThemeTokens.primaryGreen,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Searching...',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       );
@@ -718,21 +1108,37 @@ class FriendSearchDelegate extends SearchDelegate<String> {
     if (_hasSearched && _searchResults.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(32.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.search_off, size: 72, color: Colors.grey.shade600),
-              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.search_off_rounded,
+                  size: 64,
+                  color: Colors.orange,
+                ),
+              ),
+              const SizedBox(height: 24),
               Text(
-                'No users found for "$query"',
-                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                'No users found',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Try a different name or email',
-                style: const TextStyle(color: Colors.grey, fontSize: 14),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -743,7 +1149,7 @@ class FriendSearchDelegate extends SearchDelegate<String> {
 
     return ListView.builder(
       itemCount: _searchResults.length,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(16),
       itemBuilder: (context, index) {
         final friend = _searchResults[index];
         final userId = friend['id'] as int;
@@ -756,38 +1162,100 @@ class FriendSearchDelegate extends SearchDelegate<String> {
 
         final initial = name.startsWith('User #') ? 'U' : name[0].toUpperCase();
 
-        return Card(
-          color: ThemeTokens.cardBackground,
-          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: ThemeTokens.primaryGreen,
-              child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
             ),
-            title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    ThemeTokens.primaryGreen,
+                    ThemeTokens.primaryGreen.withOpacity(0.7),
+                  ],
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: CircleAvatar(
+                radius: 24,
+                backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    color: ThemeTokens.primaryGreen,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+            ),
+            title: Text(
+              name,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
             subtitle: Text(
               friend['email']?.toString() ?? 'ID: $userId',
-              style: const TextStyle(color: ThemeTokens.textSecondary, fontSize: 14),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+              ),
             ),
             trailing: isAdded
-                ? const Icon(Icons.check_circle, color: ThemeTokens.primaryGreen)
-                : OutlinedButton(
-              onPressed: () async => await onAddFriend(friend),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: ThemeTokens.primaryGreen,
-                side: const BorderSide(color: ThemeTokens.primaryGreen),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                ? Icon(Icons.check_circle_rounded, color: ThemeTokens.primaryGreen, size: 28)
+                : Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () async => await onAddFriend(friend),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        ThemeTokens.primaryGreen,
+                        ThemeTokens.primaryGreen.withOpacity(0.8),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ThemeTokens.primaryGreen.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Send Request',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
               ),
-              child: const Text('Send Request'),
             ),
           ),
         );
       },
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

@@ -20,7 +20,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late ThemeService _themeService;
   bool _notificationsEnabled = true;
   bool _dailyDigest = true;
-  String _selectedLanguage = 'English';
   String _appVersion = 'Loading...';
 
   @override
@@ -61,6 +60,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Card(
             child: Column(
               children: [
+                // ✅ ONLY LIGHT MODE TOGGLE (THEME COLOR OPTION COMMENTED OUT)
+
+                /*
                 // Theme Color Picker
                 ListenableBuilder(
                   listenable: _themeService,
@@ -100,6 +102,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   },
                 ),
                 const Divider(height: 1),
+                */
 
                 // ✅ Light Mode Toggle (Default = ON)
                 ListenableBuilder(
@@ -206,7 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
-            ),
+          ),
           const SizedBox(height: 16),
 
           // Account Section
@@ -280,6 +283,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ✅ COMMENTED OUT BUT STILL AVAILABLE FOR FUTURE USE
+
   void _showThemeColorDialog() {
     showDialog(
       context: context,
@@ -337,6 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
 
   void _showCategoriesDialog() async {
     try {

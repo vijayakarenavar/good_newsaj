@@ -64,18 +64,25 @@ class _HomeScreenState extends State<HomeScreen>
   DateTime? _lastTabTapTime;
   int? _lastTappedTabIndex;
   late ScrollController _categoryScrollController;
+
+  // ✅ CRITICAL: Track previous page for swipe detection
+  int? _previousPageIndex;
+
   static const int LOAD_MORE_THRESHOLD = 3;
   static const int PAGE_SIZE = 25;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = ['Education', 'Environment', 'International'];
+
   late AnimationController _animationController;
   late Animation<double> _rotationAnimation;
+
   final Map<String, List<Map<String, dynamic>>> _postComments = {};
   final Map<String, bool> _showCommentsMap = {};
   final Map<String, bool> _isLoadingCommentsMap = {};
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
+
   DateTime? _loadingStartTime;
 
   // 👇 Profile state management
@@ -94,10 +101,11 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _categoryScrollController = ScrollController();
     _horizontalPageController = PageController();
+    _previousPageIndex = null;
     _initializeAnimations();
     _refreshUserDisplayName();
     _loadInitialData();
-    _loadProfileData(); // 👈 Load profile data on init
+    _loadProfileData();
   }
 
   @override
@@ -116,8 +124,9 @@ class _HomeScreenState extends State<HomeScreen>
       duration: const Duration(milliseconds: 180),
       vsync: this,
     );
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.125)
-        .animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.125).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
   }
 
   Future<void> _preloadImages(List<Map<String, dynamic>> items, int startIndex) async {
@@ -196,11 +205,10 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // 👇 PROFILE DATA LOADING (Embedded version)
+  // 👇 PROFILE DATA LOADING
   Future<void> _loadProfileData() async {
     setState(() => _isProfileLoading = true);
     try {
-      // Load all profile data in parallel
       await Future.wait([
         _loadUserProfile(),
         _loadUserStats(),
@@ -249,7 +257,6 @@ class _HomeScreenState extends State<HomeScreen>
       } catch (e) {
         print('⚠️ getUserStats not available: $e');
       }
-
       final history = await UserService.getHistory();
       if (mounted) {
         setState(() {
@@ -274,9 +281,7 @@ class _HomeScreenState extends State<HomeScreen>
       if (response['status'] == 'success' && mounted) {
         final data = response['data'] ?? [];
         setState(() {
-          _friends = (data as List)
-              .map((item) => Map<String, dynamic>.from(item))
-              .toList();
+          _friends = (data as List).map((item) => Map<String, dynamic>.from(item)).toList();
           _isFriendsLoading = false;
         });
       }
@@ -353,7 +358,9 @@ class _HomeScreenState extends State<HomeScreen>
         final List<int> locallyLikedPosts = await PreferencesService.getLikedPosts();
         if (mounted) {
           setState(() {
-            _socialPosts = postsList.map((post) => _formatSocialPost(post, locallyLikedPosts)).toList();
+            _socialPosts = postsList
+                .map((post) => _formatSocialPost(post, locallyLikedPosts))
+                .toList();
           });
         }
       }
@@ -492,6 +499,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (_displayedItems.isNotEmpty && mounted) {
       _preloadImages(_displayedItems, 0);
     }
+    // ✅ CRITICAL: Navigate to category page AND scroll chip to center
     _scrollToCategoryPage(categoryId);
   }
 
@@ -509,22 +517,39 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // ✅ ULTIMATE FIX: Perfect category chip centering with proper timing
   void _scrollCategoryChipsToIndex(int index) {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_categoryScrollController.hasClients) {
-        final itemWidth = 80.0;
+    // ✅ Wait for both frame completion AND layout stabilization
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // ✅ Extra delay ensures page animation completes FIRST
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted || !_categoryScrollController.hasClients) return;
+
+        final screenWidth = MediaQuery.of(context).size.width;
+
+        // ✅ CRITICAL: Calculate exact chip position
+        // Each chip: ~90px width + 16px padding = 106px total spacing
+        final chipWidth = 90.0;
         final spacing = 16.0;
-        final totalWidth = itemWidth + spacing;
-        final targetOffset = (index * totalWidth) -
-            (MediaQuery.of(context).size.width / 2) +
-            (itemWidth / 2);
-        final clampedOffset = targetOffset.clamp(0.0, _categoryScrollController.position.maxScrollExtent);
+        final totalChipWidth = chipWidth + spacing;
+
+        // ✅ Calculate chip's center position in scroll view
+        final chipCenterPosition = (index * totalChipWidth) + (chipWidth / 2);
+
+        // ✅ Calculate scroll offset to center the chip perfectly
+        final targetOffset = chipCenterPosition - (screenWidth / 2);
+
+        // ✅ Clamp to prevent overscroll
+        final maxScroll = _categoryScrollController.position.maxScrollExtent;
+        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
+
+        // ✅ Smooth animation to centered position
         _categoryScrollController.animateTo(
           clampedOffset,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
         );
-      }
+      });
     });
   }
 
@@ -545,63 +570,147 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  // 👇 FIXED: Tab tap → Page change + ALWAYS reset News to "All"
+  // ✅ FIXED: Video tab navigation now works from ANY tab
   void _onTabChanged(int index) {
     final now = DateTime.now();
     final wasDoubleTap = _lastTappedTabIndex == index &&
         _lastTabTapTime != null &&
         now.difference(_lastTabTapTime!) < Duration(milliseconds: 300);
+
+    // Double tap: refresh the specific tab
     if (wasDoubleTap) {
-      _handleRefresh();
+      _handleTabSpecificRefresh(index);
       return;
     }
+
     _lastTabTapTime = now;
     _lastTappedTabIndex = index;
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
     int targetPage;
+
+    // ✅ CRITICAL FIX: Calculate target page BEFORE state update
     if (index == 0) {
-      targetPage = 0;
+      targetPage = 0; // Video tab → Page 0
     } else if (index == 1) {
-      targetPage = 1; // ALWAYS "All" category
-      setState(() => _selectedCategoryId = null);
+      targetPage = 1; // News tab → Page 1 (All category)
     } else if (index == 2) {
-      targetPage = totalNewsPages + 1; // Social
+      targetPage = totalNewsPages + 1; // Social tab
     } else {
-      targetPage = totalNewsPages + 2; // Profile (now embedded)
+      targetPage = totalNewsPages + 2; // Profile tab
     }
-    _horizontalPageController.animateToPage(
-      targetPage,
-      duration: Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
+
+    // Update tab state AFTER calculating target page
+    if (_selectedTabIndex != index) {
+      setState(() {
+        _selectedTabIndex = index;
+        _selectedCategoryId = (index == 1) ? null : null;
+      });
+      _updateDisplayedItems();
+    }
+
+    // Force page navigation - use jumpToPage for immediate response
+    if (_horizontalPageController.hasClients) {
+      _horizontalPageController.jumpToPage(targetPage);
+    }
   }
 
-  // 👇 FIXED: CRITICAL - Social → News swipe ALWAYS resets to "All" category
+  Future<void> _handleTabSpecificRefresh(int tabIndex) async {
+    setState(() => _isRefreshing = true);
+    try {
+      if (tabIndex == 0) {
+        await _loadVideoPosts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✨ Videos refreshed!'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (tabIndex == 1) {
+        _preloadedImages.clear();
+        _allArticles.clear();
+        _nextCursor = null;
+        _hasMore = true;
+        await _loadArticles(isInitial: true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✨ News refreshed!'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (tabIndex == 2) {
+        await _loadSocialPosts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✨ Social posts refreshed!'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else if (tabIndex == 3) {
+        await _loadProfileData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✨ Profile refreshed!'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Refresh error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Refresh failed. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
+
+  // ✅ FIXED: Category chips auto-scroll when swiping + always centered
   void _onHorizontalPageChanged(int pageIndex) {
+    final previousPage = _previousPageIndex ?? pageIndex;
+    _previousPageIndex = pageIndex;
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
     final socialPageIndex = totalNewsPages + 1;
     final profilePageIndex = totalNewsPages + 2;
-    int newTabIndex;
-    int? newCategoryId;
 
-    // 👉 CRITICAL FIX: Coming FROM Social → ALWAYS force "All" category (page 1)
-    if (_selectedTabIndex == 2 && pageIndex >= 1 && pageIndex <= totalNewsPages) {
-      _horizontalPageController.animateToPage(
-        1,
-        duration: Duration(milliseconds: 200),
-        curve: Curves.easeInOut,
-      );
-      setState(() {
-        _selectedTabIndex = 1;
-        _selectedCategoryId = null;
+    // When swiping LEFT from Social tab → News tab, force "All" category
+    if (previousPage == socialPageIndex &&
+        pageIndex >= 1 &&
+        pageIndex <= totalNewsPages &&
+        pageIndex != 1) {
+      Future.delayed(Duration.zero, () {
+        if (mounted && _horizontalPageController.hasClients) {
+          _horizontalPageController.jumpToPage(1);
+          _previousPageIndex = 1;
+          // ✅ Scroll to "All" category (index 0)
+          _scrollCategoryChipsToIndex(0);
+        }
       });
-      _updateDisplayedItems();
-      _scrollCategoryChipsToIndex(0);
       return;
     }
 
+    int newTabIndex;
+    int? newCategoryId;
     if (pageIndex == 0) {
       newTabIndex = 0;
       newCategoryId = null;
@@ -609,6 +718,7 @@ class _HomeScreenState extends State<HomeScreen>
       newTabIndex = 1;
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
+      // ✅ CRITICAL FIX: Scroll chips to center AFTER page transition
       _scrollCategoryChipsToIndex(categoryIndex);
     } else if (pageIndex == socialPageIndex) {
       newTabIndex = 2;
@@ -616,8 +726,6 @@ class _HomeScreenState extends State<HomeScreen>
     } else if (pageIndex == profilePageIndex) {
       newTabIndex = 3;
       newCategoryId = null;
-
-      // 👉 AUTO-REFRESH profile when tab becomes visible
       if (_selectedTabIndex != 3) {
         _loadProfileData();
       }
@@ -638,6 +746,7 @@ class _HomeScreenState extends State<HomeScreen>
       _preloadImages(_displayedItems, 0);
     }
 
+    // Auto-play first video when Video tab becomes visible
     if (pageIndex == 0 && _videoPosts.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
@@ -649,33 +758,9 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // 👇 FIXED: Total pages = Video(1) + News(N) + Social(1) + Profile(1) = N + 3
   int _getTotalPageCount() {
     final categoryList = _buildCategoryList();
     return 1 + categoryList.length + 2;
-  }
-
-  Future<void> _handleRefresh() async {
-    if (_isRefreshing) return;
-    setState(() => _isRefreshing = true);
-    _preloadedImages.clear();
-    await _loadInitialData();
-
-    // 👉 Also refresh profile on pull-to-refresh
-    if (_selectedTabIndex == 3) {
-      await _loadProfileData();
-    }
-
-    if (mounted) {
-      setState(() => _isRefreshing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✨ Refreshed!'),
-          duration: Duration(seconds: 1),
-          backgroundColor: Colors.green,
-        ),
-      );
-    }
   }
 
   void _showSnackBar(String message) {
@@ -871,7 +956,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               child: IconButton(
                 icon: Container(
                   padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
                   child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
                 onPressed: () => Navigator.pop(context),
@@ -926,10 +1014,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     return categoryList;
   }
 
-  // 👇 PROFILE UI BUILDERS (Embedded version)
+  // PROFILE UI BUILDERS
   Future<void> _editProfile() async {
     if (_userProfile == null) return;
-
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => EditProfileScreen(
@@ -937,7 +1024,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         ),
       ),
     );
-
     if (result == true && mounted) {
       await _loadProfileData();
     }
@@ -962,7 +1048,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     final result = await Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const FriendRequestsScreen()),
     );
-
     if (result == true && mounted) {
       await Future.wait([
         _loadFriendRequestsCount(),
@@ -1001,7 +1086,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
-
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -1013,9 +1097,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.25)
-                : Colors.grey.withOpacity(0.12),
+            color: isDark ? Colors.black.withOpacity(0.25) : Colors.grey.withOpacity(0.12),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -1029,7 +1111,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
-
     return GestureDetector(
       onTap: () async {
         try {
@@ -1038,26 +1119,19 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               builder: (context) => const ReadingHistoryScreen(),
             ),
           );
-
-          // Handle "Read Again" action from Reading History
           if (result != null &&
               result is Map &&
               result['action'] == 'read_article' &&
               mounted) {
-
-            // Navigate back to News tab (All category)
             _horizontalPageController.animateToPage(
               1,
               duration: Duration(milliseconds: 300),
               curve: Curves.easeInOut,
             );
-
             setState(() {
               _selectedTabIndex = 1;
               _selectedCategoryId = null;
             });
-
-            // Open the article after navigation completes
             Future.delayed(Duration(milliseconds: 400), () {
               if (mounted) {
                 _navigateToArticle(result['article_id']);
@@ -1086,9 +1160,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           ),
           boxShadow: [
             BoxShadow(
-              color: isDark
-                  ? Colors.black.withOpacity(0.25)
-                  : Colors.grey.withOpacity(0.12),
+              color: isDark ? Colors.black.withOpacity(0.25) : Colors.grey.withOpacity(0.12),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1149,13 +1221,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // 👇 EMBEDDED PROFILE PAGE (replaces placeholder)
   Widget _buildProfilePage() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
-
-    // Show loading state initially
     if (_isProfileLoading) {
       return Center(
         child: Column(
@@ -1174,13 +1243,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         ),
       );
     }
-
     final displayName = _userProfile?['display_name'] ?? 'Good News Reader';
     final email = _userProfile?['email'] ?? 'No email available';
-
     return CustomScrollView(
       slivers: [
-        // Profile Header
         SliverToBoxAdapter(
           child: Container(
             padding: const EdgeInsets.all(24),
@@ -1246,16 +1312,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-        // Articles Read Card
         SliverToBoxAdapter(
           child: _isStatsLoading
               ? Center(child: CircularProgressIndicator(color: primaryColor))
               : _buildArticlesReadCard(),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-        // Quick Actions
         SliverToBoxAdapter(
           child: _buildSectionCard(
             context,
@@ -1270,8 +1332,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-        // Friends Section
         SliverToBoxAdapter(
           child: _buildSectionCard(
             context,
@@ -1283,86 +1343,76 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-        // Menu List
         SliverToBoxAdapter(
-          child: _buildSectionCard(
-            context,
-            child: MenuList(
-              items: [
-                MenuItem(
-                  title: 'Reading History',
-                  icon: Icons.history,
-                  onTap: () async {
-                    try {
-                      final result = await Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const ReadingHistoryScreen(),
-                        ),
-                      );
-
-                      // Handle "Read Again" action
-                      if (result != null &&
-                          result is Map &&
-                          result['action'] == 'read_article' &&
-                          mounted) {
-
-                        _horizontalPageController.animateToPage(
-                          1,
-                          duration: Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-
-                        setState(() {
-                          _selectedTabIndex = 1;
-                          _selectedCategoryId = null;
-                        });
-
-                        Future.delayed(Duration(milliseconds: 400), () {
-                          if (mounted) {
-                            _navigateToArticle(result['article_id']);
-                          }
-                        });
-                      }
-                    } catch (e) {
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Could not open Reading History'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-                MenuItem(
-                  title: 'Settings',
-                  icon: Icons.settings_outlined,
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const SettingsScreen(),
-                    ),
-                  ),
-                ),
-                MenuItem(
-                  title: 'Blocked Users',
-                  icon: Icons.block,
-                  onTap: () {
-                    Navigator.of(context).push(
+          child: MenuList(
+            items: [
+              MenuItem(
+                title: 'Reading History',
+                icon: Icons.history,
+                onTap: () async {
+                  try {
+                    final result = await Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const BlockedUsersScreen(),
+                        builder: (context) => const ReadingHistoryScreen(),
                       ),
                     );
-                  },
+                    if (result != null &&
+                        result is Map &&
+                        result['action'] == 'read_article' &&
+                        mounted) {
+                      _horizontalPageController.animateToPage(
+                        1,
+                        duration: Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                      setState(() {
+                        _selectedTabIndex = 1;
+                        _selectedCategoryId = null;
+                      });
+                      Future.delayed(Duration(milliseconds: 400), () {
+                        if (mounted) {
+                          _navigateToArticle(result['article_id']);
+                        }
+                      });
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Could not open Reading History'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              MenuItem(
+                title: 'Settings',
+                icon: Icons.settings_outlined,
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
                 ),
-                MenuItem(
-                  title: 'About',
-                  icon: Icons.info_outline,
-                  onTap: () => _showAboutDialog(context),
-                ),
-              ],
-            ),
+              ),
+              MenuItem(
+                title: 'Blocked Users',
+                icon: Icons.block,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const BlockedUsersScreen(),
+                    ),
+                  );
+                },
+              ),
+              MenuItem(
+                title: 'About',
+                icon: Icons.info_outline,
+                onTap: () => _showAboutDialog(context),
+              ),
+            ],
           ),
         ),
         const SliverToBoxAdapter(child: SizedBox(height: 40)),
@@ -1542,7 +1592,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   Widget _buildMainContent(List<Map<String, dynamic>> categoryList) {
     final pageCount = _getTotalPageCount();
     return RefreshIndicator(
-      onRefresh: _handleRefresh,
+      onRefresh: () async => _handleTabSpecificRefresh(_selectedTabIndex),
       color: Theme.of(context).colorScheme.primary,
       strokeWidth: 2.5,
       child: _isInitialLoading
@@ -1585,7 +1635,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               itemBuilder: _buildSocialPost,
             );
           } else if (pageIndex == totalNewsPages + 2) {
-            // ✅ EMBEDDED PROFILE - No navigation, inline content
             return _buildProfilePage();
           } else {
             return Container();
@@ -1620,6 +1669,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           child: ListView.builder(
             controller: _categoryScrollController,
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             itemCount: categoryList.length,
             itemBuilder: (context, index) {
@@ -1767,7 +1817,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       onToggle: _toggleSpeedDial,
       actions: [
         SpeedDialAction(
-          bottom: 110,
+          bottom: 160,
           icon: Icons.post_add_outlined,
           label: 'Friends Posts',
           onTap: () {
@@ -1779,7 +1829,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           },
         ),
         SpeedDialAction(
-          bottom: 160,
+          bottom: 210,
           icon: Icons.person_add,
           label: 'Add Friend',
           onTap: () {
@@ -1793,7 +1843,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           },
         ),
         SpeedDialAction(
-          bottom: 210,
+          bottom: 260,
           icon: Icons.edit,
           label: 'Create Post',
           onTap: () {
@@ -1823,7 +1873,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       message = 'No articles yet!';
       subMessage = _hasMore ? 'Loading...' : 'Try a different category.';
       icon = Icons.article_outlined;
-      onPressed = _handleRefresh;
+      onPressed = () => _handleTabSpecificRefresh(1);
       buttonText = 'Refresh';
     } else if (tabName == 'Social') {
       message = 'No social posts yet!';
@@ -1891,6 +1941,7 @@ class _VideoPostWidget extends StatefulWidget {
   final VoidCallback onToggleLike;
   final VoidCallback onToggleComments;
   final VoidCallback onShare;
+
   const _VideoPostWidget({
     required this.post,
     required this.onToggleLike,

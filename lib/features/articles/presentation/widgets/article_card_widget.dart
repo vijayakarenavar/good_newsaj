@@ -5,9 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'dart:async'; // 👈 CRITICAL FIX: Timer class साठी हे import करा
+import 'dart:async';
 
-// ==================== INSHOT STYLE - IMAGE OVERLAY CARD ====================
 class ArticleCardWidget extends StatefulWidget {
   final Map<String, dynamic> article;
   final Function(Map<String, dynamic>) onTrackRead;
@@ -25,10 +24,7 @@ class ArticleCardWidget extends StatefulWidget {
 }
 
 class _ArticleCardWidgetState extends State<ArticleCardWidget> {
-  static const Color PRIMARY_GREEN = Color(0xFF10B981);
-  static const Color PRIMARY_PINK = Color(0xFFEC4899);
-
-  bool _hasTrackedRead = false; // 👈 TRACK IF ALREADY COUNTED
+  bool _hasTrackedRead = false;
   Timer? _visibilityTimer;
 
   @override
@@ -43,16 +39,12 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return words.take(5).join(' ') + '...';
   }
 
-  Widget _buildDefaultArticleImage() {
+  Widget _buildDefaultArticleImage(Color primary) {
     final title = widget.article['title'] ?? 'No Title';
     final shortTitle = _getShortTitle(title);
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [PRIMARY_GREEN, PRIMARY_PINK],
-        ),
+      decoration: BoxDecoration(
+        color: primary,
       ),
       child: Center(
         child: Padding(
@@ -100,24 +92,32 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     if (screenWidth >= 800) return 900;
     if (screenWidth >= 700) return 750;
     if (screenWidth >= 600) return 650;
-    return 450;
+    if (screenWidth >= 450) return 500;
+    return 350;
   }
 
-  String _getSummaryText(BuildContext context) {
+  int _getSummaryMaxLines(double screenWidth, double screenHeight) {
+    if (screenHeight > 800) return screenWidth > 600 ? 12 : 8;
+    if (screenHeight > 700) return screenWidth > 600 ? 10 : 7;
+    return screenWidth > 600 ? 8 : 5;
+  }
+
+  String _getSummaryText(BuildContext context, int maxLines) {
     final screenWidth = MediaQuery.of(context).size.width;
     final charLimit = _getSummaryCharLimit(screenWidth);
     final cleanContent = _removeAiText(widget.article['content'] ?? 'No content available');
+
     if (cleanContent.length <= charLimit) return cleanContent;
-    final truncated = cleanContent.substring(0, charLimit);
+
+    final approxChars = maxLines * 60;
+    final limit = charLimit < approxChars ? charLimit : approxChars;
+
+    if (cleanContent.length <= limit) return cleanContent;
+
+    final truncated = cleanContent.substring(0, limit);
     final lastSpace = truncated.lastIndexOf(' ');
     if (lastSpace == -1) return truncated + '...';
     return truncated.substring(0, lastSpace) + '...';
-  }
-
-  int _getSummaryMaxLines(double screenWidth) {
-    if (screenWidth >= 600) return 15;
-    if (screenWidth >= 400) return 15;
-    return 6;
   }
 
   bool _hasAiRewritingTag() {
@@ -177,29 +177,19 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return months[month] ?? 1;
   }
 
-  // ✅ UPDATED: Safe URL opening with error handling
   Future<void> _openInAppBrowser(BuildContext context) async {
-    // 1. raw URL मिळवा
     final rawUrl = widget.article['source_url'] ?? '';
-
-    // 2. string clean करा
     String url = rawUrl.toString().trim();
 
-    // 3. common invalid values हटवा
-    if (url.isEmpty ||
-        url.toLowerCase() == 'null' ||
-        url == 'undefined' ||
-        url == 'none') {
+    if (url.isEmpty || url.toLowerCase() == 'null' || url == 'undefined' || url == 'none') {
       _showErrorSnackBar(context, 'No source URL available.');
       return;
     }
 
-    // 4. http/https नसेल तर जोडा
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'https://$url';
     }
 
-    // 5. valid URI आहे का ते तपासा
     Uri? uri;
     try {
       uri = Uri.parse(url);
@@ -208,7 +198,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
       return;
     }
 
-    // 6. launch करा (external browser वापरा — in-app WebView कमी समस्या देईल)
     try {
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -232,18 +221,15 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     );
   }
 
-  // 👇 NEW: Track article as "read" when visible for 2+ seconds
   void _onVisibilityChanged(VisibilityInfo info) {
-    // फक्त एकदाच काउंट करा
     if (_hasTrackedRead || info.visibleFraction < 0.7) return;
 
-    // २ सेकंदासाठी व्हिजिबल असल्यावर काउंट करा
     _visibilityTimer?.cancel();
     _visibilityTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && !_hasTrackedRead) {
         setState(() => _hasTrackedRead = true);
-        widget.onTrackRead(widget.article); // 👈 TRACK AS READ
-        print('✅ Article ${widget.article['id']} tracked as read (via scroll)');
+        widget.onTrackRead(widget.article);
+        debugPrint('✅ Article ${widget.article['id']} tracked as read');
       }
     });
   }
@@ -262,10 +248,12 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final sourceDomain = _getDomainFromUrl(widget.article['source_url']);
     final timeText = _formatRelativeTime(widget.article['created_at']);
     final title = widget.article['title'] ?? 'No Title';
-    final summary = _getSummaryText(context);
-    final summaryMaxLines = _getSummaryMaxLines(screenWidth);
-    final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 400 ? 260.0 : 240.0;
-    final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 400 ? 18.0 : 16.0;
+    final summaryMaxLines = _getSummaryMaxLines(screenWidth, screenHeight);
+    final summary = _getSummaryText(context, summaryMaxLines);
+    final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 450 ? 260.0 : 230.0;
+    final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
+    final primaryColor = colorScheme.primary;
+    final buttonColor = primaryColor.withOpacity(0.95);
 
     Widget buildImageWidget() {
       final imageUrl = widget.article['image_url'] as String?;
@@ -278,41 +266,37 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           fadeInDuration: const Duration(milliseconds: 200),
           placeholder: (context, url) => Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [PRIMARY_GREEN.withOpacity(0.3), PRIMARY_PINK.withOpacity(0.3)],
-              ),
+              color: primaryColor.withOpacity(0.3),
             ),
-            child: const Center(child: CircularProgressIndicator(color: PRIMARY_GREEN, strokeWidth: 2.5)),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
           ),
-          errorWidget: (context, url, error) => _buildDefaultArticleImage(),
+          errorWidget: (context, url, error) => _buildDefaultArticleImage(primaryColor),
         );
       } else {
-        return _buildDefaultArticleImage();
+        return _buildDefaultArticleImage(primaryColor);
       }
     }
 
-    // 👇 WRAP ENTIRE CARD IN VisibilityDetector
     return VisibilityDetector(
       key: Key('article_${widget.article['id']}'),
       onVisibilityChanged: _onVisibilityChanged,
       child: Container(
         margin: EdgeInsets.symmetric(
-          horizontal: screenWidth > 600 ? 20.0 : screenWidth > 400 ? 16.0 : 14.0,
-          vertical: screenHeight > 800 ? 12.0 : 10.0,
+          horizontal: screenWidth > 600 ? 24.0 : screenWidth > 450 ? 18.0 : 12.0,
+          vertical: screenHeight > 800 ? 14.0 : 10.0,
         ),
-        constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 450) : null,
+        constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 480) : null,
         child: Card(
           elevation: 8,
           margin: EdgeInsets.zero,
-          shadowColor: isDark ? PRIMARY_GREEN.withOpacity(0.4) : Colors.black.withOpacity(0.2),
+          shadowColor: isDark ? primaryColor.withOpacity(0.4) : Colors.black.withOpacity(0.2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           color: isDark ? const Color(0xFF121212) : Colors.white,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: Stack(
+            child: Column(
               children: [
+                // IMAGE SECTION
                 SizedBox(
                   height: imageHeight,
                   width: double.infinity,
@@ -321,76 +305,20 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     child: buildImageWidget(),
                   ),
                 ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          isDark ? Colors.black.withOpacity(0.7) : Colors.black.withOpacity(0.5),
-                          Colors.transparent,
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          isDark ? Colors.white.withOpacity(0.95) : Colors.white.withOpacity(0.95),
-                          isDark ? Colors.white.withOpacity(0.88) : Colors.white.withOpacity(0.88),
-                        ],
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: isDark ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.35),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () => widget.onShare(widget.article),
-                        borderRadius: BorderRadius.circular(50),
-                        splashColor: Colors.grey.withOpacity(0.3),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          child: Icon(Icons.share_rounded, color: colorScheme.primary, size: 24),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  top: imageHeight,
+
+                // CONTENT SECTION (NO SCROLL - FIXED HEIGHT)
+                Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
                       left: contentPadding,
                       right: contentPadding,
-                      top: 12,
+                      top: 16,
                       bottom: contentPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 👇 CATEGORY TAG REMOVED - ONLY TIMESTAMP REMAINS
+                        // TIMESTAMP ONLY
                         Row(
                           children: [
                             Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
@@ -405,48 +333,51 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                             ),
                           ],
                         ),
-                        SizedBox(height: screenWidth > 600 ? 8 : 6),
+                        const SizedBox(height: 6),
+
+                        // TITLE
                         Text(
                           title,
                           style: GoogleFonts.merriweather(
-                            fontSize: screenWidth > 600 ? 18.5 : screenWidth > 400 ? 17.5 : 16.5,
+                            fontSize: screenWidth > 600 ? 19 : screenWidth > 450 ? 17.5 : 16,
                             fontWeight: FontWeight.w900,
-                            height: 1.15,
+                            height: 1.2,
                             color: isDark ? Colors.white : Colors.black,
                             letterSpacing: -0.2,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: screenWidth > 600 ? 6 : 5),
-                        // 👇 NEWS SOURCE + AI TAGS KEPT BELOW TITLE
+                        const SizedBox(height: 6),
+
+                        // SOURCE + AI TAG
                         Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.2)
-                                    : Colors.white.withOpacity(0.2),
+                                    ? Colors.white.withOpacity(0.15)
+                                    : Colors.black.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.3)
-                                      : Colors.white.withOpacity(0.3),
+                                      ? Colors.white.withOpacity(0.2)
+                                      : Colors.black.withOpacity(0.15),
                                   width: 1,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.language_rounded, size: screenWidth > 600 ? 12 : 11, color: isDark ? Colors.white : Colors.black),
+                                  Icon(Icons.language_rounded, size: 11, color: isDark ? Colors.white70 : Colors.black87),
                                   const SizedBox(width: 4),
                                   Text(
                                     sourceDomain,
                                     style: GoogleFonts.inter(
-                                      fontSize: screenWidth > 600 ? 11 : 10.5,
+                                      fontSize: 10.5,
                                       fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : Colors.black,
+                                      color: isDark ? Colors.white70 : Colors.black87,
                                       letterSpacing: 0.3,
                                     ),
                                   ),
@@ -459,16 +390,12 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [PRIMARY_GREEN, PRIMARY_PINK],
-                                    ),
+                                    color: primaryColor,
                                     borderRadius: BorderRadius.circular(10),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: PRIMARY_GREEN.withOpacity(0.6),
-                                        blurRadius: 8,
+                                        color: primaryColor.withOpacity(0.5),
+                                        blurRadius: 6,
                                         offset: const Offset(0, 2),
                                       ),
                                     ],
@@ -476,14 +403,14 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.auto_awesome, color: Colors.white, size: screenWidth > 600 ? 12 : 11),
+                                      Icon(Icons.auto_awesome, color: Colors.white, size: 11),
                                       const SizedBox(width: 4),
                                       Text(
                                         'AI Enhanced',
                                         style: GoogleFonts.poppins(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w700,
-                                          fontSize: screenWidth > 600 ? 9 : 8.5,
+                                          fontSize: 8.5,
                                           letterSpacing: 0.3,
                                         ),
                                       ),
@@ -493,84 +420,137 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                               ),
                           ],
                         ),
-                        SizedBox(height: screenWidth > 600 ? 8 : 6),
+                        const SizedBox(height: 10),
+
+                        // SUMMARY (NO SCROLL - FIXED LINES)
                         Expanded(
-                          child: SingleChildScrollView(
-                            child: Text(
-                              summary,
-                              style: GoogleFonts.inter(
-                                fontSize: screenWidth > 600 ? 14.5 : screenWidth > 400 ? 12.5 : 12,
-                                height: 1.5,
-                                color: isDark ? Colors.white70 : Colors.black87,
-                                letterSpacing: 0.15,
-                                fontWeight: FontWeight.w400,
-                              ),
+                          child: Text(
+                            summary,
+                            style: GoogleFonts.inter(
+                              fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13 : 12,
+                              height: 1.5,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                              letterSpacing: 0.15,
+                              fontWeight: FontWeight.w400,
                             ),
+                            maxLines: summaryMaxLines,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        SizedBox(height: screenWidth > 600 ? 12 : 10),
-                        // 👇 "Read Full Article" button — now safe!
-                        Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: () {
-                              // फक्त एकदाच काउंट करा (जर आधीच काउंट झाले नसेल)
-                              if (!_hasTrackedRead) {
-                                setState(() => _hasTrackedRead = true);
-                                widget.onTrackRead(widget.article);
-                                print('✅ Article ${widget.article['id']} tracked as read (via tap)');
-                              }
-                              _openInAppBrowser(context);
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-                            child: Ink(
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [PRIMARY_GREEN, PRIMARY_PINK],
-                                ),
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: PRIMARY_GREEN.withOpacity(0.6),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 4),
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                              child: Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth > 600 ? 20 : 18,
-                                  vertical: screenWidth > 600 ? 13 : 12,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.auto_stories_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
-                                    const SizedBox(width: 10),
-                                    Flexible(
-                                      child: Text(
-                                        'Read Full Article',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: screenWidth > 600 ? 15 : 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: 0.6,
+                        const SizedBox(height: 12),
+
+                        // ✅ ACTION BUTTONS ROW (READ FULL ARTICLE LEFT + SHARE RIGHT)
+                        Row(
+                          children: [
+                            // READ FULL ARTICLE BUTTON (LEFT SIDE - LARGER)
+                            Expanded(
+                              flex: 6, // ✅ LARGER (60% width)
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    if (!_hasTrackedRead) {
+                                      setState(() => _hasTrackedRead = true);
+                                      widget.onTrackRead(widget.article);
+                                      debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
+                                    }
+                                    _openInAppBrowser(context);
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      color: buttonColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: buttonColor.withOpacity(0.5),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                          spreadRadius: 1,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
+                                      ],
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: screenWidth > 600 ? 13 : 11,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.auto_stories_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 18),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              'Read Full Article',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: screenWidth > 600 ? 15 : 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                letterSpacing: 0.6,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: screenWidth > 600 ? 18 : 16),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Icon(Icons.arrow_forward_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 19),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 10),
+
+                            // SHARE BUTTON (RIGHT SIDE - SMALLER)
+                            Expanded(
+                              flex: 4, // ✅ SMALLER (40% width)
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => widget.onShare(widget.article),
+                                  borderRadius: BorderRadius.circular(16),
+                                  splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
+                                  child: Ink(
+                                    decoration: BoxDecoration(
+                                      color: buttonColor,
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: buttonColor.withOpacity(0.4),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: screenWidth > 600 ? 13 : 11,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.share_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 18),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            'Share',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: screenWidth > 600 ? 15 : 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
