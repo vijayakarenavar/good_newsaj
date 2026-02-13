@@ -484,52 +484,52 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return 'Read Full Article';
   }
 
-  // ✅ 5-TIER BUTTON METRICS
+  // ✅ 5-TIER BUTTON METRICS - REDUCED SIZE FOR BETTER UI DENSITY
   _ButtonMetrics _getButtonMetrics(double screenWidth) {
     if (screenWidth >= 600) {
       return _ButtonMetrics(
-        height: 48,
-        horizontalPadding: 16,
-        iconSize: 20,
-        textSize: 14,
-        spacing: 8,
-        borderRadius: 16,
+        height: 42, // Reduced from 48
+        horizontalPadding: 12, // Reduced from 16
+        iconSize: 18, // Reduced from 20
+        textSize: 13, // Reduced from 14
+        spacing: 6, // Reduced from 8
+        borderRadius: 14, // Reduced from 16
       );
     } else if (screenWidth >= 400) {
       return _ButtonMetrics(
-        height: 46,
-        horizontalPadding: 14,
-        iconSize: 19,
-        textSize: 13.5,
-        spacing: 7,
-        borderRadius: 16,
+        height: 40, // Reduced from 46
+        horizontalPadding: 10, // Reduced from 14
+        iconSize: 17, // Reduced from 19
+        textSize: 12.5, // Reduced from 13.5
+        spacing: 5, // Reduced from 7
+        borderRadius: 14, // Reduced from 16
       );
     } else if (screenWidth >= 360) {
       return _ButtonMetrics(
-        height: 44,
-        horizontalPadding: 12,
-        iconSize: 18,
-        textSize: 13,
-        spacing: 6,
-        borderRadius: 15,
+        height: 38, // Reduced from 44
+        horizontalPadding: 8, // Reduced from 12
+        iconSize: 16, // Reduced from 18
+        textSize: 12, // Reduced from 13
+        spacing: 4, // Reduced from 6
+        borderRadius: 13, // Reduced from 15
       );
     } else if (screenWidth >= 320) {
       return _ButtonMetrics(
-        height: 42,
-        horizontalPadding: 10,
-        iconSize: 17,
-        textSize: 12.5,
-        spacing: 5,
-        borderRadius: 14,
+        height: 36, // Reduced from 42
+        horizontalPadding: 6, // Reduced from 10
+        iconSize: 15, // Reduced from 17
+        textSize: 11.5, // Reduced from 12.5
+        spacing: 3, // Reduced from 5
+        borderRadius: 12, // Reduced from 14
       );
     } else {
       return _ButtonMetrics(
-        height: 40,
-        horizontalPadding: 8,
-        iconSize: 16,
-        textSize: 12,
-        spacing: 4,
-        borderRadius: 14,
+        height: 34, // Reduced from 40
+        horizontalPadding: 4, // Reduced from 8
+        iconSize: 14, // Reduced from 16
+        textSize: 11, // Reduced from 12
+        spacing: 2, // Reduced from 4
+        borderRadius: 12, // Reduced from 14
       );
     }
   }
