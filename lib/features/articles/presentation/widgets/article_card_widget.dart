@@ -44,16 +44,20 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final shortTitle = _getShortTitle(title);
     return Container(
       decoration: BoxDecoration(
-        color: primary,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF10B981), Color(0xFFEC4899)],
+        ),
       ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Text(
             shortTitle,
             textAlign: TextAlign.center,
             style: GoogleFonts.cinzel(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
               height: 1.3,
@@ -109,7 +113,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
 
     if (cleanContent.length <= charLimit) return cleanContent;
 
-    final approxChars = maxLines * 60;
+    final approxChars = maxLines * 80;
     final limit = charLimit < approxChars ? charLimit : approxChars;
 
     if (cleanContent.length <= limit) return cleanContent;
@@ -255,6 +259,10 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final primaryColor = colorScheme.primary;
     final buttonColor = primaryColor.withOpacity(0.95);
 
+    // ✅ ADAPTIVE BUTTON METRICS BASED ON SCREEN WIDTH
+    final buttonMetrics = _getButtonMetrics(screenWidth);
+    final readButtonText = _getButtonText(screenWidth);
+
     Widget buildImageWidget() {
       final imageUrl = widget.article['image_url'] as String?;
       if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -266,9 +274,13 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           fadeInDuration: const Duration(milliseconds: 200),
           placeholder: (context, url) => Container(
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.3),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF10B981).withOpacity(0.3), Color(0xFFEC4899).withOpacity(0.3)],
+              ),
             ),
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+            child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)))),
           ),
           errorWidget: (context, url, error) => _buildDefaultArticleImage(primaryColor),
         );
@@ -306,7 +318,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   ),
                 ),
 
-                // CONTENT SECTION (NO SCROLL - FIXED HEIGHT)
+                // CONTENT SECTION (NO INTERNAL SCROLLING)
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -390,11 +402,15 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: primaryColor,
+                                    gradient: const LinearGradient(
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                      colors: [Color(0xFF10B981), Color(0xFFEC4899)],
+                                    ),
                                     borderRadius: BorderRadius.circular(10),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: primaryColor.withOpacity(0.5),
+                                        color: Color(0xFF10B981).withOpacity(0.5),
                                         blurRadius: 6,
                                         offset: const Offset(0, 2),
                                       ),
@@ -422,7 +438,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 10),
 
-                        // SUMMARY (NO SCROLL - FIXED LINES)
+                        // ✅ SUMMARY (NO SCROLL - FIXED LINES WITH ELLIPSIS)
                         Expanded(
                           child: Text(
                             summary,
@@ -439,118 +455,14 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 12),
 
-                        // ✅ ACTION BUTTONS ROW (READ FULL ARTICLE LEFT + SHARE RIGHT)
-                        Row(
-                          children: [
-                            // READ FULL ARTICLE BUTTON (LEFT SIDE - LARGER)
-                            Expanded(
-                              flex: 6, // ✅ LARGER (60% width)
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () {
-                                    if (!_hasTrackedRead) {
-                                      setState(() => _hasTrackedRead = true);
-                                      widget.onTrackRead(widget.article);
-                                      debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
-                                    }
-                                    _openInAppBrowser(context);
-                                  },
-                                  borderRadius: BorderRadius.circular(16),
-                                  splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-                                  child: Ink(
-                                    decoration: BoxDecoration(
-                                      color: buttonColor,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: buttonColor.withOpacity(0.5),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 4),
-                                          spreadRadius: 1,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: screenWidth > 600 ? 13 : 11,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.auto_stories_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 18),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              'Read Full Article',
-                                              style: GoogleFonts.poppins(
-                                                fontSize: screenWidth > 600 ? 15 : 14,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
-                                                letterSpacing: 0.6,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: screenWidth > 600 ? 18 : 16),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-
-                            // SHARE BUTTON (RIGHT SIDE - SMALLER)
-                            Expanded(
-                              flex: 4, // ✅ SMALLER (40% width)
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: () => widget.onShare(widget.article),
-                                  borderRadius: BorderRadius.circular(16),
-                                  splashColor: isDark ? Colors.white.withOpacity(0.2) : Colors.black.withOpacity(0.1),
-                                  child: Ink(
-                                    decoration: BoxDecoration(
-                                      color: buttonColor,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: buttonColor.withOpacity(0.4),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Padding(
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: screenWidth > 600 ? 13 : 11,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Icon(Icons.share_rounded, color: Colors.white, size: screenWidth > 600 ? 20 : 18),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Share',
-                                            style: GoogleFonts.poppins(
-                                              fontSize: screenWidth > 600 ? 15 : 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                        // ✅ PERFECTLY RESPONSIVE BUTTONS (NO NESTED SCROLLING)
+                        _buildResponsiveActionButtons(
+                          context: context,
+                          buttonMetrics: buttonMetrics,
+                          buttonColor: buttonColor,
+                          readButtonText: readButtonText,
+                          isDark: isDark,
+                          screenWidth: screenWidth,
                         ),
                       ],
                     ),
@@ -563,4 +475,224 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
       ),
     );
   }
+
+  // ✅ ADAPTIVE BUTTON TEXT (SHORTER ON SMALL SCREENS)
+  String _getButtonText(double screenWidth) {
+    if (screenWidth < 340) return 'Read';          // Ultra-small screens (320px)
+    if (screenWidth < 380) return 'Read Article';   // Small screens (360px)
+    return 'Read Full Article';                     // Medium+ screens
+  }
+
+  // ✅ ULTRA-RESPONSIVE BUTTON METRICS (4 TIERS FOR PERFECT SCALING)
+  _ButtonMetrics _getButtonMetrics(double screenWidth) {
+    // Tier 1: Large tablets/desktop (600px+)
+    if (screenWidth >= 600) {
+      return _ButtonMetrics(
+        height: 48,
+        horizontalPadding: 16,
+        iconSize: 20,
+        textSize: 14,
+        spacing: 8,
+        borderRadius: 16,
+      );
+    }
+    // Tier 2: Medium phones (380px - 599px)
+    else if (screenWidth >= 380) {
+      return _ButtonMetrics(
+        height: 46,
+        horizontalPadding: 14,
+        iconSize: 19,
+        textSize: 13.5,
+        spacing: 7,
+        borderRadius: 16,
+      );
+    }
+    // Tier 3: Small phones (340px - 379px)
+    else if (screenWidth >= 340) {
+      return _ButtonMetrics(
+        height: 44,
+        horizontalPadding: 12,
+        iconSize: 18,
+        textSize: 13,
+        spacing: 6,
+        borderRadius: 15,
+      );
+    }
+    // Tier 4: Ultra-small phones (< 340px) - iPhone SE 1st gen, older Android
+    else {
+      return _ButtonMetrics(
+        height: 42,
+        horizontalPadding: 10,
+        iconSize: 17,
+        textSize: 12,
+        spacing: 5,
+        borderRadius: 14,
+      );
+    }
+  }
+
+  // ✅ PERFECTLY RESPONSIVE BUTTON WITH ADAPTIVE TEXT
+  Widget _buildResponsiveActionButtons({
+    required BuildContext context,
+    required _ButtonMetrics buttonMetrics,
+    required Color buttonColor,
+    required String readButtonText,
+    required bool isDark,
+    required double screenWidth,
+  }) {
+    return Row(
+      children: [
+        // READ FULL ARTICLE BUTTON (LEFT - LARGER)
+        Expanded(
+          flex: 6,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                if (!_hasTrackedRead) {
+                  setState(() => _hasTrackedRead = true);
+                  widget.onTrackRead(widget.article);
+                  debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
+                }
+                _openInAppBrowser(context);
+              },
+              borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Color(0xFF10B981), Color(0xFFEC4899)],
+                  ),
+                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: buttonColor.withOpacity(0.5),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: buttonMetrics.horizontalPadding,
+                    vertical: (buttonMetrics.height - 24) / 2, // Vertical padding based on height
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.auto_stories_rounded,
+                        color: Colors.white,
+                        size: buttonMetrics.iconSize,
+                      ),
+                      SizedBox(width: buttonMetrics.spacing),
+                      Flexible(
+                        child: Text(
+                          readButtonText,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: buttonMetrics.textSize,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: buttonMetrics.spacing * 0.7),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white,
+                        size: buttonMetrics.iconSize * 0.9,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // SHARE BUTTON (RIGHT - SMALLER)
+        Expanded(
+          flex: 4,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => widget.onShare(widget.article),
+              borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [Color(0xFF10B981), Color(0xFFEC4899)],
+                  ),
+                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: buttonColor.withOpacity(0.4),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: buttonMetrics.horizontalPadding,
+                    vertical: (buttonMetrics.height - 24) / 2,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.share_rounded, color: Colors.white, size: buttonMetrics.iconSize),
+                      SizedBox(width: buttonMetrics.spacing),
+                      Text(
+                        'Share',
+                        style: GoogleFonts.poppins(
+                          fontSize: buttonMetrics.textSize,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ✅ HELPER CLASS FOR BUTTON METRICS
+class _ButtonMetrics {
+  final int height;
+  final double horizontalPadding;
+  final double iconSize;
+  final double textSize;
+  final double spacing;
+  final double borderRadius;
+
+  _ButtonMetrics({
+    required this.height,
+    required this.horizontalPadding,
+    required this.iconSize,
+    required this.textSize,
+    required this.spacing,
+    required this.borderRadius,
+  });
 }

@@ -288,38 +288,52 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {
     );
   }
 
-  /// Robust pop: try to mimic previous behavior (pop this screen, then pop previous screen with result).
-  /// If two-pop isn't possible, fallback to a single pop-with-result so Home still receives it.
+  /// ✅ UPDATED: "Read Again" now ADDS NEW ENTRY to history + navigates back
   void _readAgain(Map<String, dynamic> article) async {
     debugPrint('📖 HISTORY: Read Again clicked for article ${article['id']}');
 
-    final result = {
-      'action': 'read_article',
-      'article_id': article['id'],
-    };
-
-    // If there is a route to pop (this screen) - pop it first.
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-      // small delay to allow previous route to become active
-      await Future.delayed(const Duration(milliseconds: 80));
-      // Try to pop the previous route with result.
-      if (Navigator.of(context).canPop()) {
-        try {
-          Navigator.of(context).pop(result);
-          return;
-        } catch (e) {
-          debugPrint('⚠️ HISTORY: second pop failed: $e');
-        }
+    try {
+      // ✅ STEP 1: ALWAYS add NEW entry to history (increments count)
+      final articleId = article['id'] as int?;
+      if (articleId == null) {
+        throw Exception('Article ID missing');
       }
-    }
 
-    // Fallback: pop current with result (in case only one pop is expected)
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(result);
-    } else {
-      // if nothing can be popped (very unlikely), just log
-      debugPrint('⚠️ HISTORY: could not pop route to deliver read_article result');
+      debugPrint('✅ Adding NEW history entry for article $articleId...');
+      final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
+
+      if (newEntryId != null) {
+        debugPrint('✅ SUCCESS: New history entry created (ID: $newEntryId)');
+
+        // ✅ Refresh local history to show new entry immediately
+        await _loadHistory();
+      } else {
+        debugPrint('⚠️ WARNING: History entry may not have been created (backend issue)');
+        // Still proceed to open article - don't block user
+      }
+
+      // ✅ STEP 2: Navigate back to feed/articles screen WITH result to open article
+      // This assumes the parent screen (ArticlesScreen) listens for this result
+      Navigator.of(context).pop({
+        'action': 'read_article',
+        'article_id': articleId,
+        'from_history': true, // Flag to indicate "Read Again" flow
+      });
+
+    } catch (e) {
+      debugPrint('❌ ERROR in readAgain: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to add to history: ${e.toString().substring(0, 50)}'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      // Still navigate back (don't trap user on error)
+      Navigator.of(context).pop();
     }
   }
 

@@ -82,7 +82,6 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
-
   DateTime? _loadingStartTime;
 
   // 👇 Profile state management
@@ -482,11 +481,13 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _selectCategory(int? categoryId) async {
     if (categoryId == _selectedCategoryId) return;
+
     setState(() {
       _selectedTabIndex = 1;
       _selectedCategoryId = categoryId;
       _currentIndex = 0;
     });
+
     if (categoryId != null) {
       setState(() {
         _allArticles.clear();
@@ -495,10 +496,13 @@ class _HomeScreenState extends State<HomeScreen>
       });
       await _loadArticles(isInitial: true);
     }
+
     _updateDisplayedItems();
+
     if (_displayedItems.isNotEmpty && mounted) {
       _preloadImages(_displayedItems, 0);
     }
+
     // ✅ CRITICAL: Navigate to category page AND scroll chip to center
     _scrollToCategoryPage(categoryId);
   }
@@ -517,39 +521,30 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ✅ ULTIMATE FIX: Perfect category chip centering with proper timing
   void _scrollCategoryChipsToIndex(int index) {
-    // ✅ Wait for both frame completion AND layout stabilization
+    // ✅ Immediate execution without delay for better responsiveness
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ✅ Extra delay ensures page animation completes FIRST
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (!mounted || !_categoryScrollController.hasClients) return;
+      if (!mounted || !_categoryScrollController.hasClients) return;
 
-        final screenWidth = MediaQuery.of(context).size.width;
+      final screenWidth = MediaQuery.of(context).size.width;
+      final itemWidth = 80.0; // Approximate chip width
+      final spacing = 16.0; // Spacing between chips
+      final totalItemWidth = itemWidth + spacing;
 
-        // ✅ CRITICAL: Calculate exact chip position
-        // Each chip: ~90px width + 16px padding = 106px total spacing
-        final chipWidth = 90.0;
-        final spacing = 16.0;
-        final totalChipWidth = chipWidth + spacing;
+      // ✅ CRITICAL: Calculate scroll offset to CENTER the selected chip
+      // Formula: (chip position × total width) - (half screen width) + (half chip width)
+      final targetOffset = (index * totalItemWidth) - (screenWidth / 2) + (itemWidth / 2);
 
-        // ✅ Calculate chip's center position in scroll view
-        final chipCenterPosition = (index * totalChipWidth) + (chipWidth / 2);
+      // Clamp to valid scroll range
+      final maxScroll = _categoryScrollController.position.maxScrollExtent;
+      final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
-        // ✅ Calculate scroll offset to center the chip perfectly
-        final targetOffset = chipCenterPosition - (screenWidth / 2);
-
-        // ✅ Clamp to prevent overscroll
-        final maxScroll = _categoryScrollController.position.maxScrollExtent;
-        final clampedOffset = targetOffset.clamp(0.0, maxScroll);
-
-        // ✅ Smooth animation to centered position
-        _categoryScrollController.animateTo(
-          clampedOffset,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOutCubic,
-        );
-      });
+      // ✅ SMOOTH ANIMATION: Always animate to center, even if partially visible
+      _categoryScrollController.animateTo(
+        clampedOffset,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOutCubic,
+      );
     });
   }
 
@@ -585,6 +580,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     _lastTabTapTime = now;
     _lastTappedTabIndex = index;
+
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
     int targetPage;
@@ -688,6 +684,7 @@ class _HomeScreenState extends State<HomeScreen>
   void _onHorizontalPageChanged(int pageIndex) {
     final previousPage = _previousPageIndex ?? pageIndex;
     _previousPageIndex = pageIndex;
+
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
     final socialPageIndex = totalNewsPages + 1;
@@ -711,6 +708,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     int newTabIndex;
     int? newCategoryId;
+
     if (pageIndex == 0) {
       newTabIndex = 0;
       newCategoryId = null;
@@ -718,8 +716,14 @@ class _HomeScreenState extends State<HomeScreen>
       newTabIndex = 1;
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
-      // ✅ CRITICAL FIX: Scroll chips to center AFTER page transition
-      _scrollCategoryChipsToIndex(categoryIndex);
+
+      // ✅ CRITICAL FIX: Increased delay to 250ms for proper synchronization
+      // Ensures horizontal page animation fully completes before scrolling chips
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted && _categoryScrollController.hasClients) {
+          _scrollCategoryChipsToIndex(categoryIndex);
+        }
+      });
     } else if (pageIndex == socialPageIndex) {
       newTabIndex = 2;
       newCategoryId = null;
@@ -1225,6 +1229,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
+
     if (_isProfileLoading) {
       return Center(
         child: Column(
@@ -1243,6 +1248,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         ),
       );
     }
+
     final displayName = _userProfile?['display_name'] ?? 'Good News Reader';
     final email = _userProfile?['email'] ?? 'No email available';
     return CustomScrollView(
@@ -1863,6 +1869,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     VoidCallback? onPressed;
     String buttonText = '';
     IconData buttonIcon = Icons.refresh;
+
     if (tabName == 'Video') {
       message = 'No videos yet!';
       subMessage = 'Videos will appear here soon!';
@@ -1889,6 +1896,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       onPressed = () => _selectCategory(null);
       buttonText = 'View All';
     }
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),

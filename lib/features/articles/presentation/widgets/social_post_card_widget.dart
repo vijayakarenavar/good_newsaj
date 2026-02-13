@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -55,24 +56,21 @@ class SocialPostCardWidget extends StatelessWidget {
 
           // Scrollable Content
           Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Image
-                  if (imageUrl != null && imageUrl.toString().isNotEmpty)
-                    _buildImage(context, imageUrl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Image
+                if (imageUrl != null && imageUrl.toString().isNotEmpty)
+                  _buildImage(context, imageUrl),
 
-                  // Content
-                  _buildContent(context),
+                // Content
+                _buildContent(context),
 
-                  const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-                  // Comments Section
-                  if (showComments) _buildCommentsSection(context),
-                ],
-              ),
+                // Comments Section
+                if (showComments) _buildCommentsSection(context),
+              ],
             ),
           ),
 

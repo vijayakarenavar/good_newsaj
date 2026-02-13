@@ -1,56 +1,82 @@
 import 'package:flutter/material.dart';
 
-/// Widget for displaying category filter chips
+/// Widget for displaying category filter chips with auto-scroll support
 class CategoryChips extends StatelessWidget {
   final List<Map<String, dynamic>> categories;
   final int? selectedCategoryId;
   final Function(int?) onCategorySelected;
+  final ScrollController? scrollController;
+  final int? activeCategoryIndex;
 
   const CategoryChips({
     Key? key,
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategorySelected,
+    this.scrollController,
+    this.activeCategoryIndex,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: 56,
+      height: 50,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.separated(
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        controller: scrollController,
         scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final category = categories[index];
-          final bool isSelected = selectedCategoryId == category['id'];
+          final isSelected = activeCategoryIndex != null
+              ? index == activeCategoryIndex
+              : selectedCategoryId == category['id'];
 
-          return GestureDetector(
-            onTap: () => onCategorySelected(category['id'] as int?),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? colorScheme.primary : colorScheme.surface,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isSelected ? colorScheme.primary : colorScheme.outline,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  (category['name'] ?? '') as String,
-                  style: TextStyle(
-                    color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
+          return Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: GestureDetector(
+              onTap: () => onCategorySelected(category['id'] as int?),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    category['name'] as String,
+                    style: TextStyle(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : isDark ? Colors.white60 : Colors.grey[600],
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: isSelected ? 15 : 13,
+                    ),
                   ),
-                ),
+                  if (isSelected)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Container(
+                        height: 2.5,
+                        width: 30,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
+                          borderRadius: BorderRadius.circular(1.5),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           );

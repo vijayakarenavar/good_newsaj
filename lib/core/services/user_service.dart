@@ -157,6 +157,7 @@ class UserService {
       print('❌ Failed to refresh user profile: $e');
     }
   }
+
   // ==================== READING HISTORY ====================
 
   /// Add article to reading history (POST /user/history)
@@ -181,6 +182,54 @@ class UserService {
     } catch (e) {
       print('❌ Error adding to history: $e');
       return false;
+    }
+  }
+
+  /// ✅ NEW: Add article to reading history with NEW entry (for "Read Again" functionality)
+  /// Returns the new history entry ID if successful
+  static Future<int?> addToHistoryWithNewEntry(int articleId) async {
+    try {
+      final token = await PreferencesService.getToken();
+      if (token == null) throw Exception('No auth token');
+
+      print('📝 Adding article $articleId to history with NEW entry...');
+
+      // ✅ CRITICAL: Use POST to /user/history to create NEW entry (not update existing)
+      final response = await ApiService.authenticatedRequest(
+        '/user/history',
+        method: 'POST',
+        token: token,
+        data: {'article_id': articleId},
+      );
+
+      print('✅ New history entry response: $response');
+
+      // Extract new entry ID from response (backend should return it)
+      if (response is Map) {
+        // Try common response patterns
+        final newEntryId = response['history_id'] ??
+            response['id'] ??
+            response['entry_id'] ??
+            response['data']?['id'];
+
+        if (newEntryId != null && newEntryId is int) {
+          print('✅ Created new history entry with ID: $newEntryId');
+          return newEntryId;
+        }
+      }
+
+      // Fallback: Assume success if status is good
+      if (response['message']?.contains('success') == true ||
+          response['status'] == 'success' ||
+          response['success'] == true) {
+        print('✅ History entry created (ID not returned by backend)');
+        return -1; // Success indicator
+      }
+
+      return null;
+    } catch (e) {
+      print('❌ Error adding new history entry: $e');
+      return null;
     }
   }
 
