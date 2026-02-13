@@ -300,162 +300,174 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           color: theme.cardTheme.color ?? (isDark ? const Color(0xFF121212) : Colors.white),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: Column(
-              children: [
-                // IMAGE SECTION
-                SizedBox(
-                  height: imageHeight,
-                  width: double.infinity,
-                  child: Hero(
-                    tag: 'article_${widget.article['id']}',
-                    child: buildImageWidget(),
-                  ),
-                ),
-
-                // CONTENT SECTION
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: contentPadding,
-                      right: contentPadding,
-                      top: 16,
-                      bottom: contentPadding,
+            child: GestureDetector(
+              onTap: () {
+                // Track read when card is tapped
+                if (!_hasTrackedRead) {
+                  setState(() => _hasTrackedRead = true);
+                  widget.onTrackRead(widget.article);
+                  debugPrint('✅ Article ${widget.article['id']} tracked as read (via card tap)');
+                }
+                // Open the article in browser
+                _openInAppBrowser(context);
+              },
+              child: Column(
+                children: [
+                  // IMAGE SECTION
+                  SizedBox(
+                    height: imageHeight,
+                    width: double.infinity,
+                    child: Hero(
+                      tag: 'article_${widget.article['id']}',
+                      child: buildImageWidget(),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // TIMESTAMP ONLY
-                        Row(
-                          children: [
-                            Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
-                            const SizedBox(width: 4),
-                            Text(
-                              timeText,
-                              style: GoogleFonts.inter(
-                                color: isDark ? Colors.white60 : Colors.black45,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
+                  ),
 
-                        // TITLE
-                        Text(
-                          title,
-                          style: GoogleFonts.merriweather(
-                            fontSize: screenWidth > 600 ? 19 : screenWidth > 450 ? 17.5 : 16,
-                            fontWeight: FontWeight.w900,
-                            height: 1.2,
-                            color: isDark ? Colors.white : Colors.black,
-                            letterSpacing: -0.2,
+                  // CONTENT SECTION
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(
+                        left: contentPadding,
+                        right: contentPadding,
+                        top: 16,
+                        bottom: contentPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // TIMESTAMP ONLY
+                          Row(
+                            children: [
+                              Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
+                              const SizedBox(width: 4),
+                              Text(
+                                timeText,
+                                style: GoogleFonts.inter(
+                                  color: isDark ? Colors.white60 : Colors.black45,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
+                          const SizedBox(height: 6),
 
-                        // SOURCE + AI TAG (SOLID THEME COLORS)
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? Colors.white.withOpacity(0.1)
-                                    : Colors.black.withOpacity(0.06),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: isDark
-                                      ? Colors.white.withOpacity(0.15)
-                                      : Colors.black.withOpacity(0.1),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.language_rounded, size: 11, color: isDark ? Colors.white70 : Colors.black87),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    sourceDomain,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white70 : Colors.black87,
-                                      letterSpacing: 0.3,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          // TITLE
+                          Text(
+                            title,
+                            style: GoogleFonts.merriweather(
+                              fontSize: screenWidth > 600 ? 19 : screenWidth > 450 ? 17.5 : 16,
+                              fontWeight: FontWeight.w900,
+                              height: 1.2,
+                              color: isDark ? Colors.white : Colors.black,
+                              letterSpacing: -0.2,
                             ),
-                            if (showAiTag)
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: primaryColor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: primaryColor.withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.auto_awesome, color: primaryColor, size: 11),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'AI Enhanced',
-                                        style: GoogleFonts.poppins(
-                                          color: primaryColor,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 8.5,
-                                          letterSpacing: 0.3,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-
-                        // SUMMARY
-                        Expanded(
-                          child: Text(
-                            summary,
-                            style: GoogleFonts.inter(
-                              fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13 : 12,
-                              height: 1.5,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                              letterSpacing: 0.15,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: summaryMaxLines,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 6),
 
-                        // ✅ RESPONSIVE BUTTONS WITH WHITE TEXT (70:30 RATIO)
-                        _buildResponsiveActionButtons(
-                          context: context,
-                          buttonMetrics: buttonMetrics,
-                          primaryColor: primaryColor,
-                          readButtonText: readButtonText,
-                          isDark: isDark,
-                          screenWidth: screenWidth,
-                        ),
-                      ],
+                          // SOURCE + AI TAG (SOLID THEME COLORS)
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.black.withOpacity(0.06),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withOpacity(0.15)
+                                        : Colors.black.withOpacity(0.1),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.language_rounded, size: 11, color: isDark ? Colors.white70 : Colors.black87),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      sourceDomain,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark ? Colors.white70 : Colors.black87,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (showAiTag)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: primaryColor.withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.auto_awesome, color: primaryColor, size: 11),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'AI Enhanced',
+                                          style: GoogleFonts.poppins(
+                                            color: primaryColor,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 8.5,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // SUMMARY
+                          Expanded(
+                            child: Text(
+                              summary,
+                              style: GoogleFonts.inter(
+                                fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13 : 12,
+                                height: 1.5,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                letterSpacing: 0.15,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: summaryMaxLines,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // ✅ RESPONSIVE BUTTONS WITH WHITE TEXT (70:30 RATIO)
+                          _buildResponsiveActionButtons(
+                            context: context,
+                            buttonMetrics: buttonMetrics,
+                            primaryColor: primaryColor,
+                            readButtonText: readButtonText,
+                            isDark: isDark,
+                            screenWidth: screenWidth,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
