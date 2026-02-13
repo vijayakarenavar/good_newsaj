@@ -63,8 +63,8 @@ class StatsRow extends StatelessWidget {
         color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: color.withOpacity(0.2),
-          width: 1.5,
+          color: color.withOpacity(0.1),
+          width: 1.0,
         ),
       ),
       child: Column(
