@@ -1038,8 +1038,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: primaryColor.withOpacity(0.3),
-          width: 1.5,
+          color: primaryColor.withOpacity(0.15),
+          width: 1.0,
         ),
         boxShadow: [
           BoxShadow(
@@ -1101,8 +1101,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: primaryColor.withOpacity(0.3),
-            width: 1.5,
+            color: primaryColor.withOpacity(0.15),
+            width: 1.0,
           ),
           boxShadow: [
             BoxShadow(
