@@ -26,8 +26,8 @@ class EnhancedArticleCard extends StatelessWidget {
         color: isDark ? const Color(0xFF262626) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: theme.primaryColor,
-          width: 1,
+          color: theme.primaryColor.withOpacity(0.15),
+          width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
@@ -169,8 +169,8 @@ class EnhancedArticleCard extends StatelessWidget {
         color: theme.primaryColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: theme.primaryColor.withOpacity(0.3),
-          width: 1,
+          color: theme.primaryColor.withOpacity(0.15),
+          width: 0.8,
         ),
       ),
       child: Text(
