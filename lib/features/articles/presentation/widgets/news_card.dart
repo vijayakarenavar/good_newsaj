@@ -130,8 +130,8 @@ class NewsCard extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: Colors.grey.withOpacity(0.2),
-                  width: 1,
+                  color: Colors.grey.withOpacity(0.1),
+                  width: 0.8,
                 ),
               ),
             ),
