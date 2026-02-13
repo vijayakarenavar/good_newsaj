@@ -25,7 +25,7 @@ class ProfileCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
         ),
       ),
       child: Column(
