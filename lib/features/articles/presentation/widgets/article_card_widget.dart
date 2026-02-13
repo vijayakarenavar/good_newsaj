@@ -39,17 +39,11 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return words.take(5).join(' ') + '...';
   }
 
-  Widget _buildDefaultArticleImage(Color primary) {
+  Widget _buildDefaultArticleImage(Color primary, bool isDark) {
     final title = widget.article['title'] ?? 'No Title';
     final shortTitle = _getShortTitle(title);
     return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF10B981), Color(0xFFEC4899)],
-        ),
-      ),
+      color: primary.withOpacity(0.08),
       child: Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -59,13 +53,13 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
             style: GoogleFonts.cinzel(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: isDark ? Colors.white : primary,
               height: 1.3,
               shadows: const [
                 Shadow(
-                  color: Colors.black45,
+                  color: Colors.black26,
                   offset: Offset(0, 2),
-                  blurRadius: 6,
+                  blurRadius: 4,
                 ),
               ],
             ),
@@ -219,7 +213,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Theme.of(context).colorScheme.error,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -240,8 +234,10 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final textTheme = theme.textTheme;
+    final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final isAiRewritten = widget.article['is_ai_rewritten'] == 1 ||
@@ -257,7 +253,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 450 ? 260.0 : 230.0;
     final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
     final primaryColor = colorScheme.primary;
-    final buttonColor = primaryColor.withOpacity(0.95);
 
     // ✅ ADAPTIVE BUTTON METRICS BASED ON SCREEN WIDTH
     final buttonMetrics = _getButtonMetrics(screenWidth);
@@ -273,19 +268,18 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           memCacheHeight: 600,
           fadeInDuration: const Duration(milliseconds: 200),
           placeholder: (context, url) => Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF10B981).withOpacity(0.3), Color(0xFFEC4899).withOpacity(0.3)],
+            color: primaryColor.withOpacity(0.08),
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
               ),
             ),
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF10B981)))),
           ),
-          errorWidget: (context, url, error) => _buildDefaultArticleImage(primaryColor),
+          errorWidget: (context, url, error) => _buildDefaultArticleImage(primaryColor, isDark),
         );
       } else {
-        return _buildDefaultArticleImage(primaryColor);
+        return _buildDefaultArticleImage(primaryColor, isDark);
       }
     }
 
@@ -301,9 +295,9 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         child: Card(
           elevation: 8,
           margin: EdgeInsets.zero,
-          shadowColor: isDark ? primaryColor.withOpacity(0.4) : Colors.black.withOpacity(0.2),
+          shadowColor: isDark ? primaryColor.withOpacity(0.3) : Colors.black.withOpacity(0.15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          color: isDark ? const Color(0xFF121212) : Colors.white,
+          color: theme.cardTheme.color ?? (isDark ? const Color(0xFF121212) : Colors.white),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: Column(
@@ -318,7 +312,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   ),
                 ),
 
-                // CONTENT SECTION (NO INTERNAL SCROLLING)
+                // CONTENT SECTION
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -362,20 +356,20 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 6),
 
-                        // SOURCE + AI TAG
+                        // SOURCE + AI TAG (SOLID THEME COLORS)
                         Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? Colors.white.withOpacity(0.15)
-                                    : Colors.black.withOpacity(0.08),
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.black.withOpacity(0.06),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.2)
-                                      : Colors.black.withOpacity(0.15),
+                                      ? Colors.white.withOpacity(0.15)
+                                      : Colors.black.withOpacity(0.1),
                                   width: 1,
                                 ),
                               ),
@@ -402,29 +396,22 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
-                                      colors: [Color(0xFF10B981), Color(0xFFEC4899)],
-                                    ),
+                                    color: primaryColor.withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(10),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Color(0xFF10B981).withOpacity(0.5),
-                                        blurRadius: 6,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                                    border: Border.all(
+                                      color: primaryColor.withOpacity(0.3),
+                                      width: 1,
+                                    ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.auto_awesome, color: Colors.white, size: 11),
+                                      Icon(Icons.auto_awesome, color: primaryColor, size: 11),
                                       const SizedBox(width: 4),
                                       Text(
                                         'AI Enhanced',
                                         style: GoogleFonts.poppins(
-                                          color: Colors.white,
+                                          color: primaryColor,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 8.5,
                                           letterSpacing: 0.3,
@@ -438,7 +425,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 10),
 
-                        // ✅ SUMMARY (NO SCROLL - FIXED LINES WITH ELLIPSIS)
+                        // SUMMARY
                         Expanded(
                           child: Text(
                             summary,
@@ -455,11 +442,11 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 12),
 
-                        // ✅ PERFECTLY RESPONSIVE BUTTONS (NO NESTED SCROLLING)
+                        // ✅ RESPONSIVE BUTTONS WITH WHITE TEXT (70:30 RATIO)
                         _buildResponsiveActionButtons(
                           context: context,
                           buttonMetrics: buttonMetrics,
-                          buttonColor: buttonColor,
+                          primaryColor: primaryColor,
                           readButtonText: readButtonText,
                           isDark: isDark,
                           screenWidth: screenWidth,
@@ -476,16 +463,17 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     );
   }
 
-  // ✅ ADAPTIVE BUTTON TEXT (SHORTER ON SMALL SCREENS)
+  // ✅ ULTRA-RESPONSIVE BUTTON TEXT (5 TIERS)
   String _getButtonText(double screenWidth) {
-    if (screenWidth < 340) return 'Read';          // Ultra-small screens (320px)
-    if (screenWidth < 380) return 'Read Article';   // Small screens (360px)
-    return 'Read Full Article';                     // Medium+ screens
+    if (screenWidth < 320) return 'Read';
+    if (screenWidth < 360) return 'Read Art';
+    if (screenWidth < 400) return 'Read Article';
+    if (screenWidth < 600) return 'Read Full Article';
+    return 'Read Full Article';
   }
 
-  // ✅ ULTRA-RESPONSIVE BUTTON METRICS (4 TIERS FOR PERFECT SCALING)
+  // ✅ 5-TIER BUTTON METRICS
   _ButtonMetrics _getButtonMetrics(double screenWidth) {
-    // Tier 1: Large tablets/desktop (600px+)
     if (screenWidth >= 600) {
       return _ButtonMetrics(
         height: 48,
@@ -495,9 +483,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         spacing: 8,
         borderRadius: 16,
       );
-    }
-    // Tier 2: Medium phones (380px - 599px)
-    else if (screenWidth >= 380) {
+    } else if (screenWidth >= 400) {
       return _ButtonMetrics(
         height: 46,
         horizontalPadding: 14,
@@ -506,9 +492,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         spacing: 7,
         borderRadius: 16,
       );
-    }
-    // Tier 3: Small phones (340px - 379px)
-    else if (screenWidth >= 340) {
+    } else if (screenWidth >= 360) {
       return _ButtonMetrics(
         height: 44,
         horizontalPadding: 12,
@@ -517,34 +501,41 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         spacing: 6,
         borderRadius: 15,
       );
-    }
-    // Tier 4: Ultra-small phones (< 340px) - iPhone SE 1st gen, older Android
-    else {
+    } else if (screenWidth >= 320) {
       return _ButtonMetrics(
         height: 42,
         horizontalPadding: 10,
         iconSize: 17,
-        textSize: 12,
+        textSize: 12.5,
         spacing: 5,
+        borderRadius: 14,
+      );
+    } else {
+      return _ButtonMetrics(
+        height: 40,
+        horizontalPadding: 8,
+        iconSize: 16,
+        textSize: 12,
+        spacing: 4,
         borderRadius: 14,
       );
     }
   }
 
-  // ✅ PERFECTLY RESPONSIVE BUTTON WITH ADAPTIVE TEXT
+  // ✅ BUTTONS WITH WHITE TEXT/ICONS (EXPLICIT WHITE - MATCHING CREATE_POST_SCREEN)
   Widget _buildResponsiveActionButtons({
     required BuildContext context,
     required _ButtonMetrics buttonMetrics,
-    required Color buttonColor,
+    required Color primaryColor,
     required String readButtonText,
     required bool isDark,
     required double screenWidth,
   }) {
     return Row(
       children: [
-        // READ FULL ARTICLE BUTTON (LEFT - LARGER)
+        // READ FULL ARTICLE BUTTON (70% width - WHITE TEXT)
         Expanded(
-          flex: 6,
+          flex: 7,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -560,88 +551,13 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
               splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
               child: Ink(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Color(0xFF10B981), Color(0xFFEC4899)],
-                  ),
+                  color: primaryColor, // ✅ SOLID PRIMARY (NO GRADIENT)
                   borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
                   boxShadow: [
                     BoxShadow(
-                      color: buttonColor.withOpacity(0.5),
+                      color: primaryColor.withOpacity(0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Container(
-                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: buttonMetrics.horizontalPadding,
-                    vertical: (buttonMetrics.height - 24) / 2, // Vertical padding based on height
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.auto_stories_rounded,
-                        color: Colors.white,
-                        size: buttonMetrics.iconSize,
-                      ),
-                      SizedBox(width: buttonMetrics.spacing),
-                      Flexible(
-                        child: Text(
-                          readButtonText,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.poppins(
-                            fontSize: buttonMetrics.textSize,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            letterSpacing: 0.5,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: buttonMetrics.spacing * 0.7),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: buttonMetrics.iconSize * 0.9,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-
-        // SHARE BUTTON (RIGHT - SMALLER)
-        Expanded(
-          flex: 4,
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => widget.onShare(widget.article),
-              borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
-              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Color(0xFF10B981), Color(0xFFEC4899)],
-                  ),
-                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: buttonColor.withOpacity(0.4),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
@@ -653,19 +569,94 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     vertical: (buttonMetrics.height - 24) / 2,
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.share_rounded, color: Colors.white, size: buttonMetrics.iconSize),
+                      Icon(
+                        Icons.auto_stories_rounded,
+                        color: Colors.white, // ✅ EXPLICIT WHITE (NOT onPrimary)
+                        size: buttonMetrics.iconSize,
+                      ),
                       SizedBox(width: buttonMetrics.spacing),
-                      Text(
-                        'Share',
-                        style: GoogleFonts.poppins(
-                          fontSize: buttonMetrics.textSize,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
+                      Flexible(
+                        child: Text(
+                          readButtonText,
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(
+                            fontSize: buttonMetrics.textSize,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white, // ✅ EXPLICIT WHITE
+                            letterSpacing: 0.4,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
                         ),
                       ),
+                      SizedBox(width: buttonMetrics.spacing * 0.6),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        color: Colors.white, // ✅ EXPLICIT WHITE
+                        size: buttonMetrics.iconSize * 0.85,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+
+        // SHARE BUTTON (30% width - WHITE TEXT)
+        Expanded(
+          flex: 3,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => widget.onShare(widget.article),
+              borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: primaryColor, // ✅ SOLID PRIMARY (NO GRADIENT)
+                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+                  boxShadow: [
+                    BoxShadow(
+                      color: primaryColor.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: buttonMetrics.horizontalPadding * 0.8,
+                    vertical: (buttonMetrics.height - 24) / 2,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.share_rounded,
+                        color: Colors.white, // ✅ EXPLICIT WHITE
+                        size: buttonMetrics.iconSize * 0.95,
+                      ),
+                      if (screenWidth >= 320) ...[
+                        SizedBox(width: buttonMetrics.spacing * 0.7),
+                        Text(
+                          'Share',
+                          style: GoogleFonts.poppins(
+                            fontSize: buttonMetrics.textSize * 0.95,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white, // ✅ EXPLICIT WHITE
+                            letterSpacing: 0.4,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.fade,
+                        ),
+                      ],
                     ],
                   ),
                 ),

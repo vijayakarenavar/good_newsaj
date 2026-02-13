@@ -15,6 +15,7 @@ import 'package:good_news/features/profile/presentation/widgets/menu_list.dart';
 import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
 import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
 import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
+//import 'package:good_news/features/social/presentation/screens/comment_page.dart'; // ✅ ADDED IMPORT
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -25,6 +26,8 @@ import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+
+import '../../../social/presentation/screens/comment_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -76,9 +79,7 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animationController;
   late Animation<double> _rotationAnimation;
 
-  final Map<String, List<Map<String, dynamic>>> _postComments = {};
-  final Map<String, bool> _showCommentsMap = {};
-  final Map<String, bool> _isLoadingCommentsMap = {};
+  // ✅ REMOVED: Unused comment-related state variables
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
@@ -526,20 +527,42 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_categoryScrollController.hasClients) return;
 
-      final screenWidth = MediaQuery.of(context).size.width;
+      final categoryList = _buildCategoryList();
+      final totalCategories = categoryList.length;
+
+      // Don't scroll if there are 5 or fewer categories (all fit on screen)
+      if (totalCategories <= 5) {
+        _categoryScrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOutCubic,
+        );
+        return;
+      }
+
       final itemWidth = 80.0; // Approximate chip width
       final spacing = 16.0; // Spacing between chips
       final totalItemWidth = itemWidth + spacing;
 
-      // ✅ CRITICAL: Calculate scroll offset to CENTER the selected chip
-      // Formula: (chip position × total width) - (half screen width) + (half chip width)
-      final targetOffset = (index * totalItemWidth) - (screenWidth / 2) + (itemWidth / 2);
+      double targetOffset;
+
+      // ✅ SLIDING WINDOW LOGIC: Always show 5 categories at a time
+      // Categories are grouped in sets of 5
+      // Index 0-4: Show 0-4 (All, Cat1, Cat2, Cat3, Cat4)
+      // Index 5-9: Show 5-9 (Cat5, Cat6, Cat7, Cat8, Cat9)
+      // Index 10-14: Show 10-14, etc.
+
+      // Calculate which "window" of 5 categories we're in
+      final windowStart = (index ~/ 5) * 5;
+
+      // Scroll to show this window (starting from windowStart)
+      targetOffset = windowStart * totalItemWidth;
 
       // Clamp to valid scroll range
       final maxScroll = _categoryScrollController.position.maxScrollExtent;
       final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
-      // ✅ SMOOTH ANIMATION: Always animate to center, even if partially visible
+      // ✅ SMOOTH ANIMATION
       _categoryScrollController.animateTo(
         clampedOffset,
         duration: const Duration(milliseconds: 350),
@@ -680,7 +703,7 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ✅ FIXED: Category chips auto-scroll when swiping + always centered
+  // ✅ FIXED: Category chips auto-scroll when swiping + always show 5 at a time
   void _onHorizontalPageChanged(int pageIndex) {
     final previousPage = _previousPageIndex ?? pageIndex;
     _previousPageIndex = pageIndex;
@@ -832,87 +855,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           post['likes'] = currentLikes;
         });
       }
-    }
-  }
-
-  Future<void> _toggleCommentsForPost(String postId) async {
-    if (_showCommentsMap[postId] == true) {
-      setState(() {
-        _showCommentsMap[postId] = false;
-        _showFab = true;
-      });
-    } else {
-      setState(() => _showFab = false);
-      await _loadCommentsForPost(postId);
-    }
-  }
-
-  Future<void> _loadCommentsForPost(String postId) async {
-    if (_isLoadingCommentsMap[postId] == true) return;
-    setState(() => _isLoadingCommentsMap[postId] = true);
-    try {
-      final postIdInt = int.parse(postId);
-      final response = await SocialApiService.getComments(postIdInt);
-      if (response['status'] == 'success' && mounted) {
-        final rawComments = response['comments'] as List;
-        final formattedComments = rawComments.map((comment) {
-          final authorName = comment['display_name'] ?? 'Anonymous';
-          return {
-            'id': comment['id'],
-            'author': authorName,
-            'avatar': authorName.isNotEmpty ? authorName[0].toUpperCase() : 'A',
-            'content': comment['content'] ?? '',
-            'timestamp': _formatTimestamp(comment['created_at']),
-            'created_at': comment['created_at'],
-          };
-        }).toList();
-        setState(() {
-          _postComments[postId] = formattedComments;
-          _showCommentsMap[postId] = true;
-          _isLoadingCommentsMap[postId] = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingCommentsMap[postId] = false);
-      }
-    }
-  }
-
-  Future<void> _postCommentOnSocialPost(String postId) async {
-    final controller = _commentControllers[postId];
-    if (controller == null) return;
-    final content = controller.text.trim();
-    if (content.isEmpty) return;
-    FocusScope.of(context).unfocus();
-    try {
-      final postIdInt = int.parse(postId);
-      final response = await SocialApiService.createComment(postIdInt, content);
-      if (response['status'] == 'success' && mounted) {
-        final userDisplayName = await PreferencesService.getUserDisplayName().catchError((_) => 'Me');
-        final newComment = {
-          'id': DateTime.now().millisecondsSinceEpoch,
-          'author': userDisplayName ?? 'Me',
-          'avatar': (userDisplayName?.isNotEmpty ?? false) ? userDisplayName![0].toUpperCase() : 'M',
-          'content': content,
-          'timestamp': 'Just now',
-          'created_at': DateTime.now().toIso8601String(),
-        };
-        setState(() {
-          _postComments[postId] = [...(_postComments[postId] ?? []), newComment];
-          controller.clear();
-          _showFab = true;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Comment posted!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) setState(() => _showFab = true);
     }
   }
 
@@ -1776,19 +1718,15 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
+  // ✅ FIXED: Updated _buildSocialPost with onOpenCommentPage callback
   Widget _buildSocialPost(Map<String, dynamic> post) {
     final postId = post['id'] as String;
     _commentControllers.putIfAbsent(postId, () => TextEditingController());
     return RepaintBoundary(
       child: SocialPostCardWidget(
         post: post,
-        comments: _postComments[postId] ?? [],
-        showComments: _showCommentsMap[postId] ?? false,
-        isLoadingComments: _isLoadingCommentsMap[postId] ?? false,
         commentController: _commentControllers[postId]!,
         onToggleLike: _toggleLike,
-        onToggleComments: _toggleCommentsForPost,
-        onPostComment: _postCommentOnSocialPost,
         onShare: _shareArticle,
         onAddFriend: (post) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1799,6 +1737,18 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           );
         },
         onShowFullImage: _showFullImageDialog,
+        onOpenCommentPage: (postId, post) {
+          // ✅ Navigate to CommentPage
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CommentPage(
+                postId: postId,
+                post: post,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1810,7 +1760,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         key: key,
         post: post,
         onToggleLike: () => _toggleLike(post),
-        onToggleComments: () => _toggleCommentsForPost(post['id']),
+        onToggleComments: () {}, // No-op for videos
         onShare: () => _shareArticle(post),
       ),
     );
