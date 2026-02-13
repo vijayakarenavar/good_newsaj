@@ -513,12 +513,13 @@ class _HomeScreenState extends State<HomeScreen>
     final index = categoryList.indexWhere((cat) => cat['id'] == categoryId);
     if (index != -1) {
       final targetPage = 1 + index;
-      _horizontalPageController.animateToPage(
-        targetPage,
-        duration: Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      // Use jumpToPage for immediate response instead of animateToPage
+      _horizontalPageController.jumpToPage(targetPage);
       _scrollCategoryChipsToIndex(index);
+    } else if (categoryId == null) {
+      // For "All" category (null), go to page 1
+      _horizontalPageController.jumpToPage(1);
+      _scrollCategoryChipsToIndex(0); // Assuming "All" is at index 0
     }
   }
 
@@ -740,9 +741,15 @@ class _HomeScreenState extends State<HomeScreen>
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
 
-      // ✅ CRITICAL FIX: Increased delay to 250ms for proper synchronization
-      // Ensures horizontal page animation fully completes before scrolling chips
-      Future.delayed(const Duration(milliseconds: 250), () {
+      // ✅ CRITICAL FIX: Update category selection immediately to sync UI
+      if (newCategoryId != _selectedCategoryId) {
+        setState(() {
+          _selectedCategoryId = newCategoryId;
+        });
+      }
+      
+      // Scroll category chips immediately without delay for better sync
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && _categoryScrollController.hasClients) {
           _scrollCategoryChipsToIndex(categoryIndex);
         }
@@ -761,13 +768,14 @@ class _HomeScreenState extends State<HomeScreen>
       newCategoryId = null;
     }
 
+    // Always update the selected state when page changes to ensure sync
     if (newTabIndex != _selectedTabIndex || newCategoryId != _selectedCategoryId) {
       setState(() {
         _selectedTabIndex = newTabIndex;
         _selectedCategoryId = newCategoryId;
       });
-      _updateDisplayedItems();
     }
+    _updateDisplayedItems();
 
     if (_displayedItems.isNotEmpty && mounted) {
       _preloadImages(_displayedItems, 0);
