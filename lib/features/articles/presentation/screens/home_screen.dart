@@ -1626,7 +1626,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               final isDark = Theme.of(context).brightness == Brightness.dark;
               final primaryColor = Theme.of(context).colorScheme.primary;
               return Padding(
-                padding: const EdgeInsets.only(right: 16),
+                padding: EdgeInsets.only(right: MediaQuery.of(context).size.width * 0.04), // Responsive padding based on screen width
                 child: GestureDetector(
                   onTap: () {
                     _selectCategory(category['id']);
@@ -1642,7 +1642,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                               ? primaryColor
                               : isDark ? Colors.white60 : Colors.grey[600],
                           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          fontSize: isSelected ? 15 : 13,
+                          fontSize: isSelected 
+                              ? MediaQuery.of(context).size.width * 0.04  // Responsive font size
+                              : MediaQuery.of(context).size.width * 0.035, // Responsive font size
                         ),
                       ),
                       if (isSelected)
@@ -1650,7 +1652,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                           padding: const EdgeInsets.only(top: 4),
                           child: Container(
                             height: 2.5,
-                            width: 30,
+                            width: MediaQuery.of(context).size.width * 0.15, // Responsive width based on screen size
                             decoration: BoxDecoration(
                               color: primaryColor,
                               borderRadius: BorderRadius.circular(1.5),
