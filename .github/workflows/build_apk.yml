@@ -1,0 +1,115 @@
+name: Build APK with Branch Details
+
+on:
+  push:
+    branches: [ main, other_features ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.41.0'
+        channel: 'stable'
+
+    - name: Get Flutter dependencies
+      run: flutter pub get
+
+    - name: Analyze code
+      run: flutter analyze
+
+    - name: Run tests
+      run: flutter test
+
+    - name: Get branch name
+      id: branch
+      run: |
+        echo "branch_name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "version=$(grep '^version:' pubspec.yaml | cut -d ' ' -f 2)" >> $GITHUB_OUTPUT
+
+    - name: Build APK
+      run: |
+        # Get current branch name
+        BRANCH_NAME="${{ steps.branch.outputs.branch_name }}"
+        COMMIT_HASH="${{ steps.branch.outputs.commit_hash }}"
+        VERSION="${{ steps.branch.outputs.version }}"
+        
+        # Create build version with branch and commit info
+        BUILD_VERSION="${VERSION}-${BRANCH_NAME}-${COMMIT_HASH}"
+        
+        echo "Building APK for branch: $BRANCH_NAME"
+        echo "Build version: $BUILD_VERSION"
+        
+        # Build the APK with debug symbols
+        flutter build apk --debug \
+          --dart-define=APP_BRANCH="$BRANCH_NAME" \
+          --dart-define=APP_COMMIT="$COMMIT_HASH" \
+          --dart-define=APP_VERSION="$BUILD_VERSION"
+
+    - name: Prepare APK for upload
+      run: |
+        # Rename APK to include branch and version info
+        BRANCH_NAME="${{ steps.branch.outputs.branch_name }}"
+        COMMIT_HASH="${{ steps.branch.outputs.commit_hash }}"
+        VERSION="${{ steps.branch.outputs.version }}"
+        
+        mv build/app/outputs/flutter-apk/app-debug.apk "joy_scroll-${VERSION}-${BRANCH_NAME}-${COMMIT_HASH}.apk"
+        
+        # Create build info file
+        cat > build_info.txt << EOF
+Build Information:
+Branch: $BRANCH_NAME
+Commit: $COMMIT_HASH
+Version: $VERSION
+Build Date: $(date)
+Environment: GitHub Actions
+Platform: Android
+Build Type: Debug
+EOF
+
+    - name: Upload APK as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: joy-scroll-apk-${{ steps.branch.outputs.branch_name }}-${{ steps.branch.outputs.commit_hash }}
+        path: |
+          *.apk
+          build_info.txt
+        retention-days: 30
+
+    - name: Create Release (for tagged commits)
+      if: startsWith(github.ref, 'refs/tags/')
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./joy_scroll-${{ steps.branch.outputs.version }}-${{ steps.branch.outputs.branch_name }}-${{ steps.branch.outputs.commit_hash }}.apk
+        asset_name: joy_scroll-${{ steps.branch.outputs.version }}-${{ steps.branch.outputs.branch_name }}-${{ steps.branch.outputs.commit_hash }}.apk
+        asset_content_type: application/vnd.android.package-archive
