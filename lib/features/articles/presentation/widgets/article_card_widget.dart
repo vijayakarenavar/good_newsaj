@@ -6,6 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'dart:async';
+import '../screens/article_detail_screen.dart'; // ✅ NEW IMPORT
 
 class ArticleCardWidget extends StatefulWidget {
   final Map<String, dynamic> article;
@@ -175,36 +176,20 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return months[month] ?? 1;
   }
 
-  Future<void> _openInAppBrowser(BuildContext context) async {
-    final rawUrl = widget.article['source_url'] ?? '';
-    String url = rawUrl.toString().trim();
-
-    if (url.isEmpty || url.toLowerCase() == 'null' || url == 'undefined' || url == 'none') {
-      _showErrorSnackBar(context, 'No source URL available.');
-      return;
+  // ✅ UPDATED: Navigate to Article Detail Screen instead of opening browser
+  void _navigateToArticleDetail(BuildContext context) {
+    if (!_hasTrackedRead) {
+      setState(() => _hasTrackedRead = true);
+      widget.onTrackRead(widget.article);
+      debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
     }
 
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
-    }
-
-    Uri? uri;
-    try {
-      uri = Uri.parse(url);
-    } catch (e) {
-      _showErrorSnackBar(context, 'Invalid article link.');
-      return;
-    }
-
-    try {
-      if (await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        _showErrorSnackBar(context, 'Cannot open this link.');
-      }
-    } catch (e) {
-      _showErrorSnackBar(context, 'Failed to open article.');
-    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ArticleDetailScreen(article: widget.article),
+      ),
+    );
   }
 
   void _showErrorSnackBar(BuildContext context, String message) {
@@ -534,19 +519,13 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return Row(
       children: [
         // READ FULL ARTICLE BUTTON (70% width - WHITE TEXT)
+        // ✅ UPDATED: Now navigates to detail page
         Expanded(
           flex: 7,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () {
-                if (!_hasTrackedRead) {
-                  setState(() => _hasTrackedRead = true);
-                  widget.onTrackRead(widget.article);
-                  debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
-                }
-                _openInAppBrowser(context);
-              },
+              onTap: () => _navigateToArticleDetail(context), // ✅ CHANGED
               borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
               splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
               child: Ink(

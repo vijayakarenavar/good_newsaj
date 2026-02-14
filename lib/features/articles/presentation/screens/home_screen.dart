@@ -11,11 +11,9 @@ import 'package:good_news/features/profile/presentation/screens/my_posts_screen.
 import 'package:good_news/features/profile/presentation/screens/reading_history_screen.dart';
 import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
 import 'package:good_news/features/profile/presentation/widgets/quick_actions.dart';
-import 'package:good_news/features/profile/presentation/widgets/menu_list.dart';
 import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
 import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
 import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
-//import 'package:good_news/features/social/presentation/screens/comment_page.dart'; // ✅ ADDED IMPORT
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -55,20 +53,15 @@ class _HomeScreenState extends State<HomeScreen>
   int _currentIndex = 0;
   bool _isSpeedDialOpen = false;
 
-  // 👇 TAB MANAGEMENT (0=Video, 1=News, 2=Social, 3=Profile)
   int _selectedTabIndex = 1;
-
-  // 👇 NEWS TAB: Category filtering
   int? _selectedCategoryId;
   List<int> _selectedCategoryIds = [];
 
-  // 👇 HORIZONTAL PAGE NAVIGATION
   late PageController _horizontalPageController;
   DateTime? _lastTabTapTime;
   int? _lastTappedTabIndex;
   late ScrollController _categoryScrollController;
 
-  // ✅ CRITICAL: Track previous page for swipe detection
   int? _previousPageIndex;
 
   static const int LOAD_MORE_THRESHOLD = 3;
@@ -79,13 +72,11 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _animationController;
   late Animation<double> _rotationAnimation;
 
-  // ✅ REMOVED: Unused comment-related state variables
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
   DateTime? _loadingStartTime;
 
-  // 👇 Profile state management
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
   bool _isProfileLoading = true;
@@ -205,7 +196,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // 👇 PROFILE DATA LOADING
   Future<void> _loadProfileData() async {
     setState(() => _isProfileLoading = true);
     try {
@@ -504,7 +494,6 @@ class _HomeScreenState extends State<HomeScreen>
       _preloadImages(_displayedItems, 0);
     }
 
-    // ✅ CRITICAL: Navigate to category page AND scroll chip to center
     _scrollToCategoryPage(categoryId);
   }
 
@@ -523,14 +512,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _scrollCategoryChipsToIndex(int index) {
-    // ✅ Immediate execution without delay for better responsiveness
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_categoryScrollController.hasClients) return;
 
       final categoryList = _buildCategoryList();
       final totalCategories = categoryList.length;
 
-      // Don't scroll if there are 5 or fewer categories (all fit on screen)
       if (totalCategories <= 5) {
         _categoryScrollController.animateTo(
           0.0,
@@ -540,29 +527,18 @@ class _HomeScreenState extends State<HomeScreen>
         return;
       }
 
-      final itemWidth = 80.0; // Approximate chip width
-      final spacing = 16.0; // Spacing between chips
+      final itemWidth = 80.0;
+      final spacing = 16.0;
       final totalItemWidth = itemWidth + spacing;
 
       double targetOffset;
 
-      // ✅ SLIDING WINDOW LOGIC: Always show 5 categories at a time
-      // Categories are grouped in sets of 5
-      // Index 0-4: Show 0-4 (All, Cat1, Cat2, Cat3, Cat4)
-      // Index 5-9: Show 5-9 (Cat5, Cat6, Cat7, Cat8, Cat9)
-      // Index 10-14: Show 10-14, etc.
-
-      // Calculate which "window" of 5 categories we're in
       final windowStart = (index ~/ 5) * 5;
-
-      // Scroll to show this window (starting from windowStart)
       targetOffset = windowStart * totalItemWidth;
 
-      // Clamp to valid scroll range
       final maxScroll = _categoryScrollController.position.maxScrollExtent;
       final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
-      // ✅ SMOOTH ANIMATION
       _categoryScrollController.animateTo(
         clampedOffset,
         duration: const Duration(milliseconds: 350),
@@ -588,14 +564,12 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
-  // ✅ FIXED: Video tab navigation now works from ANY tab
   void _onTabChanged(int index) {
     final now = DateTime.now();
     final wasDoubleTap = _lastTappedTabIndex == index &&
         _lastTabTapTime != null &&
         now.difference(_lastTabTapTime!) < Duration(milliseconds: 300);
 
-    // Double tap: refresh the specific tab
     if (wasDoubleTap) {
       _handleTabSpecificRefresh(index);
       return;
@@ -608,18 +582,16 @@ class _HomeScreenState extends State<HomeScreen>
     final totalNewsPages = categoryList.length;
     int targetPage;
 
-    // ✅ CRITICAL FIX: Calculate target page BEFORE state update
     if (index == 0) {
-      targetPage = 0; // Video tab → Page 0
+      targetPage = 0;
     } else if (index == 1) {
-      targetPage = 1; // News tab → Page 1 (All category)
+      targetPage = 1;
     } else if (index == 2) {
-      targetPage = totalNewsPages + 1; // Social tab
+      targetPage = totalNewsPages + 1;
     } else {
-      targetPage = totalNewsPages + 2; // Profile tab
+      targetPage = totalNewsPages + 2;
     }
 
-    // Update tab state AFTER calculating target page
     if (_selectedTabIndex != index) {
       setState(() {
         _selectedTabIndex = index;
@@ -628,7 +600,6 @@ class _HomeScreenState extends State<HomeScreen>
       _updateDisplayedItems();
     }
 
-    // Force page navigation - use jumpToPage for immediate response
     if (_horizontalPageController.hasClients) {
       _horizontalPageController.jumpToPage(targetPage);
     }
@@ -703,7 +674,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ✅ FIXED: Category chips auto-scroll when swiping + always show 5 at a time
   void _onHorizontalPageChanged(int pageIndex) {
     final previousPage = _previousPageIndex ?? pageIndex;
     _previousPageIndex = pageIndex;
@@ -713,7 +683,6 @@ class _HomeScreenState extends State<HomeScreen>
     final socialPageIndex = totalNewsPages + 1;
     final profilePageIndex = totalNewsPages + 2;
 
-    // When swiping LEFT from Social tab → News tab, force "All" category
     if (previousPage == socialPageIndex &&
         pageIndex >= 1 &&
         pageIndex <= totalNewsPages &&
@@ -722,7 +691,6 @@ class _HomeScreenState extends State<HomeScreen>
         if (mounted && _horizontalPageController.hasClients) {
           _horizontalPageController.jumpToPage(1);
           _previousPageIndex = 1;
-          // ✅ Scroll to "All" category (index 0)
           _scrollCategoryChipsToIndex(0);
         }
       });
@@ -740,8 +708,6 @@ class _HomeScreenState extends State<HomeScreen>
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
 
-      // ✅ CRITICAL FIX: Increased delay to 250ms for proper synchronization
-      // Ensures horizontal page animation fully completes before scrolling chips
       Future.delayed(const Duration(milliseconds: 250), () {
         if (mounted && _categoryScrollController.hasClients) {
           _scrollCategoryChipsToIndex(categoryIndex);
@@ -773,7 +739,6 @@ class _HomeScreenState extends State<HomeScreen>
       _preloadImages(_displayedItems, 0);
     }
 
-    // Auto-play first video when Video tab becomes visible
     if (pageIndex == 0 && _videoPosts.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 300), () {
         if (mounted) {
@@ -960,7 +925,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     return categoryList;
   }
 
-  // PROFILE UI BUILDERS
+  // ✅ PROFILE UI BUILDERS - RESPONSIVE + SOFT SHADOWS
   Future<void> _editProfile() async {
     if (_userProfile == null) return;
     final result = await Navigator.of(context).push(
@@ -1028,24 +993,35 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
+  // ✅ UPDATED: Soft shadows and reduced borders for all cards
   Widget _buildSectionCard(BuildContext context, {required Widget child}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 12),
+      margin: EdgeInsets.symmetric(
+        vertical: 12,
+        horizontal: isSmallScreen ? 16 : 24,
+      ),
+      constraints: const BoxConstraints(maxWidth: 600),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: primaryColor.withOpacity(0.3),
-          width: 1.5,
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.04),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withOpacity(0.25) : Colors.grey.withOpacity(0.12),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -1053,10 +1029,14 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
+  // ✅ UPDATED: Soft shadows for Articles Read Card
   Widget _buildArticlesReadCard() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return GestureDetector(
       onTap: () async {
         try {
@@ -1096,26 +1076,35 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 24),
+        constraints: const BoxConstraints(maxWidth: 600),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSmallScreen ? 16 : 20,
+          vertical: isSmallScreen ? 16 : 18,
+        ),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: primaryColor.withOpacity(0.3),
-            width: 1.5,
+            color: isDark
+                ? Colors.white.withOpacity(0.06)
+                : Colors.black.withOpacity(0.04),
+            width: 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: isDark ? Colors.black.withOpacity(0.25) : Colors.grey.withOpacity(0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
+              color: isDark
+                  ? Colors.black.withOpacity(0.2)
+                  : Colors.black.withOpacity(0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(14),
+              padding: EdgeInsets.all(isSmallScreen ? 12 : 14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
@@ -1130,10 +1119,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               child: Icon(
                 Icons.article_outlined,
                 color: primaryColor,
-                size: 28,
+                size: isSmallScreen ? 24 : 28,
               ),
             ),
-            const SizedBox(width: 18),
+            SizedBox(width: isSmallScreen ? 14 : 18),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1143,14 +1132,16 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: (isDark ? Colors.white : theme.colorScheme.onSurface).withOpacity(0.85),
                       fontWeight: FontWeight.w500,
+                      fontSize: isSmallScreen ? 14 : 16,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: isSmallScreen ? 4 : 6),
                   Text(
                     '$_articlesReadCount',
                     style: theme.textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: primaryColor,
+                      fontSize: isSmallScreen ? 28 : 32,
                     ),
                   ),
                 ],
@@ -1158,7 +1149,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             ),
             Icon(
               Icons.arrow_forward_ios,
-              size: 18,
+              size: isSmallScreen ? 16 : 18,
               color: primaryColor.withOpacity(0.8),
             ),
           ],
@@ -1167,10 +1158,184 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
+  // ✅ UPDATED: Menu List Builder with soft shadows
+  Widget _buildMenuList(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 24),
+      constraints: const BoxConstraints(maxWidth: 600),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.04),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withOpacity(0.2)
+                : Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildMenuItem(
+            context,
+            title: 'Reading History',
+            icon: Icons.history,
+            onTap: () async {
+              try {
+                final result = await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const ReadingHistoryScreen(),
+                  ),
+                );
+                if (result != null &&
+                    result is Map &&
+                    result['action'] == 'read_article' &&
+                    mounted) {
+                  _horizontalPageController.animateToPage(
+                    1,
+                    duration: Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                  );
+                  setState(() {
+                    _selectedTabIndex = 1;
+                    _selectedCategoryId = null;
+                  });
+                  Future.delayed(Duration(milliseconds: 400), () {
+                    if (mounted) {
+                      _navigateToArticle(result['article_id']);
+                    }
+                  });
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Could not open Reading History'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            isFirst: true,
+          ),
+          _buildDivider(isDark),
+          _buildMenuItem(
+            context,
+            title: 'Settings',
+            icon: Icons.settings_outlined,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => const SettingsScreen(),
+              ),
+            ),
+          ),
+          _buildDivider(isDark),
+          _buildMenuItem(
+            context,
+            title: 'Blocked Users',
+            icon: Icons.block,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const BlockedUsersScreen(),
+                ),
+              );
+            },
+          ),
+          _buildDivider(isDark),
+          _buildMenuItem(
+            context,
+            title: 'About',
+            icon: Icons.info_outline,
+            onTap: () => _showAboutDialog(context),
+            isLast: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(
+      BuildContext context, {
+        required String title,
+        required IconData icon,
+        required VoidCallback onTap,
+        bool isFirst = false,
+        bool isLast = false,
+      }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.vertical(
+          top: isFirst ? const Radius.circular(16) : Radius.zero,
+          bottom: isLast ? const Radius.circular(16) : Radius.zero,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isDark ? Colors.white70 : Colors.black87,
+                size: 24,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: isDark ? Colors.white38 : Colors.black38,
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: 1,
+      color: isDark
+          ? Colors.white.withOpacity(0.06)
+          : Colors.black.withOpacity(0.04),
+    );
+  }
+
+  // ✅ UPDATED: Responsive Profile Page
   Widget _buildProfilePage() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
 
     if (_isProfileLoading) {
       return Center(
@@ -1183,7 +1348,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               'Loading profile...',
               style: TextStyle(
                 color: isDark ? Colors.white70 : Colors.grey[600],
-                fontSize: 16,
+                fontSize: isSmallScreen ? 14 : 16,
               ),
             ),
           ],
@@ -1193,79 +1358,87 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
 
     final displayName = _userProfile?['display_name'] ?? 'Good News Reader';
     final email = _userProfile?['email'] ?? 'No email available';
+
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  alignment: Alignment.bottomRight,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Padding(
+                padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundColor: primaryColor.withOpacity(0.15),
-                      child: Text(
-                        displayName[0].toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 40,
-                          color: primaryColor,
-                          fontWeight: FontWeight.bold,
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: isSmallScreen ? 50 : 60,
+                          backgroundColor: primaryColor.withOpacity(0.15),
+                          child: Text(
+                            displayName[0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: isSmallScreen ? 32 : 40,
+                              color: primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: GestureDetector(
+                            onTap: _editProfile,
+                            child: Container(
+                              padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                              decoration: BoxDecoration(
+                                color: primaryColor,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.edit,
+                                size: isSmallScreen ? 16 : 18,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: GestureDetector(
-                        onTap: _editProfile,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: primaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.edit,
-                            size: 18,
-                            color: Colors.white,
-                          ),
-                        ),
+                    SizedBox(height: isSmallScreen ? 16 : 20),
+                    Text(
+                      displayName,
+                      style: theme.textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                        fontSize: isSmallScreen ? 20 : 24,
                       ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.75),
+                        fontSize: isSmallScreen ? 13 : 14,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  displayName,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  email,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.75),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+              ),
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+        SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
         SliverToBoxAdapter(
           child: _isStatsLoading
               ? Center(child: CircularProgressIndicator(color: primaryColor))
               : _buildArticlesReadCard(),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+        SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
         SliverToBoxAdapter(
           child: _buildSectionCard(
             context,
@@ -1279,7 +1452,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+        SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
         SliverToBoxAdapter(
           child: _buildSectionCard(
             context,
@@ -1290,80 +1463,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+        SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
         SliverToBoxAdapter(
-          child: MenuList(
-            items: [
-              MenuItem(
-                title: 'Reading History',
-                icon: Icons.history,
-                onTap: () async {
-                  try {
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ReadingHistoryScreen(),
-                      ),
-                    );
-                    if (result != null &&
-                        result is Map &&
-                        result['action'] == 'read_article' &&
-                        mounted) {
-                      _horizontalPageController.animateToPage(
-                        1,
-                        duration: Duration(milliseconds: 300),
-                        curve: Curves.easeInOut,
-                      );
-                      setState(() {
-                        _selectedTabIndex = 1;
-                        _selectedCategoryId = null;
-                      });
-                      Future.delayed(Duration(milliseconds: 400), () {
-                        if (mounted) {
-                          _navigateToArticle(result['article_id']);
-                        }
-                      });
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Could not open Reading History'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                },
-              ),
-              MenuItem(
-                title: 'Settings',
-                icon: Icons.settings_outlined,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                ),
-              ),
-              MenuItem(
-                title: 'Blocked Users',
-                icon: Icons.block,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const BlockedUsersScreen(),
-                    ),
-                  );
-                },
-              ),
-              MenuItem(
-                title: 'About',
-                icon: Icons.info_outline,
-                onTap: () => _showAboutDialog(context),
-              ),
-            ],
-          ),
+          child: _buildMenuList(context),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 40)),
+        SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 30 : 40)),
       ],
     );
   }
@@ -1718,7 +1822,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // ✅ FIXED: Updated _buildSocialPost with onOpenCommentPage callback
   Widget _buildSocialPost(Map<String, dynamic> post) {
     final postId = post['id'] as String;
     _commentControllers.putIfAbsent(postId, () => TextEditingController());
@@ -1738,7 +1841,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         },
         onShowFullImage: _showFullImageDialog,
         onOpenCommentPage: (postId, post) {
-          // ✅ Navigate to CommentPage
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -1760,7 +1862,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         key: key,
         post: post,
         onToggleLike: () => _toggleLike(post),
-        onToggleComments: () {}, // No-op for videos
+        onToggleComments: () {},
         onShare: () => _shareArticle(post),
       ),
     );
@@ -2215,3 +2317,268 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
     }
   }
 }
+
+// ==================== INLINE WIDGETS ====================
+// QuickActionsWidget - Inline implementation with soft borders
+class QuickActionsWidget extends StatelessWidget {
+  final VoidCallback onMyPostsTap;
+  final VoidCallback onFriendRequestsTap;
+  final VoidCallback onSettingsTap;
+  final int friendRequestsCount;
+
+  const QuickActionsWidget({
+    Key? key,
+    required this.onMyPostsTap,
+    required this.onFriendRequestsTap,
+    required this.onSettingsTap,
+    this.friendRequestsCount = 0,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick Actions',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  context,
+                  icon: Icons.article_outlined,
+                  label: 'My Posts',
+                  onTap: onMyPostsTap,
+                  isDark: isDark,
+                  primaryColor: primaryColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  context,
+                  icon: Icons.person_add_outlined,
+                  label: 'Friend\nRequests',
+                  onTap: onFriendRequestsTap,
+                  isDark: isDark,
+                  primaryColor: primaryColor,
+                  badge: friendRequestsCount > 0 ? friendRequestsCount : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildActionButton(
+                  context,
+                  icon: Icons.settings_outlined,
+                  label: 'Settings',
+                  onTap: onSettingsTap,
+                  isDark: isDark,
+                  primaryColor: primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+      BuildContext context, {
+        required IconData icon,
+        required String label,
+        required VoidCallback onTap,
+        required bool isDark,
+        required Color primaryColor,
+        int? badge,
+      }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withOpacity(0.03)
+                : Colors.black.withOpacity(0.02),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.06)  // ✅ SOFT BORDER!
+                  : Colors.black.withOpacity(0.04),  // ✅ SOFT BORDER!
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    size: 28,
+                    color: primaryColor,
+                  ),
+                  if (badge != null && badge > 0)
+                    Positioned(
+                      right: -6,
+                      top: -6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Center(
+                          child: Text(
+                            badge > 9 ? '9+' : '$badge',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white : Colors.black87,
+                  height: 1.2,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// FriendsSectionWidget - Inline implementation with consistent styling
+// class FriendsSectionWidget extends StatelessWidget {
+//   final List<Map<String, dynamic>> friends;
+//   final bool isLoading;
+//   final VoidCallback onFriendsUpdated;
+//
+//   const FriendsSectionWidget({
+//     Key? key,
+//     required this.friends,
+//     required this.isLoading,
+//     required this.onFriendsUpdated,
+//   }) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final theme = Theme.of(context);
+//     final isDark = theme.brightness == Brightness.dark;
+//     final primaryColor = Colors.green; // Image jasa green color
+//
+//     if (isLoading) {
+//       return Padding(
+//         padding: const EdgeInsets.all(24.0),
+//         child: Center(
+//           child: CircularProgressIndicator(
+//             color: primaryColor,
+//             strokeWidth: 2,
+//           ),
+//         ),
+//       );
+//     }
+//
+//     return Container(
+//       margin: const EdgeInsets.all(16),
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: isDark ? Colors.black : Colors.white,
+//         borderRadius: BorderRadius.circular(20),
+//         border: Border.all(color: Colors.grey.shade800, width: 1),
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           /// Title
+//           Text(
+//             'Friends (${friends.length})',
+//             style: TextStyle(
+//               fontSize: 18,
+//               fontWeight: FontWeight.bold,
+//               color: isDark ? Colors.white : Colors.black,
+//             ),
+//           ),
+//
+//           const SizedBox(height: 20),
+//
+//           /// Friends List Horizontal
+//           SizedBox(
+//             height: 120,
+//             child: ListView.separated(
+//               scrollDirection: Axis.horizontal,
+//               itemCount: friends.length,
+//               separatorBuilder: (_, __) => const SizedBox(width: 20),
+//               itemBuilder: (context, index) {
+//                 final friend = friends[index];
+//                 final name = friend['username'] ?? "";
+//
+//                 return Column(
+//                   children: [
+//                     CircleAvatar(
+//                       radius: 32,
+//                       backgroundColor: Colors.green.shade900,
+//                       child: Text(
+//                         name.isNotEmpty ? name[0].toUpperCase() : "",
+//                         style: const TextStyle(
+//                           color: Colors.lightGreen,
+//                           fontSize: 22,
+//                           fontWeight: FontWeight.bold,
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(height: 10),
+//                     Text(
+//                       name,
+//                       style: TextStyle(
+//                         color: isDark ? Colors.white : Colors.black,
+//                         fontSize: 14,
+//                       ),
+//                       overflow: TextOverflow.ellipsis,
+//                     ),
+//                   ],
+//                 );
+//               },
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
