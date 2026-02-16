@@ -4,7 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
 
-/// 📸 INSTAGRAM STYLE - With all original features
+/// 📸 INSTAGRAM STYLE - Final Perfect Version
 class SocialPostCardWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final TextEditingController commentController;
@@ -192,29 +192,36 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     final postId = widget.post['id'] as String;
     final imageUrl = widget.post['image_url'];
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Responsive values
+    final isTablet = screenWidth > 600;
+    final cardMargin = isTablet ? 16.0 : 0.0;
+    final borderRadius = isTablet ? 12.0 : 8.0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.symmetric(
+        horizontal: cardMargin,
+        vertical: isTablet ? 8.0 : 0.0,
+      ),
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         border: Border.all(
           color: isDark ? Color(0xFF262626) : Color(0xFFDBDBDB),
           width: 1,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // Only take needed space
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInstagramHeader(context),
           if (imageUrl != null && imageUrl.toString().isNotEmpty)
             _buildInstagramImage(context, imageUrl),
           _buildInstagramActions(context, postId),
-          _buildInstagramLikes(context),
           _buildInstagramCaption(context),
-          _buildInstagramViewComments(context, postId),
           _buildInstagramTimestamp(context),
-          _buildInstagramAddComment(context),
         ],
       ),
     );
@@ -224,42 +231,28 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   Widget _buildInstagramHeader(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final themeColor = Theme.of(context).colorScheme.primary;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Responsive values
+    final isTablet = screenWidth > 600;
+    final headerPadding = isTablet ? 12.0 : 8.0;
+    final avatarRadius = isTablet ? 22.0 : 20.0;
+    final usernameFontSize = isTablet ? 16.0 : 15.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: EdgeInsets.all(headerPadding),
       child: Row(
         children: [
-          // Story Ring + Avatar
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  themeColor,
-                  themeColor.withOpacity(0.7),
-                ],
-              ),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isDark ? Colors.black : Colors.white,
-              ),
-              child: CircleAvatar(
-                radius: 16,
-                backgroundColor: themeColor,
-                child: Text(
-                  widget.post['avatar'],
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
+          // Avatar (No Story Ring)
+          CircleAvatar(
+            radius: avatarRadius,
+            backgroundColor: themeColor,
+            child: Text(
+              widget.post['avatar'],
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: avatarRadius * 0.9,
               ),
             ),
           ),
@@ -274,13 +267,13 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   widget.post['author'],
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: 14,
+                    fontSize: usernameFontSize,
                     color: isDark ? Colors.white : Color(0xFF262626),
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  '📍 Article',
+                  _formatTimestamp(widget.post['created_at']),
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
@@ -290,13 +283,36 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             ),
           ),
 
-          // More Button
-          IconButton(
-            icon: Icon(
-              Icons.more_horiz,
-              color: isDark ? Colors.white : Color(0xFF262626),
+          // Social Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: themeColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: themeColor.withOpacity(0.3),
+                width: 1,
+              ),
             ),
-            onPressed: () {},
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.people,
+                  size: 13,
+                  color: themeColor,
+                ),
+                const SizedBox(width: 5),
+                Text(
+                  'Social',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: themeColor,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -309,102 +325,159 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
 
     return GestureDetector(
       onTap: () => _showFullImageWithContent(context, imageUrl.toString()),
-      child: CachedNetworkImage(
-        imageUrl: imageUrl.toString(),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: 400,
-        memCacheWidth: 800,
-        memCacheHeight: 900,
-        placeholder: (context, url) => Container(
-          height: 400,
-          color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
-          child: Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-              strokeWidth: 2,
+      child: AspectRatio(
+        aspectRatio: 1.0, // Square image like Instagram
+        child: CachedNetworkImage(
+          imageUrl: imageUrl.toString(),
+          fit: BoxFit.cover,
+          width: double.infinity,
+          memCacheWidth: 800,
+          memCacheHeight: 800,
+          placeholder: (context, url) => Container(
+            color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+                strokeWidth: 2,
+              ),
             ),
           ),
-        ),
-        errorWidget: (context, url, error) => Container(
-          height: 400,
-          color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.broken_image_rounded,
-                size: 48,
-                color: isDark ? Color(0xFF737373) : Color(0xFF8E8E8E),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Failed to load image',
-                style: TextStyle(
+          errorWidget: (context, url, error) => Container(
+            color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.broken_image_rounded,
+                  size: 48,
                   color: isDark ? Color(0xFF737373) : Color(0xFF8E8E8E),
-                  fontSize: 14,
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Failed to load image',
+                  style: TextStyle(
+                    color: isDark ? Color(0xFF737373) : Color(0xFF8E8E8E),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 🎬 Instagram Actions (Like, Comment, Share, Save)
+  /// 🎬 Instagram Actions - Fixed icon positions with counts below
   Widget _buildInstagramActions(BuildContext context, String postId) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final iconColor = isDark ? Colors.white : Color(0xFF262626);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final likes = widget.post['likes'] ?? 0;
+    final comments = widget.post['comments'] ?? 0;
+
+    // Responsive values
+    final isTablet = screenWidth > 600;
+    final actionPadding = isTablet ? 12.0 : 8.0;
+    final iconSize = isTablet ? 28.0 : 26.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: EdgeInsets.fromLTRB(actionPadding, 4, actionPadding, 0),
       child: Row(
         children: [
-          // Like Button
-          IconButton(
-            icon: Icon(
-              widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
-              color: widget.post['isLiked'] ? Colors.red : iconColor,
-              size: 26,
-            ),
-            onPressed: () => widget.onToggleLike(widget.post),
+          // Like Button with count below (fixed position)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
+                  color: widget.post['isLiked'] ? Colors.red : iconColor,
+                  size: iconSize,
+                ),
+                onPressed: () => widget.onToggleLike(widget.post),
+                padding: EdgeInsets.all(8),
+                constraints: BoxConstraints(),
+              ),
+              SizedBox(
+                height: 14,
+                child: likes > 0
+                    ? Text(
+                  '$likes',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+                  ),
+                )
+                    : SizedBox.shrink(),
+              ),
+            ],
           ),
 
-          // Comment Button
-          IconButton(
-            icon: Icon(
-              Icons.mode_comment_outlined,
-              color: iconColor,
-              size: 26,
-            ),
-            onPressed: () => widget.onOpenCommentPage(postId, widget.post),
+          const SizedBox(width: 4),
+
+          // Comment Button with count below (fixed position)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.mode_comment_outlined,
+                  color: iconColor,
+                  size: iconSize,
+                ),
+                onPressed: () => widget.onOpenCommentPage(postId, widget.post),
+                padding: EdgeInsets.all(8),
+                constraints: BoxConstraints(),
+              ),
+              SizedBox(
+                height: 14,
+                child: comments > 0
+                    ? Text(
+                  '$comments',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+                  ),
+                )
+                    : SizedBox.shrink(),
+              ),
+            ],
           ),
 
-          // Share Button
-          IconButton(
-            icon: Icon(
-              Icons.send_outlined,
-              color: iconColor,
-              size: 26,
-            ),
-            onPressed: () => widget.onShare(widget.post),
+          const SizedBox(width: 4),
+
+          // Share Button (fixed position)
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.send_outlined,
+                  color: iconColor,
+                  size: iconSize,
+                ),
+                onPressed: () => widget.onShare(widget.post),
+                padding: EdgeInsets.all(8),
+                constraints: BoxConstraints(),
+              ),
+              SizedBox(height: 14), // Empty space to match other icons
+            ],
           ),
 
           const Spacer(),
 
-          // Add Friend Button (if available)
+          // Add Friend Button
           if (widget.onAddFriend != null)
             _isSendingRequest
-                ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Theme.of(context).colorScheme.primary,
               ),
             )
                 : TextButton(
@@ -413,15 +486,17 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                 backgroundColor: _requestSent
                     ? (isDark ? Color(0xFF262626) : Color(0xFFEFEFEF))
                     : Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                foregroundColor: _requestSent
+                    ? (isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E))
+                    : Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),
-                minimumSize: Size(60, 32),
+                minimumSize: Size(60, 30),
               ),
               child: Text(
-                _requestSent ? 'Sent ✓' : 'Follow',
+                _requestSent ? 'Sent ✓' : 'Add',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -433,74 +508,27 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     );
   }
 
-  /// 💖 Instagram Likes Section
-  Widget _buildInstagramLikes(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final likes = widget.post['likes'] ?? 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(
-        '$likes likes',
-        style: TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
-          color: isDark ? Colors.white : Color(0xFF262626),
-        ),
-      ),
-    );
-  }
-
   /// 📝 Instagram Caption
   Widget _buildInstagramCaption(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final content = widget.post['content'] ?? '';
-    final displayContent = content.length > 100 ? content.substring(0, 100) : content;
-    final hasMore = content.length > 100;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 1),
       child: RichText(
         text: TextSpan(
           style: TextStyle(
             fontSize: 14,
             color: isDark ? Colors.white : Color(0xFF262626),
-            height: 1.4,
+            height: 1.25,
           ),
           children: [
             TextSpan(
               text: widget.post['author'] + ' ',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            TextSpan(text: displayContent),
-            if (hasMore)
-              TextSpan(
-                text: '... more',
-                style: TextStyle(
-                  color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
-                ),
-              ),
+            TextSpan(text: content),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// 💬 Instagram View Comments
-  Widget _buildInstagramViewComments(BuildContext context, String postId) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final comments = widget.post['comments'] ?? 0;
-
-    return GestureDetector(
-      onTap: () => widget.onOpenCommentPage(postId, widget.post),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Text(
-          'View all $comments comments',
-          style: TextStyle(
-            fontSize: 14,
-            color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
-          ),
         ),
       ),
     );
@@ -511,7 +539,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(16, 1, 16, 6),
       child: Text(
         _formatTimestamp(widget.post['created_at']).toUpperCase(),
         style: TextStyle(
@@ -519,55 +547,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
           letterSpacing: 0.2,
         ),
-      ),
-    );
-  }
-
-  /// ✍️ Instagram Add Comment
-  Widget _buildInstagramAddComment(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: isDark ? Color(0xFF262626) : Color(0xFFEFEFEF),
-            width: 1,
-          ),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: widget.commentController,
-              decoration: InputDecoration(
-                hintText: 'Add a comment...',
-                hintStyle: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-              ),
-              style: TextStyle(
-                fontSize: 14,
-                color: isDark ? Colors.white : Color(0xFF262626),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Text(
-            'Post',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -598,10 +577,8 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     }
   }
 
-  /// 🖼️ Show Full Image with Content (Instagram Style)
+  /// 🖼️ Show Full Image with Content
   void _showFullImageWithContent(BuildContext context, String imageUrl) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     showDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.9),
