@@ -6,7 +6,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'dart:async';
-import '../screens/article_detail_screen.dart'; // ✅ NEW IMPORT
+import '../screens/article_detail_screen.dart';
 
 class ArticleCardWidget extends StatefulWidget {
   final Map<String, dynamic> article;
@@ -88,17 +88,21 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }
 
   int _getSummaryCharLimit(double screenWidth) {
-    if (screenWidth >= 800) return 900;
-    if (screenWidth >= 700) return 750;
-    if (screenWidth >= 600) return 650;
-    if (screenWidth >= 450) return 500;
-    return 350;
+    if (screenWidth >= 800) return 1600;
+    if (screenWidth >= 700) return 1400;
+    if (screenWidth >= 600) return 1200;
+    if (screenWidth >= 450) return 1000;
+    return 800;
   }
 
+  // ✅ DYNAMIC MAX LINES BASED ON AVAILABLE CARD SPACE
   int _getSummaryMaxLines(double screenWidth, double screenHeight) {
-    if (screenHeight > 800) return screenWidth > 600 ? 12 : 8;
-    if (screenHeight > 700) return screenWidth > 600 ? 10 : 7;
-    return screenWidth > 600 ? 8 : 5;
+    // Calculate based on screen height for better content fitting
+    if (screenHeight > 900) return screenWidth > 600 ? 28 : 24;
+    if (screenHeight > 800) return screenWidth > 600 ? 25 : 20;
+    if (screenHeight > 700) return screenWidth > 600 ? 22 : 18;
+    if (screenHeight > 600) return screenWidth > 600 ? 20 : 16;
+    return screenWidth > 600 ? 18 : 14;
   }
 
   String _getSummaryText(BuildContext context, int maxLines) {
@@ -176,7 +180,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return months[month] ?? 1;
   }
 
-  // ✅ UPDATED: Navigate to Article Detail Screen instead of opening browser
   void _navigateToArticleDetail(BuildContext context) {
     if (!_hasTrackedRead) {
       setState(() => _hasTrackedRead = true);
@@ -235,11 +238,21 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final title = widget.article['title'] ?? 'No Title';
     final summaryMaxLines = _getSummaryMaxLines(screenWidth, screenHeight);
     final summary = _getSummaryText(context, summaryMaxLines);
+
+    // ✅ RESPONSIVE IMAGE HEIGHT
     final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 450 ? 260.0 : 230.0;
     final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
+
+    // ✅ CALCULATE CARD HEIGHT BASED ON SCREEN SIZE
+    final availableHeight = screenHeight - 100; // Subtract margins/padding
+    final cardHeight = screenWidth > 600
+        ? availableHeight * 0.75  // Tablet: 75% of available height
+        : screenWidth > 450
+        ? availableHeight * 0.70  // Medium phones: 70%
+        : availableHeight * 0.68;  // Small phones: 68%
+
     final primaryColor = colorScheme.primary;
 
-    // ✅ ADAPTIVE BUTTON METRICS BASED ON SCREEN WIDTH
     final buttonMetrics = _getButtonMetrics(screenWidth);
     final readButtonText = _getButtonText(screenWidth);
 
@@ -277,6 +290,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           vertical: screenHeight > 800 ? 14.0 : 10.0,
         ),
         constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 480) : null,
+        // ✅ FIXED CARD HEIGHT BASED ON SCREEN SIZE
+        height: cardHeight,
         child: Card(
           elevation: 8,
           margin: EdgeInsets.zero,
@@ -297,19 +312,19 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   ),
                 ),
 
-                // CONTENT SECTION
+                // ✅ CONTENT SECTION - WITH SPACER TO PUSH BUTTONS TO BOTTOM
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
                       left: contentPadding,
                       right: contentPadding,
-                      top: 16,
+                      top: 12,
                       bottom: contentPadding,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // TIMESTAMP ONLY
+                        // TIMESTAMP
                         Row(
                           children: [
                             Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
@@ -324,7 +339,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
 
                         // TITLE
                         Text(
@@ -339,9 +354,9 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
 
-                        // SOURCE + AI TAG (SOLID THEME COLORS)
+                        // SOURCE + AI TAG
                         Row(
                           children: [
                             Container(
@@ -410,24 +425,27 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 10),
 
-                        // SUMMARY
+                        // ✅ SUMMARY - FILLS AVAILABLE SPACE
                         Expanded(
-                          child: Text(
-                            summary,
-                            style: GoogleFonts.inter(
-                              fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13 : 12,
-                              height: 1.5,
-                              color: isDark ? Colors.white70 : Colors.black87,
-                              letterSpacing: 0.15,
-                              fontWeight: FontWeight.w400,
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Text(
+                              summary,
+                              style: GoogleFonts.inter(
+                                fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13.5 : 12.5,
+                                height: 1.55,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                letterSpacing: 0.15,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: summaryMaxLines,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: summaryMaxLines,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
 
-                        // ✅ RESPONSIVE BUTTONS WITH WHITE TEXT (70:30 RATIO)
+                        // ✅ BUTTONS - ALWAYS AT BOTTOM
                         _buildResponsiveActionButtons(
                           context: context,
                           buttonMetrics: buttonMetrics,
@@ -448,7 +466,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     );
   }
 
-  // ✅ ULTRA-RESPONSIVE BUTTON TEXT (5 TIERS)
   String _getButtonText(double screenWidth) {
     if (screenWidth < 320) return 'Read';
     if (screenWidth < 360) return 'Read Art';
@@ -457,7 +474,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return 'Read Full Article';
   }
 
-  // ✅ 5-TIER BUTTON METRICS
   _ButtonMetrics _getButtonMetrics(double screenWidth) {
     if (screenWidth >= 600) {
       return _ButtonMetrics(
@@ -507,7 +523,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     }
   }
 
-  // ✅ BUTTONS WITH WHITE TEXT/ICONS (EXPLICIT WHITE - MATCHING CREATE_POST_SCREEN)
   Widget _buildResponsiveActionButtons({
     required BuildContext context,
     required _ButtonMetrics buttonMetrics,
@@ -518,19 +533,18 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }) {
     return Row(
       children: [
-        // READ FULL ARTICLE BUTTON (70% width - WHITE TEXT)
-        // ✅ UPDATED: Now navigates to detail page
+        // READ FULL ARTICLE BUTTON (70% width)
         Expanded(
           flex: 7,
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => _navigateToArticleDetail(context), // ✅ CHANGED
+              onTap: () => _navigateToArticleDetail(context),
               borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
               splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
               child: Ink(
                 decoration: BoxDecoration(
-                  color: primaryColor, // ✅ SOLID PRIMARY (NO GRADIENT)
+                  color: primaryColor,
                   borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
                   boxShadow: [
                     BoxShadow(
@@ -553,7 +567,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     children: [
                       Icon(
                         Icons.auto_stories_rounded,
-                        color: Colors.white, // ✅ EXPLICIT WHITE (NOT onPrimary)
+                        color: Colors.white,
                         size: buttonMetrics.iconSize,
                       ),
                       SizedBox(width: buttonMetrics.spacing),
@@ -564,7 +578,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           style: GoogleFonts.poppins(
                             fontSize: buttonMetrics.textSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white, // ✅ EXPLICIT WHITE
+                            color: Colors.white,
                             letterSpacing: 0.4,
                           ),
                           maxLines: 1,
@@ -574,7 +588,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                       SizedBox(width: buttonMetrics.spacing * 0.6),
                       Icon(
                         Icons.arrow_forward_rounded,
-                        color: Colors.white, // ✅ EXPLICIT WHITE
+                        color: Colors.white,
                         size: buttonMetrics.iconSize * 0.85,
                       ),
                     ],
@@ -586,7 +600,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         ),
         const SizedBox(width: 10),
 
-        // SHARE BUTTON (30% width - WHITE TEXT)
+        // SHARE BUTTON (30% width)
         Expanded(
           flex: 3,
           child: Material(
@@ -597,7 +611,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
               splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
               child: Ink(
                 decoration: BoxDecoration(
-                  color: primaryColor, // ✅ SOLID PRIMARY (NO GRADIENT)
+                  color: primaryColor,
                   borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
                   boxShadow: [
                     BoxShadow(
@@ -619,7 +633,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     children: [
                       Icon(
                         Icons.share_rounded,
-                        color: Colors.white, // ✅ EXPLICIT WHITE
+                        color: Colors.white,
                         size: buttonMetrics.iconSize * 0.95,
                       ),
                       if (screenWidth >= 320) ...[
@@ -629,7 +643,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           style: GoogleFonts.poppins(
                             fontSize: buttonMetrics.textSize * 0.95,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white, // ✅ EXPLICIT WHITE
+                            color: Colors.white,
                             letterSpacing: 0.4,
                           ),
                           maxLines: 1,
@@ -648,7 +662,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }
 }
 
-// ✅ HELPER CLASS FOR BUTTON METRICS
 class _ButtonMetrics {
   final int height;
   final double horizontalPadding;

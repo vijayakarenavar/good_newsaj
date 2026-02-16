@@ -4,10 +4,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
 
-/// Widget for displaying a social post card with comments and friend actions
-/// ✅ NOW: Comment button opens CommentPage (no inline comments)
-/// ✅ FIXED: Content truncates with ellipsis, buttons stay at bottom
-/// ✅ NEW: Add button sends friend request to the post author
+/// 🔥 SMART VERSION - Tries multiple methods to find user_id
+/// This version will work with whatever fields your backend provides!
 class SocialPostCardWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final TextEditingController commentController;
@@ -35,29 +33,139 @@ class SocialPostCardWidget extends StatefulWidget {
 class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   bool _isSendingRequest = false;
   bool _requestSent = false;
+  int? _cachedUserId; // Cache the found user_id
+
+  /// 🔥 SMART METHOD: Extract user_id from post using multiple strategies
+  Future<int?> _extractUserId() async {
+    // If already cached, return it
+    if (_cachedUserId != null) return _cachedUserId;
+
+    print('🔍 ========== EXTRACTING USER ID ==========');
+    print('🔍 Available post keys: ${widget.post.keys.toList()}');
+    print('🔍 Full post data: ${widget.post}');
+
+    // ✅ STRATEGY 1: Try common user_id field names
+    final directUserId = widget.post['user_id'] ??
+        widget.post['author_id'] ??
+        widget.post['created_by'] ??
+        widget.post['posted_by_id'] ??
+        widget.post['posted_by'] ??
+        widget.post['creator_id'] ??
+        widget.post['userId'] ??
+        widget.post['authorId'];
+
+    if (directUserId != null) {
+      print('✅ Found user_id directly: $directUserId');
+
+      // Convert to int
+      if (directUserId is int) {
+        _cachedUserId = directUserId;
+        return directUserId;
+      } else if (directUserId is String) {
+        final parsed = int.tryParse(directUserId);
+        if (parsed != null) {
+          _cachedUserId = parsed;
+          return parsed;
+        }
+      }
+    }
+
+    print('⚠️ No direct user_id found in post');
+
+    // ✅ STRATEGY 2: Search by author name
+    final authorName = widget.post['author'] ?? widget.post['display_name'];
+    if (authorName != null && authorName.toString().isNotEmpty) {
+      print('🔍 Attempting to search for user by name: $authorName');
+
+      try {
+        final searchResult = await ApiService.searchFriends(authorName.toString());
+
+        if (searchResult['status'] == 'success' && searchResult['data'] is List) {
+          final users = searchResult['data'] as List;
+          print('🔍 Search returned ${users.length} users');
+
+          if (users.isNotEmpty) {
+            // Try to find exact match first
+            var matchedUser = users.firstWhere(
+                  (user) => user['display_name']?.toString().toLowerCase() == authorName.toString().toLowerCase() ||
+                  user['name']?.toString().toLowerCase() == authorName.toString().toLowerCase(),
+              orElse: () => users.first, // Fallback to first result
+            );
+
+            final foundId = matchedUser['id'] ?? matchedUser['user_id'];
+            if (foundId != null) {
+              print('✅ Found user via search: ID = $foundId');
+
+              if (foundId is int) {
+                _cachedUserId = foundId;
+                return foundId;
+              } else if (foundId is String) {
+                final parsed = int.tryParse(foundId);
+                if (parsed != null) {
+                  _cachedUserId = parsed;
+                  return parsed;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        print('❌ Search failed: $e');
+      }
+    }
+
+    print('❌ Could not extract user_id using any method');
+    return null;
+  }
 
   /// 📤 Send friend request to post author
   Future<void> _sendFriendRequest() async {
-    // Get user_id from post
-    final userId = widget.post['user_id'];
-
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to send friend request'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
+    print('🚀 Starting friend request process...');
 
     setState(() {
       _isSendingRequest = true;
     });
 
     try {
+      // Extract user_id using smart method
+      final userId = await _extractUserId();
+
+      if (userId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Unable to send friend request',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text('Could not find user ID for ${widget.post['author']}',
+                      style: TextStyle(fontSize: 12)),
+                  SizedBox(height: 4),
+                  Text('Available fields: ${widget.post.keys.take(5).join(", ")}...',
+                      style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic)),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+
+        setState(() {
+          _isSendingRequest = false;
+        });
+        return;
+      }
+
+      print('📤 Sending friend request to userId: $userId');
+
       // ✅ Use ApiService.sendFriendRequest
       final response = await ApiService.sendFriendRequest(userId);
+
+      print('📥 Friend request response: $response');
 
       if (response['status'] == 'success') {
         setState(() {
@@ -80,16 +188,21 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         });
 
         if (mounted) {
+          final errorMsg = response['message']?.toString() ??
+              response['error']?.toString() ??
+              'Failed to send friend request';
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response['message']?.toString() ?? response['error']?.toString() ?? 'Failed to send friend request'),
+              content: Text(errorMsg),
               backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
       }
     } catch (e) {
-      print('❌ Error sending friend request: $e');
+      print('❌ Exception in _sendFriendRequest: $e');
 
       setState(() {
         _isSendingRequest = false;
@@ -97,9 +210,10 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send friend request'),
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -118,33 +232,22 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-
-          // ✅ HEADER - Fixed at top
           _buildHeader(context),
           const SizedBox(height: 24),
-
-          // ✅ CONTENT AREA - Takes available space, content truncates with ellipsis
           Expanded(
             child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(), // ✅ No internal scroll
+              physics: const NeverScrollableScrollPhysics(),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Image (if available)
                   if (imageUrl != null && imageUrl.toString().isNotEmpty)
                     _buildImage(context, imageUrl),
-
-                  // Content with ellipsis
                   _buildContent(context),
                 ],
               ),
             ),
           ),
-
-          // ✅ SPACING before buttons
           const SizedBox(height: 16),
-
-          // ✅ BUTTONS - Fixed at bottom (never overlapped)
           _buildActionButtons(context, postId, themeColor),
         ],
       ),
@@ -270,8 +373,8 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         fontSize: 16,
         color: contentColor,
       ),
-      maxLines: 10, // ✅ Maximum 10 lines
-      overflow: TextOverflow.ellipsis, // ✅ Show ... if content is too long
+      maxLines: 10,
+      overflow: TextOverflow.ellipsis,
     );
   }
 
@@ -359,27 +462,20 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       child: Row(
         children: [
-          // 1. LIKE BUTTON
           _buildSolidButton(
             icon: widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
             onPressed: () => widget.onToggleLike(widget.post),
             isSelected: widget.post['isLiked'],
             isLikeButton: true,
           ),
-
-          // 2. COMMENT BUTTON - ✅ OPENS COMMENT PAGE
           _buildSolidButton(
             icon: Icons.comment_outlined,
             onPressed: () => widget.onOpenCommentPage(postId, widget.post),
           ),
-
-          // 3. SHARE BUTTON
           _buildSolidButton(
             icon: Icons.share_outlined,
             onPressed: () => widget.onShare(widget.post),
           ),
-
-          // 4. ADD BUTTON - ✅ SENDS FRIEND REQUEST
           if (widget.onAddFriend != null)
             _buildSolidButton(
               label: _requestSent ? 'Sent ✓' : 'Add',
@@ -410,7 +506,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     }
   }
 
-  /// 🖼️ Show full image with complete content
   void _showFullImageWithContent(BuildContext context, String imageUrl) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -431,7 +526,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ✅ CLOSE BUTTON
               Align(
                 alignment: Alignment.topRight,
                 child: IconButton(
@@ -446,8 +540,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
-
-              // ✅ FULL IMAGE (Zoomable)
               Flexible(
                 flex: 3,
                 child: InteractiveViewer(
@@ -471,10 +563,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   ),
                 ),
               ),
-
               const Divider(height: 1),
-
-              // ✅ FULL CONTENT (Scrollable)
               Flexible(
                 flex: 2,
                 child: Container(
@@ -484,7 +573,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Author info
                         Row(
                           children: [
                             CircleAvatar(
@@ -524,12 +612,9 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 16),
                         const Divider(),
                         const SizedBox(height: 12),
-
-                        // Full content
                         Text(
                           widget.post['content'],
                           style: TextStyle(

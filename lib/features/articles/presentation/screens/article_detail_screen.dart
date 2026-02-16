@@ -96,15 +96,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   }
 
   // ================= COPY LINK =================
-  Future<void> _copyArticleLink() async {
-    final url = widget.article['source_url']?.toString() ?? "";
-    if (url.isEmpty) {
-      _showSnack("No link");
-      return;
-    }
-    await Clipboard.setData(ClipboardData(text: url));
-    _showSnack("Link copied");
-  }
+  // Future<void> _copyArticleLink() async {
+  //   final url = widget.article['source_url']?.toString() ?? "";
+  //   if (url.isEmpty) {
+  //     _showSnack("No link");
+  //     return;
+  //   }
+  //   await Clipboard.setData(ClipboardData(text: url));
+  //   _showSnack("Link copied");
+  // }
 
   void _showSnack(String msg) {
     if (!mounted) return;
@@ -167,9 +167,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Article Details"),
-        actions: [
-          IconButton(icon: const Icon(Icons.copy), onPressed: _copyArticleLink),
-        ],
       ),
 
       body: SingleChildScrollView(
@@ -191,7 +188,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             Wrap(
               spacing: 12,
               children: [
-                Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.person, size: 16), SizedBox(width: 4), Text(author)]),
+                //Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.person, size: 16), SizedBox(width: 4), Text(author)]),
                 Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.language, size: 16), SizedBox(width: 4), Text(domain)]),
                 Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.access_time, size: 16), SizedBox(width: 4), Text(time)]),
               ],
@@ -237,6 +234,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _openSourceUrl,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: _isLoading
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white))
                     : const Text("Visit Official Source"),

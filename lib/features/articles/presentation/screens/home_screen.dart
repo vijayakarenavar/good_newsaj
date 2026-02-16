@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/user_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
@@ -519,11 +520,6 @@ class _HomeScreenState extends State<HomeScreen>
       final totalCategories = categoryList.length;
 
       if (totalCategories <= 5) {
-        _categoryScrollController.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOutCubic,
-        );
         return;
       }
 
@@ -531,18 +527,24 @@ class _HomeScreenState extends State<HomeScreen>
       final spacing = 16.0;
       final totalItemWidth = itemWidth + spacing;
 
-      double targetOffset;
-
-      final windowStart = (index ~/ 5) * 5;
-      targetOffset = windowStart * totalItemWidth;
-
+      final screenWidth = MediaQuery.of(context).size.width;
+      final targetOffset = (index * totalItemWidth) - (screenWidth / 2) + (itemWidth / 2);
       final maxScroll = _categoryScrollController.position.maxScrollExtent;
       final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
+      // ✅ Calculate distance to determine animation speed
+      final currentOffset = _categoryScrollController.offset;
+      final distance = (clampedOffset - currentOffset).abs();
+
+      // ✅ Adaptive duration based on distance
+      final duration = distance < 100
+          ? const Duration(milliseconds: 180)  // Short distance = quick
+          : const Duration(milliseconds: 250);  // Long distance = smooth
+
       _categoryScrollController.animateTo(
         clampedOffset,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeInOutCubic,
+        duration: duration,
+        curve: Curves.easeOutCubic,  // ✅ Most natural feeling curve
       );
     });
   }
@@ -557,6 +559,47 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _onHorizontalDragEnd(DragEndDetails details) {
+    final dragEnd = details.primaryVelocity ?? 0;
+    if (dragEnd.abs() < 250) return;  // ✅ 300 → 250 (more sensitive)
+
+    if (dragEnd < -250) {
+      _switchToNextCategory();
+    } else if (dragEnd > 250) {
+      _switchToPreviousCategory();
+    }
+  }
+
+  // ✅ NEW CODE - ADD THIS:
+  void _switchToNextCategory() {
+    final categoryList = _buildCategoryList();
+    if (categoryList.isEmpty) return;
+
+    int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
+
+    // ✅ If at last category, go to Social tab
+    if (currentIndex != -1 && currentIndex == categoryList.length - 1) {
+      _onTabChanged(2); // Switch to Social tab
+    } else if (currentIndex != -1 && currentIndex < categoryList.length - 1) {
+      final nextCategory = categoryList[currentIndex + 1];
+      _selectCategory(nextCategory['id']);
+    }
+  }
+
+  void _switchToPreviousCategory() {
+    final categoryList = _buildCategoryList();
+    if (categoryList.isEmpty) return;
+
+    int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
+
+    // ✅ If at first category (All), go to Video tab
+    if (currentIndex == 0) {
+      _onTabChanged(0); // Switch to Video tab
+    } else if (currentIndex > 0) {
+      final prevCategory = categoryList[currentIndex - 1];
+      _selectCategory(prevCategory['id']);
+    }
+  }
   void _toggleSpeedDial() {
     setState(() {
       _isSpeedDialOpen = !_isSpeedDialOpen;
@@ -699,6 +742,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     int newTabIndex;
     int? newCategoryId;
+    int? categoryIndexToScroll;
 
     if (pageIndex == 0) {
       newTabIndex = 0;
@@ -708,11 +752,14 @@ class _HomeScreenState extends State<HomeScreen>
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
 
-      Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && _categoryScrollController.hasClients) {
-          _scrollCategoryChipsToIndex(categoryIndex);
-        }
-      });
+      // ✅ ONLY scroll category chips if the category actually changed
+      final previousCategoryIndex = previousPage >= 1 && previousPage <= totalNewsPages
+          ? previousPage - 1
+          : null;
+
+      if (previousCategoryIndex != categoryIndex) {
+        categoryIndexToScroll = categoryIndex;
+      }
     } else if (pageIndex == socialPageIndex) {
       newTabIndex = 2;
       newCategoryId = null;
@@ -733,6 +780,15 @@ class _HomeScreenState extends State<HomeScreen>
         _selectedCategoryId = newCategoryId;
       });
       _updateDisplayedItems();
+    }
+
+    final indexToScroll = categoryIndexToScroll;  // Create local variable
+    if (indexToScroll != null) {
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted && _categoryScrollController.hasClients) {
+          _scrollCategoryChipsToIndex(indexToScroll);  // ✅ Now it's non-nullable
+        }
+      });
     }
 
     if (_displayedItems.isNotEmpty && mounted) {
@@ -1768,9 +1824,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
+        // ✅ ADDED: GestureDetector for horizontal swipes
         Expanded(
           child: GestureDetector(
             onVerticalDragEnd: _onVerticalDragEnd,
+            onHorizontalDragEnd: _onHorizontalDragEnd, // ✅ NEW!
             child: PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
@@ -2418,8 +2476,8 @@ class QuickActionsWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: isDark
-                  ? Colors.white.withOpacity(0.06)  // ✅ SOFT BORDER!
-                  : Colors.black.withOpacity(0.04),  // ✅ SOFT BORDER!
+                  ? Colors.white.withOpacity(0.06)
+                  : Colors.black.withOpacity(0.04),
               width: 1,
             ),
           ),
@@ -2484,101 +2542,106 @@ class QuickActionsWidget extends StatelessWidget {
 }
 
 // FriendsSectionWidget - Inline implementation with consistent styling
-// class FriendsSectionWidget extends StatelessWidget {
-//   final List<Map<String, dynamic>> friends;
-//   final bool isLoading;
-//   final VoidCallback onFriendsUpdated;
-//
-//   const FriendsSectionWidget({
-//     Key? key,
-//     required this.friends,
-//     required this.isLoading,
-//     required this.onFriendsUpdated,
-//   }) : super(key: key);
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final theme = Theme.of(context);
-//     final isDark = theme.brightness == Brightness.dark;
-//     final primaryColor = Colors.green; // Image jasa green color
-//
-//     if (isLoading) {
-//       return Padding(
-//         padding: const EdgeInsets.all(24.0),
-//         child: Center(
-//           child: CircularProgressIndicator(
-//             color: primaryColor,
-//             strokeWidth: 2,
-//           ),
-//         ),
-//       );
-//     }
-//
-//     return Container(
-//       margin: const EdgeInsets.all(16),
-//       padding: const EdgeInsets.all(16),
-//       decoration: BoxDecoration(
-//         color: isDark ? Colors.black : Colors.white,
-//         borderRadius: BorderRadius.circular(20),
-//         border: Border.all(color: Colors.grey.shade800, width: 1),
-//       ),
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           /// Title
-//           Text(
-//             'Friends (${friends.length})',
-//             style: TextStyle(
-//               fontSize: 18,
-//               fontWeight: FontWeight.bold,
-//               color: isDark ? Colors.white : Colors.black,
-//             ),
-//           ),
-//
-//           const SizedBox(height: 20),
-//
-//           /// Friends List Horizontal
-//           SizedBox(
-//             height: 120,
-//             child: ListView.separated(
-//               scrollDirection: Axis.horizontal,
-//               itemCount: friends.length,
-//               separatorBuilder: (_, __) => const SizedBox(width: 20),
-//               itemBuilder: (context, index) {
-//                 final friend = friends[index];
-//                 final name = friend['username'] ?? "";
-//
-//                 return Column(
-//                   children: [
-//                     CircleAvatar(
-//                       radius: 32,
-//                       backgroundColor: Colors.green.shade900,
-//                       child: Text(
-//                         name.isNotEmpty ? name[0].toUpperCase() : "",
-//                         style: const TextStyle(
-//                           color: Colors.lightGreen,
-//                           fontSize: 22,
-//                           fontWeight: FontWeight.bold,
-//                         ),
-//                       ),
-//                     ),
-//                     const SizedBox(height: 10),
-//                     Text(
-//                       name,
-//                       style: TextStyle(
-//                         color: isDark ? Colors.white : Colors.black,
-//                         fontSize: 14,
-//                       ),
-//                       overflow: TextOverflow.ellipsis,
-//                     ),
-//                   ],
-//                 );
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+class FriendsSectionWidget extends StatelessWidget {
+  final List<Map<String, dynamic>> friends;
+  final bool isLoading;
+  final VoidCallback onFriendsUpdated;
 
+  const FriendsSectionWidget({
+    Key? key,
+    required this.friends,
+    required this.isLoading,
+    required this.onFriendsUpdated,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primaryColor = theme.colorScheme.primary;
+
+    if (isLoading) {
+      return Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Center(
+          child: CircularProgressIndicator(
+            color: primaryColor,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Friends (${friends.length})',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (friends.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Text(
+                  'No friends yet',
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey[600],
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: friends.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  final friend = friends[index];
+                  final name = friend['username'] ?? friend['display_name'] ?? '';
+                  return Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: primaryColor.withOpacity(0.2),
+                        child: Text(
+                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                          style: TextStyle(
+                            color: primaryColor,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: 70,
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 12,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
