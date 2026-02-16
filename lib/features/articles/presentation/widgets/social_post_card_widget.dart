@@ -4,8 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
 
-/// 🔥 SMART VERSION - Tries multiple methods to find user_id
-/// This version will work with whatever fields your backend provides!
+/// 📸 INSTAGRAM STYLE - With all original features
 class SocialPostCardWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final TextEditingController commentController;
@@ -33,18 +32,16 @@ class SocialPostCardWidget extends StatefulWidget {
 class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   bool _isSendingRequest = false;
   bool _requestSent = false;
-  int? _cachedUserId; // Cache the found user_id
+  int? _cachedUserId;
 
-  /// 🔥 SMART METHOD: Extract user_id from post using multiple strategies
+  /// Extract user_id from post using multiple strategies
   Future<int?> _extractUserId() async {
-    // If already cached, return it
     if (_cachedUserId != null) return _cachedUserId;
 
     print('🔍 ========== EXTRACTING USER ID ==========');
     print('🔍 Available post keys: ${widget.post.keys.toList()}');
-    print('🔍 Full post data: ${widget.post}');
 
-    // ✅ STRATEGY 1: Try common user_id field names
+    // STRATEGY 1: Try common user_id field names
     final directUserId = widget.post['user_id'] ??
         widget.post['author_id'] ??
         widget.post['created_by'] ??
@@ -56,8 +53,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
 
     if (directUserId != null) {
       print('✅ Found user_id directly: $directUserId');
-
-      // Convert to int
       if (directUserId is int) {
         _cachedUserId = directUserId;
         return directUserId;
@@ -70,9 +65,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
       }
     }
 
-    print('⚠️ No direct user_id found in post');
-
-    // ✅ STRATEGY 2: Search by author name
+    // STRATEGY 2: Search by author name
     final authorName = widget.post['author'] ?? widget.post['display_name'];
     if (authorName != null && authorName.toString().isNotEmpty) {
       print('🔍 Attempting to search for user by name: $authorName');
@@ -82,20 +75,16 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
 
         if (searchResult['status'] == 'success' && searchResult['data'] is List) {
           final users = searchResult['data'] as List;
-          print('🔍 Search returned ${users.length} users');
-
           if (users.isNotEmpty) {
-            // Try to find exact match first
             var matchedUser = users.firstWhere(
                   (user) => user['display_name']?.toString().toLowerCase() == authorName.toString().toLowerCase() ||
                   user['name']?.toString().toLowerCase() == authorName.toString().toLowerCase(),
-              orElse: () => users.first, // Fallback to first result
+              orElse: () => users.first,
             );
 
             final foundId = matchedUser['id'] ?? matchedUser['user_id'];
             if (foundId != null) {
               print('✅ Found user via search: ID = $foundId');
-
               if (foundId is int) {
                 _cachedUserId = foundId;
                 return foundId;
@@ -118,54 +107,29 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     return null;
   }
 
-  /// 📤 Send friend request to post author
+  /// Send friend request to post author
   Future<void> _sendFriendRequest() async {
-    print('🚀 Starting friend request process...');
-
-    setState(() {
-      _isSendingRequest = true;
-    });
+    setState(() => _isSendingRequest = true);
 
     try {
-      // Extract user_id using smart method
       final userId = await _extractUserId();
 
       if (userId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Unable to send friend request',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text('Could not find user ID for ${widget.post['author']}',
-                      style: TextStyle(fontSize: 12)),
-                  SizedBox(height: 4),
-                  Text('Available fields: ${widget.post.keys.take(5).join(", ")}...',
-                      style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic)),
-                ],
-              ),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
+              content: Text('Unable to send friend request'),
+              backgroundColor: Colors.red.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
-
-        setState(() {
-          _isSendingRequest = false;
-        });
+        setState(() => _isSendingRequest = false);
         return;
       }
 
-      print('📤 Sending friend request to userId: $userId');
-
-      // ✅ Use ApiService.sendFriendRequest
       final response = await ApiService.sendFriendRequest(userId);
-
-      print('📥 Friend request response: $response');
 
       if (response['status'] == 'success') {
         setState(() {
@@ -176,17 +140,23 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Friend request sent to ${widget.post['author']}! ✅'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 2),
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Friend request sent to ${widget.post['author']}!'),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green.shade600,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
       } else {
-        setState(() {
-          _isSendingRequest = false;
-        });
-
+        setState(() => _isSendingRequest = false);
         if (mounted) {
           final errorMsg = response['message']?.toString() ??
               response['error']?.toString() ??
@@ -195,25 +165,22 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(errorMsg),
-              backgroundColor: Colors.orange,
-              duration: const Duration(seconds: 3),
+              backgroundColor: Colors.orange.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
       }
     } catch (e) {
-      print('❌ Exception in _sendFriendRequest: $e');
-
-      setState(() {
-        _isSendingRequest = false;
-      });
-
+      setState(() => _isSendingRequest = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
@@ -224,412 +191,538 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   Widget build(BuildContext context) {
     final postId = widget.post['id'] as String;
     final imageUrl = widget.post['image_url'];
-    final themeColor = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.black : Colors.white,
+        border: Border.all(
+          color: isDark ? Color(0xFF262626) : Color(0xFFDBDBDB),
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 20),
-          _buildHeader(context),
-          const SizedBox(height: 24),
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const NeverScrollableScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (imageUrl != null && imageUrl.toString().isNotEmpty)
-                    _buildImage(context, imageUrl),
-                  _buildContent(context),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildActionButtons(context, postId, themeColor),
+          _buildInstagramHeader(context),
+          if (imageUrl != null && imageUrl.toString().isNotEmpty)
+            _buildInstagramImage(context, imageUrl),
+          _buildInstagramActions(context, postId),
+          _buildInstagramLikes(context),
+          _buildInstagramCaption(context),
+          _buildInstagramViewComments(context, postId),
+          _buildInstagramTimestamp(context),
+          _buildInstagramAddComment(context),
         ],
       ),
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  /// 📱 Instagram Header
+  Widget _buildInstagramHeader(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final timestampColor = isDark ? Colors.white70 : Colors.grey[600];
+    final themeColor = Theme.of(context).colorScheme.primary;
 
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-          child: Text(
-            widget.post['avatar'],
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          // Story Ring + Avatar
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [
+                  themeColor,
+                  themeColor.withOpacity(0.7),
+                ],
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.post['author'],
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 18,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isDark ? Colors.black : Colors.white,
+              ),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: themeColor,
+                child: Text(
+                  widget.post['avatar'],
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-              Text(
-                _formatTimestamp(widget.post['created_at']),
-                style: TextStyle(
-                  color: timestampColor,
-                  fontSize: 12,
-                ),
-              ),
-            ],
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '👥 Social',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.primary,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 12),
+
+          // User Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.post['author'],
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: isDark ? Colors.white : Color(0xFF262626),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '📍 Article',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // More Button
+          IconButton(
+            icon: Icon(
+              Icons.more_horiz,
+              color: isDark ? Colors.white : Color(0xFF262626),
+            ),
+            onPressed: () {},
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildImage(BuildContext context, dynamic imageUrl) {
+  /// 📷 Instagram Image
+  Widget _buildInstagramImage(BuildContext context, dynamic imageUrl) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final placeholderBgColor = isDark ? Colors.grey[850] : Colors.grey[200];
-    final errorIconColor = isDark ? Colors.grey[600] : Colors.grey[400];
-    final errorTextColor = isDark ? Colors.grey[500] : Colors.grey[600];
 
     return GestureDetector(
       onTap: () => _showFullImageWithContent(context, imageUrl.toString()),
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 400),
-        margin: const EdgeInsets.only(bottom: 16),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: CachedNetworkImage(
-            imageUrl: imageUrl.toString(),
-            fit: BoxFit.cover,
-            width: double.infinity,
-            memCacheWidth: 800,
-            memCacheHeight: 900,
-            placeholder: (context, url) => Container(
-              height: 300,
-              color: placeholderBgColor,
-              child: Center(
+      child: CachedNetworkImage(
+        imageUrl: imageUrl.toString(),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 400,
+        memCacheWidth: 800,
+        memCacheHeight: 900,
+        placeholder: (context, url) => Container(
+          height: 400,
+          color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+        errorWidget: (context, url, error) => Container(
+          height: 400,
+          color: isDark ? Color(0xFF262626) : Color(0xFFF0F0F0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.broken_image_rounded,
+                size: 48,
+                color: isDark ? Color(0xFF737373) : Color(0xFF8E8E8E),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Failed to load image',
+                style: TextStyle(
+                  color: isDark ? Color(0xFF737373) : Color(0xFF8E8E8E),
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 🎬 Instagram Actions (Like, Comment, Share, Save)
+  Widget _buildInstagramActions(BuildContext context, String postId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = isDark ? Colors.white : Color(0xFF262626);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      child: Row(
+        children: [
+          // Like Button
+          IconButton(
+            icon: Icon(
+              widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
+              color: widget.post['isLiked'] ? Colors.red : iconColor,
+              size: 26,
+            ),
+            onPressed: () => widget.onToggleLike(widget.post),
+          ),
+
+          // Comment Button
+          IconButton(
+            icon: Icon(
+              Icons.mode_comment_outlined,
+              color: iconColor,
+              size: 26,
+            ),
+            onPressed: () => widget.onOpenCommentPage(postId, widget.post),
+          ),
+
+          // Share Button
+          IconButton(
+            icon: Icon(
+              Icons.send_outlined,
+              color: iconColor,
+              size: 26,
+            ),
+            onPressed: () => widget.onShare(widget.post),
+          ),
+
+          const Spacer(),
+
+          // Add Friend Button (if available)
+          if (widget.onAddFriend != null)
+            _isSendingRequest
+                ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
+                width: 20,
+                height: 20,
                 child: CircularProgressIndicator(
+                  strokeWidth: 2,
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              height: 300,
-              color: placeholderBgColor,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.broken_image, size: 64, color: errorIconColor),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Failed to load image',
-                    style: TextStyle(color: errorTextColor, fontSize: 14),
-                  ),
-                ],
+            )
+                : TextButton(
+              onPressed: _requestSent ? null : _sendFriendRequest,
+              style: TextButton.styleFrom(
+                backgroundColor: _requestSent
+                    ? (isDark ? Color(0xFF262626) : Color(0xFFEFEFEF))
+                    : Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                minimumSize: Size(60, 32),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final contentColor = isDark ? Colors.white70 : Colors.grey[900];
-
-    return Text(
-      widget.post['content'],
-      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-        height: 1.6,
-        fontSize: 16,
-        color: contentColor,
-      ),
-      maxLines: 10,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context, String postId, Color themeColor) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final lighterThemeColor = themeColor.withOpacity(0.95);
-
-    Widget _buildHeartIcon(IconData icon, bool isSelected, bool isLikeButton) {
-      if (isLikeButton) {
-        if (isSelected) {
-          return Stack(
-            alignment: Alignment.center,
-            children: [
-              Icon(Icons.favorite, size: 24, color: Colors.white),
-              Icon(Icons.favorite, size: 22, color: Colors.red),
-            ],
-          );
-        } else {
-          return Icon(Icons.favorite_border, size: 22, color: Colors.white);
-        }
-      }
-      return Icon(icon, size: 22, color: Colors.white);
-    }
-
-    Widget _buildSolidButton({
-      IconData? icon,
-      String? label,
-      required VoidCallback onPressed,
-      bool isLoading = false,
-      bool isSelected = false,
-      bool isLikeButton = false,
-      bool isDisabled = false,
-    }) {
-      return Expanded(
-        child: Container(
-          height: 48,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: isDisabled
-                ? Colors.grey.withOpacity(0.5)
-                : lighterThemeColor,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: isDisabled ? [] : [
-              BoxShadow(
-                color: lighterThemeColor.withOpacity(0.4),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(24),
-              onTap: isDisabled ? null : onPressed,
-              splashColor: Colors.white.withOpacity(0.3),
-              child: Center(
-                child: isLoading
-                    ? SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-                    : icon != null
-                    ? _buildHeartIcon(icon, isSelected, isLikeButton)
-                    : Text(
-                  label ?? 'Add',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
+              child: Text(
+                _requestSent ? 'Sent ✓' : 'Follow',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-      child: Row(
-        children: [
-          _buildSolidButton(
-            icon: widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
-            onPressed: () => widget.onToggleLike(widget.post),
-            isSelected: widget.post['isLiked'],
-            isLikeButton: true,
-          ),
-          _buildSolidButton(
-            icon: Icons.comment_outlined,
-            onPressed: () => widget.onOpenCommentPage(postId, widget.post),
-          ),
-          _buildSolidButton(
-            icon: Icons.share_outlined,
-            onPressed: () => widget.onShare(widget.post),
-          ),
-          if (widget.onAddFriend != null)
-            _buildSolidButton(
-              label: _requestSent ? 'Sent ✓' : 'Add',
-              onPressed: _sendFriendRequest,
-              isLoading: _isSendingRequest,
-              isDisabled: _requestSent,
             ),
         ],
       ),
     );
   }
 
+  /// 💖 Instagram Likes Section
+  Widget _buildInstagramLikes(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final likes = widget.post['likes'] ?? 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        '$likes likes',
+        style: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: isDark ? Colors.white : Color(0xFF262626),
+        ),
+      ),
+    );
+  }
+
+  /// 📝 Instagram Caption
+  Widget _buildInstagramCaption(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final content = widget.post['content'] ?? '';
+    final displayContent = content.length > 100 ? content.substring(0, 100) : content;
+    final hasMore = content.length > 100;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: RichText(
+        text: TextSpan(
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? Colors.white : Color(0xFF262626),
+            height: 1.4,
+          ),
+          children: [
+            TextSpan(
+              text: widget.post['author'] + ' ',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            TextSpan(text: displayContent),
+            if (hasMore)
+              TextSpan(
+                text: '... more',
+                style: TextStyle(
+                  color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 💬 Instagram View Comments
+  Widget _buildInstagramViewComments(BuildContext context, String postId) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final comments = widget.post['comments'] ?? 0;
+
+    return GestureDetector(
+      onTap: () => widget.onOpenCommentPage(postId, widget.post),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Text(
+          'View all $comments comments',
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ⏰ Instagram Timestamp
+  Widget _buildInstagramTimestamp(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Text(
+        _formatTimestamp(widget.post['created_at']).toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
+  /// ✍️ Instagram Add Comment
+  Widget _buildInstagramAddComment(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Color(0xFF262626) : Color(0xFFEFEFEF),
+            width: 1,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: widget.commentController,
+              decoration: InputDecoration(
+                hintText: 'Add a comment...',
+                hintStyle: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Color(0xFFA8A8A8) : Color(0xFF8E8E8E),
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.white : Color(0xFF262626),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Post',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 🕐 Format Timestamp (Instagram style)
   String _formatTimestamp(String? timestamp) {
-    if (timestamp == null) return 'Just now';
+    if (timestamp == null) return 'just now';
     try {
       final dateTime = HttpDate.parse(timestamp);
       final now = DateTime.now();
       final difference = now.difference(dateTime);
-      if (difference.inMinutes < 60) {
+
+      if (difference.inSeconds < 60) {
+        return 'just now';
+      } else if (difference.inMinutes < 60) {
         return '${difference.inMinutes}m ago';
       } else if (difference.inHours < 24) {
         return '${difference.inHours}h ago';
-      } else {
+      } else if (difference.inDays < 7) {
         return '${difference.inDays}d ago';
+      } else if (difference.inDays < 30) {
+        return '${(difference.inDays / 7).floor()}w ago';
+      } else {
+        return '${(difference.inDays / 30).floor()}mo ago';
       }
     } catch (e) {
-      return 'Just now';
+      return 'just now';
     }
   }
 
+  /// 🖼️ Show Full Image with Content (Instagram Style)
   void _showFullImageWithContent(BuildContext context, String imageUrl) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: Colors.black.withOpacity(0.9),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.all(16),
-        child: Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? Colors.grey[900] : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: Alignment.topRight,
-                child: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            // Image
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => Center(
+                    child: CircularProgressIndicator(
+                      color: Theme.of(context).colorScheme.primary,
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 20),
                   ),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ),
-              Flexible(
-                flex: 3,
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 4.0,
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.contain,
-                      fadeInDuration: const Duration(milliseconds: 150),
-                      placeholder: (context, url) => Center(
-                        child: CircularProgressIndicator(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      errorWidget: (context, url, error) => const Center(
-                        child: Icon(Icons.error, color: Colors.white),
-                      ),
-                    ),
+                  errorWidget: (context, url, error) => Center(
+                    child: Icon(Icons.error, color: Colors.white, size: 48),
                   ),
                 ),
               ),
-              const Divider(height: 1),
-              Flexible(
-                flex: 2,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            ),
+
+            // Close Button
+            Positioned(
+              top: 40,
+              right: 16,
+              child: IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
+                ),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+
+            // Bottom Info
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.8),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                              child: Text(
-                                widget.post['avatar'],
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          child: Text(
+                            widget.post['avatar'],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.post['author'],
+                                style: const TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 16,
+                                  fontSize: 14,
+                                  color: Colors.white,
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.post['author'],
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                      color: isDark ? Colors.white : Colors.black,
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatTimestamp(widget.post['created_at']),
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white70 : Colors.grey[600],
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                _formatTimestamp(widget.post['created_at']),
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        const Divider(),
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.post['content'],
-                          style: TextStyle(
-                            height: 1.6,
-                            fontSize: 15,
-                            color: isDark ? Colors.white70 : Colors.grey[900],
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.post['content'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
