@@ -11,7 +11,6 @@ import 'package:good_news/features/profile/presentation/screens/edit_profile_scr
 import 'package:good_news/features/profile/presentation/screens/my_posts_screen.dart';
 import 'package:good_news/features/profile/presentation/screens/reading_history_screen.dart';
 import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
-import 'package:good_news/features/profile/presentation/widgets/quick_actions.dart';
 import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
 import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
 import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
@@ -277,9 +276,12 @@ class _HomeScreenState extends State<HomeScreen>
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isFriendsLoading = false);
+      if (mounted) {
+        setState(() => _isFriendsLoading = false);
+      }
     }
   }
+
 
   Future<void> _loadFriendRequestsCount() async {
     setState(() => _isFriendRequestsLoading = true);
@@ -962,6 +964,62 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       _updateDisplayedItems();
     }
   }
+
+
+
+  // ✅ येथे ADD करा 👇
+  Future<void> _trackArticleRead(Map<String, dynamic> article) async {
+    try {
+      final articleId = article['id'];
+      if (articleId == null) {
+        print('⚠️ Article ID is null, cannot track');
+        return;
+      }
+
+      print('📖 Tracking article read: $articleId');
+
+      // ✅ STEP 1: Backend मध्ये save करा (History मध्ये जातो)
+      try {
+        final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
+
+        if (newEntryId != null) {
+          print('✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
+
+          // ✅ STEP 2: Count वाढवा UI मध्ये
+          if (mounted) {
+            setState(() {
+              _articlesReadCount++;
+            });
+            print('✅ Count updated from $_articlesReadCount-1 to $_articlesReadCount');
+          }
+        } else {
+          print('⚠️ Backend ने history मध्ये save केलं नाही (null response)');
+
+          // Still update count locally as fallback
+          if (mounted) {
+            setState(() {
+              _articlesReadCount++;
+            });
+            print('⚠️ Count updated (fallback): $_articlesReadCount');
+          }
+        }
+      } catch (backendError) {
+        print('⚠️ Backend API error: $backendError');
+
+        // Still update count locally as fallback
+        if (mounted) {
+          setState(() {
+            _articlesReadCount++;
+          });
+          print('⚠️ Count updated (error fallback): $_articlesReadCount');
+        }
+      }
+
+    } catch (e) {
+      print('❌ Critical Error in _trackArticleRead: $e');
+    }
+  }
+
 
   List<Map<String, dynamic>> _buildCategoryList() {
     final List<Map<String, dynamic>> categoryList = [
@@ -1874,7 +1932,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     return RepaintBoundary(
       child: ArticleCardWidget(
         article: article,
-        onTrackRead: (_) {},
+        onTrackRead: _trackArticleRead,
         onShare: _shareArticle,
       ),
     );

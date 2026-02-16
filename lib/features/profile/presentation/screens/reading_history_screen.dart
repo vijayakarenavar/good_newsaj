@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:good_news/core/services/user_service.dart';
+import '../../../articles/presentation/screens/article_detail_screen.dart';
 
 class ReadingHistoryScreen extends StatefulWidget {
   const ReadingHistoryScreen({Key? key}) : super(key: key);
@@ -8,7 +9,7 @@ class ReadingHistoryScreen extends StatefulWidget {
   State<ReadingHistoryScreen> createState() => _ReadingHistoryScreenState();
 }
 
-class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {
+class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ FIXED!
   List<Map<String, dynamic>> _historyArticles = [];
   bool _isLoading = true;
 
@@ -293,49 +294,47 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {
     debugPrint('📖 HISTORY: Read Again clicked for article ${article['id']}');
 
     try {
-      // ✅ STEP 1: ALWAYS add NEW entry to history (increments count)
       final articleId = article['id'] as int?;
       if (articleId == null) {
         throw Exception('Article ID missing');
       }
 
+      // ✅ STEP 1: History मध्ये add करा
       debugPrint('✅ Adding NEW history entry for article $articleId...');
       final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
 
       if (newEntryId != null) {
         debugPrint('✅ SUCCESS: New history entry created (ID: $newEntryId)');
-
-        // ✅ Refresh local history to show new entry immediately
-        await _loadHistory();
+        // ✅ Local history refresh करा (background मध्ये)
+        _loadHistory();
       } else {
-        debugPrint('⚠️ WARNING: History entry may not have been created (backend issue)');
-        // Still proceed to open article - don't block user
+        debugPrint('⚠️ WARNING: History entry may not have been created');
       }
 
-      // ✅ STEP 2: Navigate back to feed/articles screen WITH result to open article
-      // This assumes the parent screen (ArticlesScreen) listens for this result
-      Navigator.of(context).pop({
-        'action': 'read_article',
-        'article_id': articleId,
-        'from_history': true, // Flag to indicate "Read Again" flow
-      });
+      // ✅ STEP 2: Article Detail Screen उघडा
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ArticleDetailScreen(article: article),
+        ),
+      );
+
+      // ✅ STEP 3: Back आल्यावर येथे येईल (automatic!)
+      debugPrint('📖 User came back from Article Detail Screen');
 
     } catch (e) {
       debugPrint('❌ ERROR in readAgain: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to add to history: ${e.toString().substring(0, 50)}'),
+            content: Text('Could not open article'),
             backgroundColor: Theme.of(context).colorScheme.error,
-            duration: const Duration(seconds: 3),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
-
-      // Still navigate back (don't trap user on error)
-      Navigator.of(context).pop();
     }
   }
+
 
   String _formatDate(String? dateStr) {
     if (dateStr == null) return 'Recently';
