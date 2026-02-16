@@ -1,12 +1,14 @@
 // lib/features/articles/presentation/screens/article_detail_screen.dart
 
+// lib/features/articles/presentation/screens/article_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_html/flutter_html.dart';
-
+import 'package:flutter/foundation.dart'; // ✅ debugPrint साठी ADD करा (already included in material.dart)
 class ArticleDetailScreen extends StatefulWidget {
   final Map<String, dynamic> article;
 
@@ -18,6 +20,7 @@ class ArticleDetailScreen extends StatefulWidget {
   @override
   State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
 }
+
 
 class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   bool _isLoading = false;
@@ -39,7 +42,32 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   }
 
   String _getCleanContent() {
-    return _removeAiText(widget.article['content'] ?? '');
+    // ✅ Debug: article मध्ये काय आहे ते print करा
+    debugPrint('📰 ARTICLE DETAIL: Keys available: ${widget.article.keys.toList()}');
+    debugPrint('📰 ARTICLE DETAIL: content = ${widget.article['content']}');
+    debugPrint('📰 ARTICLE DETAIL: summary = ${widget.article['summary']}');
+    debugPrint('📰 ARTICLE DETAIL: rewritten_summary = ${widget.article['rewritten_summary']}');
+
+    // ✅ सगळ्या possible fields check करा
+    final rawContent = widget.article['rewritten_summary'] ??
+        widget.article['summary'] ??
+        widget.article['content'] ??
+        widget.article['rewritten_content'] ??
+        widget.article['description'] ??
+        '';
+
+    // ✅ Empty check with fallback message
+    if (rawContent.isEmpty || rawContent == 'No content available') {
+      return '''
+      <div style="padding: 20px; background: #f5f5f5; border-radius: 8px; text-align: center;">
+        <h3>📰 Content Not Available</h3>
+        <p>The full article content is not available in the app.</p>
+        <p><strong>Please tap "Visit Official Source" button below to read the complete article.</strong></p>
+      </div>
+    ''';
+    }
+
+    return _removeAiText(rawContent);
   }
 
   // ================= DOMAIN =================
@@ -143,11 +171,26 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
   }
 
-  // ================= FORMAT HTML =================
   String _formatHtmlContent(String content) {
-    if (content.isEmpty) return "<p>No content available</p>";
+    // ✅ Empty check - already handled in _getCleanContent()
+    if (content.isEmpty) {
+      return '''
+      <div style="padding: 20px; text-align: center;">
+        <p style="color: #666;">No content available</p>
+      </div>
+    ''';
+    }
+
+    // ✅ Remove dangerous tags
     content = content.replaceAll(RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false), '');
     content = content.replaceAll(RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false), '');
+
+    // ✅ If content doesn't have HTML tags, wrap in paragraphs
+    if (!content.contains('<') && !content.contains('>')) {
+      final paragraphs = content.split('\n\n');
+      content = paragraphs.map((p) => '<p>${p.trim()}</p>').join('\n');
+    }
+
     return content;
   }
 
