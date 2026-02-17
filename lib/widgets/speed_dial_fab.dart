@@ -30,6 +30,9 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
       parent: _controller,
       curve: Curves.easeInOut,
     );
+    _controller.addListener(() {
+      setState(() {});
+    });
   }
 
   @override
@@ -60,61 +63,60 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
 
   @override
   Widget build(BuildContext context) {
+    final animValue = _expandAnimation.value;
+
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
-        // Backdrop to detect outside taps
+        // ✅ Backdrop - उघडा असताना बाहेर tap close करतो
         if (_isExpanded)
           Positioned.fill(
             child: GestureDetector(
               onTap: _collapse,
+              behavior: HitTestBehavior.opaque,
               child: Container(
                 color: Colors.black.withOpacity(0.3),
               ),
             ),
           ),
 
-        // Speed dial actions
-        ...widget.actions.asMap().entries.map((entry) {
-          final index = entry.key;
-          final action = entry.value;
-          return AnimatedBuilder(
-            animation: _expandAnimation,
-            builder: (context, child) {
-              final offset = (index + 1) * 70.0 * _expandAnimation.value;
-              return Positioned(
-                bottom: 16 + offset,
-                right: 16,
-                child: Transform.scale(
-                  scale: _expandAnimation.value,
-                  child: Opacity(
-                    opacity: _expandAnimation.value,
-                    child: _buildSpeedDialItem(action),
-                  ),
-                ),
-              );
-            },
-          );
-        }).toList(),
+        // ✅ REAL FIX: animValue > 0 तरच buttons exist करतात
+        // animValue == 0 म्हणजे buttons DOM मधून पूर्णपणे गेले
+        if (animValue > 0)
+          ...widget.actions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final action = entry.value;
+            final offset = (index + 1) * 70.0 * animValue;
 
-        // Main FAB with tooltip
+            return Positioned(
+              bottom: 16 + offset,
+              right: 16,
+              child: Opacity(
+                opacity: animValue,
+                child: Transform.scale(
+                  scale: animValue,
+                  alignment: Alignment.bottomRight,
+                  child: _buildSpeedDialItem(action),
+                ),
+              ),
+            );
+          }).toList(),
+
+        // ✅ Main FAB - नेहमी वर राहतो, नेहमी clickable
         Positioned(
           bottom: 16,
           right: 16,
-          child: Tooltip(
-            message: _isExpanded ? 'Close menu' : 'Quick actions',
-            child: FloatingActionButton(
-              onPressed: _toggle,
-              backgroundColor: ThemeTokens.primaryGreen,
-              child: AnimatedRotation(
-                turns: _isExpanded ? 0.125 : 0,
-                duration: const Duration(milliseconds: 250),
-                child: Icon(
-                  _isExpanded ? Icons.close : Icons.add,
-                  color: Colors.white,
-                  semanticLabel:
-                  _isExpanded ? 'Close menu' : 'Open actions menu',
-                ),
+          child: FloatingActionButton(
+            heroTag: 'main_speed_dial_fab',
+            onPressed: _toggle,
+            backgroundColor: ThemeTokens.primaryGreen,
+            child: AnimatedRotation(
+              turns: _isExpanded ? 0.125 : 0,
+              duration: const Duration(milliseconds: 250),
+              child: Icon(
+                Icons.add,
+                color: Colors.white,
+                semanticLabel: _isExpanded ? 'Close menu' : 'Open actions menu',
               ),
             ),
           ),
@@ -130,7 +132,6 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Label with responsive sizing
         Container(
           constraints: BoxConstraints(
             maxWidth: isSmallScreen ? screenWidth * 0.4 : 200,
@@ -154,27 +155,22 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
           ),
         ),
         SizedBox(width: isSmallScreen ? 8 : 12),
-
-        // Mini FAB with tooltip and unique heroTag
-        Tooltip(
-          message: action.label,
-          child: SizedBox(
-            width: 40,
-            height: 40,
-            child: FloatingActionButton(
-              heroTag: action.heroTag ?? UniqueKey(), // ✅ Fix
-              onPressed: () {
-                _collapse();
-                action.onPressed();
-              },
-              backgroundColor: ThemeTokens.primaryGreen,
-              mini: true,
-              child: Icon(
-                action.icon,
-                color: Colors.white,
-                size: 20,
-                semanticLabel: action.semanticLabel ?? action.label,
-              ),
+        SizedBox(
+          width: 40,
+          height: 40,
+          child: FloatingActionButton(
+            heroTag: action.heroTag ?? 'speed_dial_${action.label}',
+            onPressed: () {
+              _collapse();
+              action.onPressed();
+            },
+            backgroundColor: ThemeTokens.primaryGreen,
+            mini: true,
+            child: Icon(
+              action.icon,
+              color: Colors.white,
+              size: 20,
+              semanticLabel: action.semanticLabel ?? action.label,
             ),
           ),
         ),
@@ -188,7 +184,7 @@ class SpeedDialAction {
   final String label;
   final String? semanticLabel;
   final VoidCallback onPressed;
-  final Object? heroTag; // ✅ Added to fix heroTag error
+  final Object? heroTag;
 
   const SpeedDialAction({
     required this.icon,

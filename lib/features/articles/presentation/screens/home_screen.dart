@@ -19,12 +19,14 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 import 'package:good_news/features/articles/presentation/widgets/social_post_card_widget.dart';
-import 'package:good_news/features/articles/presentation/widgets/speed_dial_widget.dart';
+// ✅ CHANGE 1: speed_dial_widget.dart → speed_dial_fab.dart
+//import 'package:good_news/features/social/presentation/widgets/speed_dial_fab.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import '../../../../widgets/speed_dial_fab.dart';
 import '../../../social/presentation/screens/comment_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -34,8 +36,9 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+// ✅ CHANGE 2: SingleTickerProviderStateMixin काढला (animation नको आता)
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -51,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isRefreshing = false;
   bool _isInitialLoading = true;
   int _currentIndex = 0;
-  bool _isSpeedDialOpen = false;
+  // ✅ CHANGE 3: _isSpeedDialOpen, _animationController, _rotationAnimation काढले
 
   int _selectedTabIndex = 1;
   int? _selectedCategoryId;
@@ -68,9 +71,6 @@ class _HomeScreenState extends State<HomeScreen>
   static const int PAGE_SIZE = 25;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = ['Education', 'Environment', 'International'];
-
-  late AnimationController _animationController;
-  late Animation<double> _rotationAnimation;
 
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
@@ -93,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen>
     _categoryScrollController = ScrollController();
     _horizontalPageController = PageController();
     _previousPageIndex = null;
-    _initializeAnimations();
+    // ✅ CHANGE 3: _initializeAnimations() काढला
     _refreshUserDisplayName();
     _loadInitialData();
     _loadProfileData();
@@ -101,7 +101,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
-    _animationController.dispose();
+    // ✅ CHANGE 3: _animationController.dispose() काढला
     _categoryScrollController.dispose();
     _horizontalPageController.dispose();
     for (var controller in _commentControllers.values) {
@@ -110,15 +110,8 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  void _initializeAnimations() {
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 180),
-      vsync: this,
-    );
-    _rotationAnimation = Tween<double>(begin: 0.0, end: 0.125).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-    );
-  }
+  // ✅ CHANGE 3: _initializeAnimations() method काढला
+  // ✅ CHANGE 3: _toggleSpeedDial() method काढला
 
   Future<void> _preloadImages(List<Map<String, dynamic>> items, int startIndex) async {
     if (!mounted) return;
@@ -282,7 +275,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-
   Future<void> _loadFriendRequestsCount() async {
     setState(() => _isFriendRequestsLoading = true);
     try {
@@ -365,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen>
   Map<String, dynamic> _formatSocialPost(Map<String, dynamic> post, List<int> locallyLikedPosts) {
     final authorName = post['display_name'] ?? 'Unknown';
     final likesCount = post['likes_count'] ?? 0;
+    final commentsCount = post['comments_count'] ?? post['comments'] ?? 0;
     final postId = post['id'] is int ? post['id'] : int.tryParse(post['id'].toString()) ?? 0;
     final apiLiked = post['user_has_liked'] == 1 || post['user_has_liked'] == true;
     final localLiked = locallyLikedPosts.contains(postId);
@@ -377,8 +370,10 @@ class _HomeScreenState extends State<HomeScreen>
       'content': post['content'] ?? '',
       'created_at': post['created_at'],
       'likes': likesCount,
+      'comments': commentsCount,
       'isLiked': apiLiked || localLiked,
       'image_url': post['image_url'],
+      'user_id': post['user_id'] ?? post['author_id'],
     };
   }
 
@@ -534,19 +529,17 @@ class _HomeScreenState extends State<HomeScreen>
       final maxScroll = _categoryScrollController.position.maxScrollExtent;
       final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
-      // ✅ Calculate distance to determine animation speed
       final currentOffset = _categoryScrollController.offset;
       final distance = (clampedOffset - currentOffset).abs();
 
-      // ✅ Adaptive duration based on distance
       final duration = distance < 100
-          ? const Duration(milliseconds: 180)  // Short distance = quick
-          : const Duration(milliseconds: 250);  // Long distance = smooth
+          ? const Duration(milliseconds: 180)
+          : const Duration(milliseconds: 250);
 
       _categoryScrollController.animateTo(
         clampedOffset,
         duration: duration,
-        curve: Curves.easeOutCubic,  // ✅ Most natural feeling curve
+        curve: Curves.easeOutCubic,
       );
     });
   }
@@ -563,7 +556,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   void _onHorizontalDragEnd(DragEndDetails details) {
     final dragEnd = details.primaryVelocity ?? 0;
-    if (dragEnd.abs() < 250) return;  // ✅ 300 → 250 (more sensitive)
+    if (dragEnd.abs() < 250) return;
 
     if (dragEnd < -250) {
       _switchToNextCategory();
@@ -572,16 +565,14 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ✅ NEW CODE - ADD THIS:
   void _switchToNextCategory() {
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
 
     int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
-    // ✅ If at last category, go to Social tab
     if (currentIndex != -1 && currentIndex == categoryList.length - 1) {
-      _onTabChanged(2); // Switch to Social tab
+      _onTabChanged(2);
     } else if (currentIndex != -1 && currentIndex < categoryList.length - 1) {
       final nextCategory = categoryList[currentIndex + 1];
       _selectCategory(nextCategory['id']);
@@ -594,19 +585,12 @@ class _HomeScreenState extends State<HomeScreen>
 
     int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
-    // ✅ If at first category (All), go to Video tab
     if (currentIndex == 0) {
-      _onTabChanged(0); // Switch to Video tab
+      _onTabChanged(0);
     } else if (currentIndex > 0) {
       final prevCategory = categoryList[currentIndex - 1];
       _selectCategory(prevCategory['id']);
     }
-  }
-  void _toggleSpeedDial() {
-    setState(() {
-      _isSpeedDialOpen = !_isSpeedDialOpen;
-      _isSpeedDialOpen ? _animationController.forward() : _animationController.reverse();
-    });
   }
 
   void _onTabChanged(int index) {
@@ -754,7 +738,6 @@ class _HomeScreenState extends State<HomeScreen>
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
 
-      // ✅ ONLY scroll category chips if the category actually changed
       final previousCategoryIndex = previousPage >= 1 && previousPage <= totalNewsPages
           ? previousPage - 1
           : null;
@@ -784,11 +767,11 @@ class _HomeScreenState extends State<HomeScreen>
       _updateDisplayedItems();
     }
 
-    final indexToScroll = categoryIndexToScroll;  // Create local variable
+    final indexToScroll = categoryIndexToScroll;
     if (indexToScroll != null) {
       Future.delayed(const Duration(milliseconds: 250), () {
         if (mounted && _categoryScrollController.hasClients) {
-          _scrollCategoryChipsToIndex(indexToScroll);  // ✅ Now it's non-nullable
+          _scrollCategoryChipsToIndex(indexToScroll);
         }
       });
     }
@@ -965,9 +948,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     }
   }
 
-
-
-  // ✅ येथे ADD करा 👇
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
     try {
       final articleId = article['id'];
@@ -978,40 +958,30 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
 
       print('📖 Tracking article read: $articleId');
 
-      // ✅ STEP 1: Backend मध्ये save करा (History मध्ये जातो)
       try {
         final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
 
         if (newEntryId != null) {
           print('✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
-
-          // ✅ STEP 2: Count वाढवा UI मध्ये
           if (mounted) {
             setState(() {
               _articlesReadCount++;
             });
-            print('✅ Count updated from $_articlesReadCount-1 to $_articlesReadCount');
           }
         } else {
           print('⚠️ Backend ने history मध्ये save केलं नाही (null response)');
-
-          // Still update count locally as fallback
           if (mounted) {
             setState(() {
               _articlesReadCount++;
             });
-            print('⚠️ Count updated (fallback): $_articlesReadCount');
           }
         }
       } catch (backendError) {
         print('⚠️ Backend API error: $backendError');
-
-        // Still update count locally as fallback
         if (mounted) {
           setState(() {
             _articlesReadCount++;
           });
-          print('⚠️ Count updated (error fallback): $_articlesReadCount');
         }
       }
 
@@ -1019,7 +989,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       print('❌ Critical Error in _trackArticleRead: $e');
     }
   }
-
 
   List<Map<String, dynamic>> _buildCategoryList() {
     final List<Map<String, dynamic>> categoryList = [
@@ -1039,7 +1008,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     return categoryList;
   }
 
-  // ✅ PROFILE UI BUILDERS - RESPONSIVE + SOFT SHADOWS
   Future<void> _editProfile() async {
     if (_userProfile == null) return;
     final result = await Navigator.of(context).push(
@@ -1107,7 +1075,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // ✅ UPDATED: Soft shadows and reduced borders for all cards
   Widget _buildSectionCard(BuildContext context, {required Widget child}) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1143,7 +1110,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // ✅ UPDATED: Soft shadows for Articles Read Card
   Widget _buildArticlesReadCard() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1272,7 +1238,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // ✅ UPDATED: Menu List Builder with soft shadows
   Widget _buildMenuList(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -1443,7 +1408,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  // ✅ UPDATED: Responsive Profile Page
   Widget _buildProfilePage() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1595,7 +1559,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         child: Stack(
           children: [
             _buildMainContent(categoryList),
-            if (_showFab && _selectedTabIndex == 2) _buildSpeedDial(),
+            // ✅ CHANGE 4: if (_showFab && _selectedTabIndex == 2) _buildSpeedDial() काढला
             if (_isLoadingMore &&
                 !_isInitialLoading &&
                 _loadingStartTime != null &&
@@ -1632,6 +1596,45 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           ],
         ),
       ),
+      // ✅ CHANGE 5: SpeedDialFAB Scaffold.floatingActionButton मध्ये - hidden buttons आता clickable नाहीत
+      floatingActionButton: _showFab && _selectedTabIndex == 2
+          ? SpeedDialFAB(
+        actions: [
+          // SpeedDialAction(
+          //   icon: Icons.post_add_outlined,
+          //   label: 'Friends Posts',
+          //   heroTag: 'friends_posts_fab',
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(builder: (context) => const FriendsPostsScreen()),
+          //     );
+          //   },
+          // ),
+          SpeedDialAction(
+            icon: Icons.person_add,
+            label: 'Add Friend',
+            heroTag: 'add_friend_fab',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const FriendsModal(),
+              );
+            },
+          ),
+          SpeedDialAction(
+            icon: Icons.edit,
+            label: 'Create Post',
+            heroTag: 'create_post_fab',
+            onPressed: () {
+              _handleCreatePost();
+            },
+          ),
+        ],
+      )
+          : null,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -1882,11 +1885,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
-        // ✅ ADDED: GestureDetector for horizontal swipes
         Expanded(
           child: GestureDetector(
             onVerticalDragEnd: _onVerticalDragEnd,
-            onHorizontalDragEnd: _onHorizontalDragEnd, // ✅ NEW!
+            onHorizontalDragEnd: _onHorizontalDragEnd,
             child: PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
@@ -1909,6 +1911,20 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     required List<Map<String, dynamic>> items,
     required Widget Function(Map<String, dynamic>) itemBuilder,
   }) {
+    if (_selectedTabIndex == 2) {
+      if (items.isEmpty) {
+        return _buildEmptyStateForTab('Social');
+      }
+      return ListView.builder(
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          return itemBuilder(items[index]);
+        },
+      );
+    }
+
     return GestureDetector(
       onVerticalDragEnd: _onVerticalDragEnd,
       child: PageView.builder(
@@ -1918,11 +1934,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         itemBuilder: (context, index) {
           if (items.isEmpty) {
             return _buildEmptyStateForTab(
-              _selectedTabIndex == 0 ? 'Video' : _selectedTabIndex == 2 ? 'Social' : 'News',
+              _selectedTabIndex == 0 ? 'Video' : 'Social',
             );
           }
-          final item = items[index];
-          return itemBuilder(item);
+          return itemBuilder(items[index]);
         },
       ),
     );
@@ -1941,33 +1956,31 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   Widget _buildSocialPost(Map<String, dynamic> post) {
     final postId = post['id'] as String;
     _commentControllers.putIfAbsent(postId, () => TextEditingController());
-    return RepaintBoundary(
-      child: SocialPostCardWidget(
-        post: post,
-        commentController: _commentControllers[postId]!,
-        onToggleLike: _toggleLike,
-        onShare: _shareArticle,
-        onAddFriend: (post) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Now following ${post['author']}!'),
-              backgroundColor: Colors.green,
+    return SocialPostCardWidget(
+      post: post,
+      commentController: _commentControllers[postId]!,
+      onToggleLike: _toggleLike,
+      onShare: _shareArticle,
+      onAddFriend: (post) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Now following ${post['author']}!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      },
+      onShowFullImage: _showFullImageDialog,
+      onOpenCommentPage: (postId, post) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CommentPage(
+              postId: postId,
+              post: post,
             ),
-          );
-        },
-        onShowFullImage: _showFullImageDialog,
-        onOpenCommentPage: (postId, post) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CommentPage(
-                postId: postId,
-                post: post,
-              ),
-            ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1984,50 +1997,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  Widget _buildSpeedDial() {
-    return SpeedDialWidget(
-      isOpen: _isSpeedDialOpen,
-      rotationAnimation: _rotationAnimation,
-      onToggle: _toggleSpeedDial,
-      actions: [
-        SpeedDialAction(
-          bottom: 160,
-          icon: Icons.post_add_outlined,
-          label: 'Friends Posts',
-          onTap: () {
-            _toggleSpeedDial();
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const FriendsPostsScreen()),
-            );
-          },
-        ),
-        SpeedDialAction(
-          bottom: 210,
-          icon: Icons.person_add,
-          label: 'Add Friend',
-          onTap: () {
-            _toggleSpeedDial();
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (context) => const FriendsModal(),
-            );
-          },
-        ),
-        SpeedDialAction(
-          bottom: 260,
-          icon: Icons.edit,
-          label: 'Create Post',
-          onTap: () {
-            _toggleSpeedDial();
-            _handleCreatePost();
-          },
-        ),
-      ],
-    );
-  }
+  // ✅ CHANGE 4: _buildSpeedDial() method पूर्ण काढला
 
   Widget _buildEmptyStateForTab(String tabName) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2435,7 +2405,6 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
 }
 
 // ==================== INLINE WIDGETS ====================
-// QuickActionsWidget - Inline implementation with soft borders
 class QuickActionsWidget extends StatelessWidget {
   final VoidCallback onMyPostsTap;
   final VoidCallback onFriendRequestsTap;
@@ -2599,7 +2568,6 @@ class QuickActionsWidget extends StatelessWidget {
   }
 }
 
-// FriendsSectionWidget - Inline implementation with consistent styling
 class FriendsSectionWidget extends StatelessWidget {
   final List<Map<String, dynamic>> friends;
   final bool isLoading;
