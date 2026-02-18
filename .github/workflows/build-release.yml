@@ -1,4 +1,4 @@
-﻿name: Build & Release Signed APK
+name: Build & Release Signed APK
 on:
   push:
     tags:
@@ -19,17 +19,19 @@ jobs:
         with:
           channel: 'stable'
       - name: Setup Keystore & key.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
-          cat > android/key.properties << EOF
-storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-keyPassword=${{ secrets.KEY_PASSWORD }}
-keyAlias=${{ secrets.KEY_ALIAS }}
-storeFile=key.jks
-EOF
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
+          echo "storeFile=key.jks" >> android/key.properties
       - name: Setup .env file
-        run: |
-          echo "${{ secrets.ENV_FILE }}" > .env
+        run: echo "${{ secrets.ENV_FILE }}" > .env
       - name: Get dependencies
         run: flutter pub get
       - name: Build Signed Release APK
