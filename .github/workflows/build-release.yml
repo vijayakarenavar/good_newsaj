@@ -1,23 +1,37 @@
 name: Build & Release Signed APK
+
 on:
   push:
     tags:
       - 'v*.*.*'
+
+# ✅ हे इथे add कर
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
+      # 1️⃣ Checkout Code
       - name: Checkout code
         uses: actions/checkout@v4
+
+      # 2️⃣ Setup Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
+
+      # 3️⃣ Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+
+      # 4️⃣ Setup Keystore & key.properties
       - name: Setup Keystore & key.properties
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -25,17 +39,27 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
+          mkdir -p android/app
           echo "$KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+
           echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
           echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
           echo "keyAlias=$KEY_ALIAS" >> android/key.properties
-          echo "storeFile=key.jks" >> android/key.properties
+          echo "storeFile=app/key.jks" >> android/key.properties
+
+      # 5️⃣ Setup .env file
       - name: Setup .env file
         run: echo "${{ secrets.ENV_FILE }}" > .env
+
+      # 6️⃣ Install Dependencies
       - name: Get dependencies
         run: flutter pub get
+
+      # 7️⃣ Build Signed Release APK
       - name: Build Signed Release APK
         run: flutter build apk --release
+
+      # 8️⃣ Upload APK to GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
