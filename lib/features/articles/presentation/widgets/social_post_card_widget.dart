@@ -3,6 +3,12 @@ import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+// ─────────────────────────────────────────────
+// Friend Request Status
+// ─────────────────────────────────────────────
+enum FriendStatus { none, pending, friend }
 
 /// 📸 INSTAGRAM STYLE - Content-sized card only
 class SocialPostCardWidget extends StatefulWidget {
@@ -31,8 +37,65 @@ class SocialPostCardWidget extends StatefulWidget {
 
 class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   bool _isSendingRequest = false;
-  bool _requestSent = false;
+  FriendStatus _friendStatus = FriendStatus.none;
   int? _cachedUserId;
+
+  // ─────────────────────────────────────────────
+  // SharedPreferences Keys
+  // ─────────────────────────────────────────────
+  static const String _prefPrefix = 'friend_status_';
+
+  String get _prefKey {
+    final userId = _cachedUserId ?? widget.post['user_id']?.toString() ?? widget.post['author'];
+    return '$_prefPrefix$userId';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFriendStatus();
+  }
+
+  /// Load saved status from SharedPreferences
+  Future<void> _loadFriendStatus() async {
+    final userId = await _extractUserId();
+    if (userId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedStatus = prefs.getString('$_prefPrefix$userId');
+
+    if (mounted) {
+      setState(() {
+        switch (savedStatus) {
+          case 'pending':
+            _friendStatus = FriendStatus.pending;
+            break;
+          case 'friend':
+            _friendStatus = FriendStatus.friend;
+            break;
+          default:
+            _friendStatus = FriendStatus.none;
+        }
+      });
+    }
+  }
+
+  /// Save status to SharedPreferences
+  Future<void> _saveFriendStatus(int userId, FriendStatus status) async {
+    final prefs = await SharedPreferences.getInstance();
+    String value;
+    switch (status) {
+      case FriendStatus.pending:
+        value = 'pending';
+        break;
+      case FriendStatus.friend:
+        value = 'friend';
+        break;
+      default:
+        value = 'none';
+    }
+    await prefs.setString('$_prefPrefix$userId', value);
+  }
 
   Future<int?> _extractUserId() async {
     if (_cachedUserId != null) return _cachedUserId;
@@ -108,19 +171,25 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             content: const Text('Unable to send friend request'),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ));
         }
         setState(() => _isSendingRequest = false);
         return;
       }
+
       final response = await ApiService.sendFriendRequest(userId);
+
       if (response['status'] == 'success') {
+        // Save to SharedPreferences so it persists after app restart
+        await _saveFriendStatus(userId, FriendStatus.pending);
+
         setState(() {
-          _requestSent = true;
+          _friendStatus = FriendStatus.pending;
           _isSendingRequest = false;
         });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Row(children: [
@@ -158,8 +227,8 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
     }
@@ -178,7 +247,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
 
     return Container(
       width: double.infinity,
-      // ✅ FIX 2: horizontal padding around each card
       margin: EdgeInsets.symmetric(
         horizontal: isTablet ? 16.0 : 12.0,
         vertical: 6.0,
@@ -345,11 +413,8 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     return Padding(
       padding: EdgeInsets.fromLTRB(pad, 6, pad, 4),
       child: Row(
-        // ✅ FIX 1: crossAxisAlignment.center keeps all icons on same line
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // ✅ FIX 1: Icon + count stacked, but icon row never shifts up
-          // We use a fixed-height container for the icon+count block
           _actionButton(
             icon: widget.post['isLiked']
                 ? Icons.favorite
@@ -360,9 +425,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             isDark: isDark,
             onTap: () => widget.onToggleLike(widget.post),
           ),
-
           const SizedBox(width: 8),
-
           _actionButton(
             icon: Icons.mode_comment_outlined,
             color: iconColor,
@@ -371,22 +434,20 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             isDark: isDark,
             onTap: () => widget.onOpenCommentPage(postId, widget.post),
           ),
-
           const SizedBox(width: 8),
-
-          // ✅ Share — wrapped same way so it aligns with others
           _actionButton(
             icon: Icons.send_outlined,
             color: iconColor,
             size: iconSize,
-            count: null, // no count ever
+            count: null,
             isDark: isDark,
             onTap: () => widget.onShare(widget.post),
           ),
-
           const Spacer(),
 
-          // Add Friend button
+          // ─────────────────────────────────────────────
+          // ✅ DYNAMIC BUTTON based on FriendStatus
+          // ─────────────────────────────────────────────
           if (widget.onAddFriend != null)
             _isSendingRequest
                 ? const SizedBox(
@@ -394,38 +455,82 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-                : TextButton(
-              onPressed: _requestSent ? null : _sendFriendRequest,
-              style: TextButton.styleFrom(
-                backgroundColor: _requestSent
-                    ? (isDark
-                    ? const Color(0xFF262626)
-                    : const Color(0xFFEFEFEF))
-                    : Theme.of(context).colorScheme.primary,
-                foregroundColor: _requestSent
-                    ? (isDark
-                    ? const Color(0xFFA8A8A8)
-                    : const Color(0xFF8E8E8E))
-                    : Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 6),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6)),
-                minimumSize: const Size(60, 30),
-              ),
-              child: Text(
-                _requestSent ? 'Sent ✓' : 'Add',
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600),
-              ),
-            ),
+                : _buildFriendButton(context, isDark),
         ],
       ),
     );
   }
 
-  // ✅ FIX 1: _actionButton — icon always at TOP, count below
-  // All buttons have same structure so they never misalign
+  /// ✅ Button changes based on status:
+  /// none    → "Add"      (green)
+  /// pending → "Sent ✓"  (grey, disabled)
+  /// friend  → "Friends 👥" (blue/theme, disabled)
+  Widget _buildFriendButton(BuildContext context, bool isDark) {
+    final themeColor = Theme.of(context).colorScheme.primary;
+
+    switch (_friendStatus) {
+      case FriendStatus.friend:
+        return TextButton(
+          onPressed: null, // already friends, no action
+          style: TextButton.styleFrom(
+            backgroundColor:
+            isDark ? const Color(0xFF1A3A5C) : Colors.blue.shade50,
+            foregroundColor: Colors.blue,
+            padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6)),
+            minimumSize: const Size(70, 30),
+          ),
+          child: const Text(
+            'Friends 👥',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        );
+
+      case FriendStatus.pending:
+        return TextButton(
+          onPressed: null, // request already sent
+          style: TextButton.styleFrom(
+            backgroundColor: isDark
+                ? const Color(0xFF262626)
+                : const Color(0xFFEFEFEF),
+            foregroundColor: isDark
+                ? const Color(0xFFA8A8A8)
+                : const Color(0xFF8E8E8E),
+            padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6)),
+            minimumSize: const Size(60, 30),
+          ),
+          child: const Text(
+            'Sent ✓',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        );
+
+      case FriendStatus.none:
+      default:
+        return TextButton(
+          onPressed: _sendFriendRequest,
+          style: TextButton.styleFrom(
+            backgroundColor: themeColor,
+            foregroundColor: Colors.white,
+            padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6)),
+            minimumSize: const Size(60, 30),
+          ),
+          child: const Text(
+            'Add',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        );
+    }
+  }
+
   Widget _actionButton({
     required IconData icon,
     required Color color,
@@ -436,10 +541,9 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.start, // ✅ icon always at top
+      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // ✅ Icon always same size regardless of count
         GestureDetector(
           onTap: onTap,
           child: Padding(
@@ -447,8 +551,6 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             child: Icon(icon, color: color, size: size),
           ),
         ),
-        // ✅ Count: always same fixed height (14px) so spacing is consistent
-        // Empty text when no count keeps height same as when count exists
         SizedBox(
           height: 14,
           child: count != null
@@ -604,8 +706,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
                                       color: Colors.white)),
-                              Text(
-                                  _formatTimestamp(widget.post['created_at']),
+                              Text(_formatTimestamp(widget.post['created_at']),
                                   style: const TextStyle(
                                       color: Colors.white70, fontSize: 12)),
                             ],
