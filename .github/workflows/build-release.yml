@@ -31,7 +31,7 @@ jobs:
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=app/key.jks
+          storeFile=key.jks
           EOF
 
       - name: 📄 Setup .env file
