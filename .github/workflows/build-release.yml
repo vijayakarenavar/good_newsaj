@@ -1,48 +1,52 @@
-name: Build Release APK
+name: 🚀 Build & Release Signed APK
 
 on:
   push:
-    branches: [ "main" ]
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: ☕ Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Decode Keystore
-        run: echo ${{ secrets.KEYSTORE_BASE64 }} | base64 --decode > keystore.jks
-        shell: bash
-
-      - name: Set up Flutter
+      - name: 🐦 Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Get dependencies
+      - name: 🔑 Setup Keystore & key.properties
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/key.jks
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=app/key.jks
+          EOF
+
+      - name: 📦 Get dependencies
         run: flutter pub get
 
-      - name: Build Release APK
+      - name: 🏗️ Build Signed Release APK
         run: flutter build apk --release
-        env:
-          ANDROID_KEYSTORE_FILE: keystore.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Check APK output (Debug)
-        run: ls -la build/app/outputs/apk/release/
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
+      - name: 🎉 Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: release-apk
-          path: build/app/outputs/apk/release/app-release.apk
+          name: "Good Newsaj ${{ github.ref_name }}"
+          body: |
+            ## 📱 Good Newsaj - ${{ github.ref_name }}
+            खाली APK download करा आणि install करा! 🎉
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
