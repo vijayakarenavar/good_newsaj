@@ -19,8 +19,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 import 'package:good_news/features/articles/presentation/widgets/social_post_card_widget.dart';
-// ✅ CHANGE 1: speed_dial_widget.dart → speed_dial_fab.dart
-//import 'package:good_news/features/social/presentation/widgets/speed_dial_fab.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'package:http/http.dart' as http;
@@ -36,7 +34,6 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-// ✅ CHANGE 2: SingleTickerProviderStateMixin काढला (animation नको आता)
 class _HomeScreenState extends State<HomeScreen>
     with AutomaticKeepAliveClientMixin {
   @override
@@ -54,7 +51,6 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isRefreshing = false;
   bool _isInitialLoading = true;
   int _currentIndex = 0;
-  // ✅ CHANGE 3: _isSpeedDialOpen, _animationController, _rotationAnimation काढले
 
   int _selectedTabIndex = 1;
   int? _selectedCategoryId;
@@ -70,12 +66,16 @@ class _HomeScreenState extends State<HomeScreen>
   static const int LOAD_MORE_THRESHOLD = 3;
   static const int PAGE_SIZE = 25;
   static const int PRELOAD_COUNT = 5;
-  static const List<String> EXCLUDED_CATEGORIES = ['Education', 'Environment', 'International'];
+  static const List<String> EXCLUDED_CATEGORIES = [
+    'Education',
+    'Environment',
+    'International'
+  ];
 
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
-  DateTime? _loadingStartTime;
+  // DateTime? _loadingStartTime;
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
@@ -93,7 +93,6 @@ class _HomeScreenState extends State<HomeScreen>
     _categoryScrollController = ScrollController();
     _horizontalPageController = PageController();
     _previousPageIndex = null;
-    // ✅ CHANGE 3: _initializeAnimations() काढला
     _refreshUserDisplayName();
     _loadInitialData();
     _loadProfileData();
@@ -101,7 +100,6 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
-    // ✅ CHANGE 3: _animationController.dispose() काढला
     _categoryScrollController.dispose();
     _horizontalPageController.dispose();
     for (var controller in _commentControllers.values) {
@@ -110,10 +108,8 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  // ✅ CHANGE 3: _initializeAnimations() method काढला
-  // ✅ CHANGE 3: _toggleSpeedDial() method काढला
-
-  Future<void> _preloadImages(List<Map<String, dynamic>> items, int startIndex) async {
+  Future<void> _preloadImages(
+      List<Map<String, dynamic>> items, int startIndex) async {
     if (!mounted) return;
     final endIndex = (startIndex + PRELOAD_COUNT).clamp(0, items.length);
     for (int i = startIndex; i < endIndex; i++) {
@@ -122,15 +118,19 @@ class _HomeScreenState extends State<HomeScreen>
       String? imageUrl;
       if (item['type'] == 'article' && item['image_url'] != null) {
         imageUrl = item['image_url'];
-      } else if ((item['type'] == 'social_post' || item['type'] == 'video_post') &&
+      } else if ((item['type'] == 'social_post' ||
+          item['type'] == 'video_post') &&
           item['image_url'] != null) {
         imageUrl = item['image_url'];
       }
-      if (imageUrl != null && imageUrl.isNotEmpty && !_preloadedImages.contains(imageUrl)) {
+      if (imageUrl != null &&
+          imageUrl.isNotEmpty &&
+          !_preloadedImages.contains(imageUrl)) {
         _preloadedImages.add(imageUrl);
         try {
           await precacheImage(
-            CachedNetworkImageProvider(imageUrl, cacheKey: imageUrl, maxWidth: 600, maxHeight: 600),
+            CachedNetworkImageProvider(imageUrl,
+                cacheKey: imageUrl, maxWidth: 600, maxHeight: 600),
             context,
           );
         } catch (e) {
@@ -152,15 +152,17 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       _selectedCategoryIds = await PreferencesService.getSelectedCategories();
       final categoryResponse = await ApiService.getCategories();
-      if (categoryResponse['status'] == 'success' && categoryResponse['categories'] != null) {
+      if (categoryResponse['status'] == 'success' &&
+          categoryResponse['categories'] != null) {
         final List<dynamic> categories = categoryResponse['categories'];
         _categoryMap = {
           for (final cat in categories)
             if (!EXCLUDED_CATEGORIES.contains(cat['name']))
               (cat['id'] as int): (cat['name'] ?? 'Unnamed') as String
         };
-        _selectedCategoryIds =
-            _selectedCategoryIds.where((id) => _categoryMap.containsKey(id)).toList();
+        _selectedCategoryIds = _selectedCategoryIds
+            .where((id) => _categoryMap.containsKey(id))
+            .toList();
       }
       await Future.wait([
         _loadArticles(isInitial: true),
@@ -264,7 +266,9 @@ class _HomeScreenState extends State<HomeScreen>
       if (response['status'] == 'success' && mounted) {
         final data = response['data'] ?? [];
         setState(() {
-          _friends = (data as List).map((item) => Map<String, dynamic>.from(item)).toList();
+          _friends = (data as List)
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList();
           _isFriendsLoading = false;
         });
       }
@@ -299,10 +303,11 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _loadArticles({bool isInitial = false}) async {
     if (_isLoadingMore) return;
     try {
-      if (mounted) setState(() {
-        _isLoadingMore = true;
-        _loadingStartTime = DateTime.now();
-      });
+      if (mounted)
+        setState(() {
+          _isLoadingMore = true;
+          // _loadingStartTime = DateTime.now();
+        });
       final response = await ApiService.getUnifiedFeed(
         limit: PAGE_SIZE,
         cursor: _nextCursor,
@@ -322,16 +327,18 @@ class _HomeScreenState extends State<HomeScreen>
             _allArticles.addAll(newArticles);
           }
           _nextCursor = response['next_cursor'];
-          _hasMore = response['has_more'] ?? (response['next_cursor'] != null);
+          _hasMore =
+              response['has_more'] ?? (response['next_cursor'] != null);
         });
       }
     } catch (e) {
       print('❌ EXCEPTION loading articles: $e');
     } finally {
-      if (mounted) setState(() {
-        _isLoadingMore = false;
-        _loadingStartTime = null;
-      });
+      if (mounted)
+        setState(() {
+          _isLoadingMore = false;
+          // _loadingStartTime = null;
+        });
     }
   }
 
@@ -340,7 +347,8 @@ class _HomeScreenState extends State<HomeScreen>
       final response = await SocialApiService.getPosts();
       if (response['status'] == 'success') {
         final postsList = response['posts'] as List;
-        final List<int> locallyLikedPosts = await PreferencesService.getLikedPosts();
+        final List<int> locallyLikedPosts =
+        await PreferencesService.getLikedPosts();
         if (mounted) {
           setState(() {
             _socialPosts = postsList
@@ -354,12 +362,15 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Map<String, dynamic> _formatSocialPost(Map<String, dynamic> post, List<int> locallyLikedPosts) {
+  Map<String, dynamic> _formatSocialPost(
+      Map<String, dynamic> post, List<int> locallyLikedPosts) {
     final authorName = post['display_name'] ?? 'Unknown';
     final likesCount = post['likes_count'] ?? 0;
     final commentsCount = post['comments_count'] ?? post['comments'] ?? 0;
-    final postId = post['id'] is int ? post['id'] : int.tryParse(post['id'].toString()) ?? 0;
-    final apiLiked = post['user_has_liked'] == 1 || post['user_has_liked'] == true;
+    final postId =
+    post['id'] is int ? post['id'] : int.tryParse(post['id'].toString()) ?? 0;
+    final apiLiked =
+        post['user_has_liked'] == 1 || post['user_has_liked'] == true;
     final localLiked = locallyLikedPosts.contains(postId);
     return {
       'type': 'social_post',
@@ -379,7 +390,8 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _loadVideoPosts() async {
     try {
-      final List<Map<String, dynamic>> localVideos = List.generate(16, (index) {
+      final List<Map<String, dynamic>> localVideos =
+      List.generate(16, (index) {
         final videoNum = index + 1;
         return {
           'type': 'video_post',
@@ -388,7 +400,9 @@ class _HomeScreenState extends State<HomeScreen>
           'avatar': 'J',
           'title': _getVideoTitle(videoNum),
           'content': _getVideoContent(videoNum),
-          'created_at': DateTime.now().subtract(Duration(hours: index * 2)).toIso8601String(),
+          'created_at': DateTime.now()
+              .subtract(Duration(hours: index * 2))
+              .toIso8601String(),
           'likes': 100 + (index * 50),
           'isLiked': false,
           'video_url': 'assets/videos/ajay$videoNum.mp4',
@@ -454,7 +468,8 @@ class _HomeScreenState extends State<HomeScreen>
           _displayedItems = List.from(_allArticles);
         } else {
           _displayedItems = _allArticles
-              .where((article) => article['category_id'] == _selectedCategoryId)
+              .where(
+                  (article) => article['category_id'] == _selectedCategoryId)
               .toList();
           if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
             Future.delayed(Duration.zero, () => _loadArticles());
@@ -525,7 +540,8 @@ class _HomeScreenState extends State<HomeScreen>
       final totalItemWidth = itemWidth + spacing;
 
       final screenWidth = MediaQuery.of(context).size.width;
-      final targetOffset = (index * totalItemWidth) - (screenWidth / 2) + (itemWidth / 2);
+      final targetOffset =
+          (index * totalItemWidth) - (screenWidth / 2) + (itemWidth / 2);
       final maxScroll = _categoryScrollController.position.maxScrollExtent;
       final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
@@ -569,7 +585,8 @@ class _HomeScreenState extends State<HomeScreen>
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
 
-    int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
+    int currentIndex =
+    categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
     if (currentIndex != -1 && currentIndex == categoryList.length - 1) {
       _onTabChanged(2);
@@ -583,7 +600,8 @@ class _HomeScreenState extends State<HomeScreen>
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
 
-    int currentIndex = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
+    int currentIndex =
+    categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
     if (currentIndex == 0) {
       _onTabChanged(0);
@@ -738,7 +756,8 @@ class _HomeScreenState extends State<HomeScreen>
       final categoryIndex = pageIndex - 1;
       newCategoryId = categoryList[categoryIndex]['id'];
 
-      final previousCategoryIndex = previousPage >= 1 && previousPage <= totalNewsPages
+      final previousCategoryIndex =
+      previousPage >= 1 && previousPage <= totalNewsPages
           ? previousPage - 1
           : null;
 
@@ -759,7 +778,8 @@ class _HomeScreenState extends State<HomeScreen>
       newCategoryId = null;
     }
 
-    if (newTabIndex != _selectedTabIndex || newCategoryId != _selectedCategoryId) {
+    if (newTabIndex != _selectedTabIndex ||
+        newCategoryId != _selectedCategoryId) {
       setState(() {
         _selectedTabIndex = newTabIndex;
         _selectedCategoryId = newCategoryId;
@@ -897,8 +917,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
                   fadeInDuration: const Duration(milliseconds: 150),
-                  placeholder: (context, url) => const CircularProgressIndicator(),
-                  errorWidget: (context, url, error) => const Icon(Icons.error, color: Colors.white),
+                  placeholder: (context, url) =>
+                  const CircularProgressIndicator(),
+                  errorWidget: (context, url, error) =>
+                  const Icon(Icons.error, color: Colors.white),
                 ),
               ),
             ),
@@ -912,7 +934,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                     color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 24),
+                  child:
+                  const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -924,7 +947,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   void _goToSettings() async {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
     if (mounted) await _loadInitialData();
   }
 
@@ -959,10 +983,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       print('📖 Tracking article read: $articleId');
 
       try {
-        final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
+        final newEntryId =
+        await UserService.addToHistoryWithNewEntry(articleId);
 
         if (newEntryId != null) {
-          print('✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
+          print(
+              '✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
           if (mounted) {
             setState(() {
               _articlesReadCount++;
@@ -984,7 +1010,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           });
         }
       }
-
     } catch (e) {
       print('❌ Critical Error in _trackArticleRead: $e');
     }
@@ -997,12 +1022,15 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     if (_selectedCategoryIds.isNotEmpty) {
       for (var categoryId in _selectedCategoryIds) {
         if (_categoryMap.containsKey(categoryId)) {
-          categoryList.add({'id': categoryId, 'name': _categoryMap[categoryId]!});
+          categoryList
+              .add({'id': categoryId, 'name': _categoryMap[categoryId]!});
         }
       }
     } else {
       categoryList.addAll(
-        _categoryMap.entries.map((e) => {'id': e.key, 'name': e.value}).toList(),
+        _categoryMap.entries
+            .map((e) => {'id': e.key, 'name': e.value})
+            .toList(),
       );
     }
     return categoryList;
@@ -1210,7 +1238,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                   Text(
                     'Articles Read',
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: (isDark ? Colors.white : theme.colorScheme.onSurface).withOpacity(0.85),
+                      color: (isDark
+                          ? Colors.white
+                          : theme.colorScheme.onSurface)
+                          .withOpacity(0.85),
                       fontWeight: FontWeight.w500,
                       fontSize: isSmallScreen ? 14 : 16,
                     ),
@@ -1524,7 +1555,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               onMyPostsTap: () => _showMyPosts(context),
               onFriendRequestsTap: () => _showFriendRequests(context),
               onSettingsTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                MaterialPageRoute(
+                    builder: (context) => const SettingsScreen()),
               ),
               friendRequestsCount: _friendRequestsCount,
             ),
@@ -1555,62 +1587,14 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     super.build(context);
     final categoryList = _buildCategoryList();
     return Scaffold(
+      // ✅ FIX: build() मधील bottom "Loading..." indicator पूर्णपणे काढला
+      // आता Scaffold body directly _buildMainContent दाखवतो - कोणताही overlay नाही
       body: SafeArea(
-        child: Stack(
-          children: [
-            _buildMainContent(categoryList),
-            // ✅ CHANGE 4: if (_showFab && _selectedTabIndex == 2) _buildSpeedDial() काढला
-            if (_isLoadingMore &&
-                !_isInitialLoading &&
-                _loadingStartTime != null &&
-                DateTime.now().difference(_loadingStartTime!).inMilliseconds > 300)
-              Positioned(
-                bottom: 85,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 12,
-                          height: 12,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                        SizedBox(width: 6),
-                        Text('Loading...', style: TextStyle(color: Colors.white, fontSize: 11)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        child: _buildMainContent(categoryList),
       ),
-      // ✅ CHANGE 5: SpeedDialFAB Scaffold.floatingActionButton मध्ये - hidden buttons आता clickable नाहीत
       floatingActionButton: _showFab && _selectedTabIndex == 2
           ? SpeedDialFAB(
         actions: [
-          // SpeedDialAction(
-          //   icon: Icons.post_add_outlined,
-          //   label: 'Friends Posts',
-          //   heroTag: 'friends_posts_fab',
-          //   onPressed: () {
-          //     Navigator.push(
-          //       context,
-          //       MaterialPageRoute(builder: (context) => const FriendsPostsScreen()),
-          //     );
-          //   },
-          // ),
           SpeedDialAction(
             icon: Icons.person_add,
             label: 'Add Friend',
@@ -1721,7 +1705,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                 duration: const Duration(milliseconds: 200),
                 padding: EdgeInsets.all(isSmallScreen ? 5 : 7),
                 decoration: BoxDecoration(
-                  color: isActive ? primaryColor.withOpacity(0.15) : Colors.transparent,
+                  color: isActive
+                      ? primaryColor.withOpacity(0.15)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -1742,7 +1728,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: isSmallScreen ? 9 : 10,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight:
+                    isActive ? FontWeight.w600 : FontWeight.w500,
                     color: isActive
                         ? primaryColor
                         : isDark
@@ -1765,7 +1752,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       color: Theme.of(context).colorScheme.primary,
       strokeWidth: 2.5,
       child: _isInitialLoading
-          ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
+          ? Center(
+          child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary))
           : PageView.builder(
         controller: _horizontalPageController,
         scrollDirection: Axis.horizontal,
@@ -1788,13 +1777,16 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               filteredArticles = _allArticles;
             } else {
               filteredArticles = _allArticles
-                  .where((article) => article['category_id'] == categoryId)
+                  .where((article) =>
+              article['category_id'] == categoryId)
                   .toList();
             }
             return _buildNewsTabContent(
               categoryName: category['name'],
               items: filteredArticles,
-              showEmptyState: filteredArticles.isEmpty && !_isLoadingMore,
+              showEmptyState: filteredArticles.isEmpty &&
+                  !_isLoadingMore &&
+                  !_isInitialLoading,
               categoryList: categoryList,
               activeCategoryIndex: categoryIndex,
             );
@@ -1822,6 +1814,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }) {
     return Column(
       children: [
+        // Category Chips bar
         Container(
           height: 50,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1861,8 +1854,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                         style: TextStyle(
                           color: isSelected
                               ? primaryColor
-                              : isDark ? Colors.white60 : Colors.grey[600],
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              : isDark
+                              ? Colors.white60
+                              : Colors.grey[600],
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           fontSize: isSelected ? 15 : 13,
                         ),
                       ),
@@ -1885,20 +1882,46 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
+        // Content area
         Expanded(
           child: GestureDetector(
             onVerticalDragEnd: _onVerticalDragEnd,
             onHorizontalDragEnd: _onHorizontalDragEnd,
-            child: PageView.builder(
+            // ✅ FIX: articles असताना PageView block होत नाही
+            // फक्त articles नसतानाच (items.isEmpty) loading दाखवतो
+            child: _isLoadingMore && items.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Theme.of(context).colorScheme.primary,
+                    strokeWidth: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading articles...',
+                    style: TextStyle(
+                      color: Theme.of(context).brightness ==
+                          Brightness.dark
+                          ? Colors.white60
+                          : Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
+                : PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
-              itemCount: items.isEmpty && showEmptyState ? 1 : items.length,
+              itemCount:
+              items.isEmpty && showEmptyState ? 1 : items.length,
               itemBuilder: (context, index) {
                 if (items.isEmpty && showEmptyState) {
                   return _buildEmptyStateForTab(categoryName);
                 }
-                final item = items[index];
-                return _buildArticle(item);
+                return _buildArticle(items[index]);
               },
             ),
           ),
@@ -1985,7 +2008,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   Widget _buildVideoPost(Map<String, dynamic> post) {
-    final key = _videoKeys.putIfAbsent(post['id'], () => GlobalKey<_VideoPostWidgetState>());
+    final key = _videoKeys.putIfAbsent(
+        post['id'], () => GlobalKey<_VideoPostWidgetState>());
     return RepaintBoundary(
       child: _VideoPostWidget(
         key: key,
@@ -1996,8 +2020,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       ),
     );
   }
-
-  // ✅ CHANGE 4: _buildSpeedDial() method पूर्ण काढला
 
   Widget _buildEmptyStateForTab(String tabName) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2071,7 +2093,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 24, vertical: 12),
                 ),
               ),
           ],
@@ -2124,7 +2147,8 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
       _controller = null;
     }
     try {
-      _controller = VideoPlayerController.asset(widget.post['video_url'])..setVolume(1.0);
+      _controller = VideoPlayerController.asset(widget.post['video_url'])
+        ..setVolume(1.0);
       await _controller!.initialize();
       if (!mounted) {
         _isInitializing = false;
@@ -2208,9 +2232,12 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, color: Colors.white, size: 64),
+                      const Icon(Icons.error_outline,
+                          color: Colors.white, size: 64),
                       const SizedBox(height: 16),
-                      const Text('Video not available', style: TextStyle(color: Colors.white, fontSize: 16)),
+                      const Text('Video not available',
+                          style:
+                          TextStyle(color: Colors.white, fontSize: 16)),
                     ],
                   ),
                 )
@@ -2293,7 +2320,8 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
                           const SizedBox(height: 12),
                           Text(
                             widget.post['title'],
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: const TextStyle(
+                                color: Colors.white, fontSize: 16),
                           ),
                           const SizedBox(height: 6),
                           Text(
@@ -2305,7 +2333,8 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
                           const SizedBox(height: 4),
                           Text(
                             _formatTimestamp(widget.post['created_at']),
-                            style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            style: const TextStyle(
+                                color: Colors.white54, fontSize: 12),
                           ),
                         ],
                       ),
@@ -2319,7 +2348,9 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
                               ? Icons.favorite
                               : Icons.favorite_border,
                           label: _formatCount(widget.post['likes']),
-                          color: widget.post['isLiked'] == true ? Colors.red : Colors.white,
+                          color: widget.post['isLiked'] == true
+                              ? Colors.red
+                              : Colors.white,
                           onTap: widget.onToggleLike,
                         ),
                         const SizedBox(height: 20),
@@ -2376,13 +2407,15 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
           ),
         ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Text(label,
+            style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],
     );
   }
 
   String _formatCount(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000000)
+      return '${(count / 1000000).toStringAsFixed(1)}M';
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
     return count.toString();
   }
@@ -2633,7 +2666,8 @@ class FriendsSectionWidget extends StatelessWidget {
                 separatorBuilder: (_, __) => const SizedBox(width: 16),
                 itemBuilder: (context, index) {
                   final friend = friends[index];
-                  final name = friend['username'] ?? friend['display_name'] ?? '';
+                  final name =
+                      friend['username'] ?? friend['display_name'] ?? '';
                   return Column(
                     children: [
                       CircleAvatar(
