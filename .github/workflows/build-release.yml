@@ -34,6 +34,10 @@ jobs:
           storeFile=app/key.jks
           EOF
 
+      - name: 📄 Setup .env file
+        run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
+
       - name: 📦 Get dependencies
         run: flutter pub get
 
