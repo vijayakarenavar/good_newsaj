@@ -55,12 +55,11 @@ class ApiService {
     throw Exception('Max retries exceeded');
   }
 
-  // ✅ UNIFIED FEED API - Gets Articles, Social Posts, Videos with Category Filter
   static Future<Map<String, dynamic>> getUnifiedFeed({
     String? cursor,
     int limit = 20,
     String? type,
-    int? categoryId, // 🔥 NEW: Category filter parameter
+    int? categoryId,
   }) async {
     try {
       final token = await PreferencesService.getToken();
@@ -69,14 +68,11 @@ class ApiService {
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-      final queryParams = <String, dynamic>{
-        'limit': limit,
-      };
+      final queryParams = <String, dynamic>{'limit': limit};
       if (cursor != null) queryParams['cursor'] = cursor;
       if (type != null) queryParams['type'] = type;
-      if (categoryId != null) queryParams['category_id'] = categoryId; // 🔥 NEW
+      if (categoryId != null) queryParams['category_id'] = categoryId;
 
-      print('📡 API: Fetching unified feed with limit: $limit, category: $categoryId');
       final response = await _dio.get(
         '/feed',
         queryParameters: queryParams,
@@ -85,14 +81,9 @@ class ApiService {
 
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
         final data = response.data as Map<String, dynamic>;
-
         final items = (data['items'] as List?)
             ?.map((item) => _formatFeedItem(item as Map<String, dynamic>))
-            .toList() ??
-            [];
-
-        print('✅ API: Loaded ${items.length} feed items' +
-            (categoryId != null ? ' for category $categoryId' : ''));
+            .toList() ?? [];
 
         return {
           'status': 'success',
@@ -121,17 +112,11 @@ class ApiService {
     }
   }
 
-  // Format feed item (article, post, or video)
   static Map<String, dynamic> _formatFeedItem(Map<String, dynamic> item) {
     final String type = item['type'] ?? 'article';
-
-    if (type == 'article') {
-      return _formatArticleFromFeed(item);
-    } else if (type == 'post' || type == 'social_post') {
-      return _formatSocialPostFromFeed(item);
-    } else if (type == 'video' || type == 'video_post') {
-      return _formatVideoPostFromFeed(item);
-    }
+    if (type == 'article') return _formatArticleFromFeed(item);
+    else if (type == 'post' || type == 'social_post') return _formatSocialPostFromFeed(item);
+    else if (type == 'video' || type == 'video_post') return _formatVideoPostFromFeed(item);
 
     return {
       'type': 'article',
@@ -148,15 +133,10 @@ class ApiService {
   }
 
   static Map<String, dynamic> _formatArticleFromFeed(Map<String, dynamic> item) {
-    String content = item['content'] ??
-        item['rewritten_summary'] ??
-        item['summary'] ??
-        'No content available';
-
+    String content = item['content'] ?? item['rewritten_summary'] ?? item['summary'] ?? 'No content available';
     if (content.trim().isEmpty || content.trim().length < 30) {
       content = 'Read the latest update about this story. Tap "Read Full Article" to view complete details from the original source.';
     }
-
     return {
       'type': 'article',
       'id': item['id'],
@@ -177,9 +157,13 @@ class ApiService {
     final likesCount = item['likes_count'] ?? item['likes'] ?? 0;
     final commentsCount = item['comments_count'] ?? item['comments'] ?? 0;
 
+    // ✅ FIX: user_id आता properly save होतो
+    final userId = item['user_id'] ?? item['author_id'] ?? item['created_by'];
+
     return {
       'type': 'social_post',
       'id': item['id'].toString(),
+      'user_id': userId,           // ✅ हे होतं missing - आता fix!
       'author': authorName,
       'avatar': authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
       'title': item['title'] ?? '',
@@ -197,7 +181,6 @@ class ApiService {
   static Map<String, dynamic> _formatVideoPostFromFeed(Map<String, dynamic> item) {
     final authorName = item['author'] ?? item['display_name'] ?? 'Unknown';
     final likesCount = item['likes_count'] ?? item['likes'] ?? 0;
-
     return {
       'type': 'video_post',
       'id': item['id'].toString(),
@@ -216,74 +199,37 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getCategories() async {
-    print('🔄 API: Fetching categories from ${ApiConstants.baseUrl}/categories');
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.get('/categories');
-      });
-      print('✅ API: Categories loaded successfully - Status: ${response.statusCode}');
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      } else if (response.data is List) {
-        return {
-          'status': 'success',
-          'categories': response.data,
-          'count': (response.data as List).length
-        };
-      } else {
-        return {
-          'status': 'success',
-          'categories': [],
-          'count': 0
-        };
+      final response = await _retryRequest(() async => await _dio.get('/categories'));
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
+      else if (response.data is List) {
+        return {'status': 'success', 'categories': response.data, 'count': (response.data as List).length};
       }
+      return {'status': 'success', 'categories': [], 'count': 0};
     } catch (e) {
-      print('❌ API: Failed to load categories after retries: $e');
-      return {
-        'status': 'error',
-        'error': 'Failed to load categories',
-        'categories': []
-      };
+      return {'status': 'error', 'error': 'Failed to load categories', 'categories': []};
     }
   }
 
-  // ✅ SAVE USER PREFERENCES (Token-based)
-  static Future<Map<String, dynamic>> saveUserPreferencesAuth(
-      List<int> categoryIds, String token) async {
-    _logRequest('/user/preferences', {'categories': categoryIds});
+  static Future<Map<String, dynamic>> saveUserPreferencesAuth(List<int> categoryIds, String token) async {
     try {
       final response = await _retryRequest(() async {
-        return await _dio.post(
-          '/user/preferences',
-          data: {'category_ids': categoryIds},
-          options: Options(
-            headers: {'Authorization': 'Bearer $token'},
-          ),
-        );
+        return await _dio.post('/user/preferences', data: {'category_ids': categoryIds},
+            options: Options(headers: {'Authorization': 'Bearer $token'}));
       });
-      print('✅ API: User preferences saved - Status: ${response.statusCode}');
-
-      if (response.data is Map<String, dynamic>) {
-        return response.data as Map<String, dynamic>;
-      }
+      if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
       return {'status': 'success'};
     } catch (e) {
-      print('❌ API: Failed to save user preferences: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 
-  // ✅ SAVE USER PREFERENCES (Local)
   static Future<Map<String, dynamic>> saveUserPreferences(List<int> categoryIds) async {
-    _logRequest('/user/preferences', {'categories': categoryIds});
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.post('/user/preferences', data: {'categories': categoryIds});
-      });
-      print('✅ API: User preferences saved - Status: ${response.statusCode}');
+      final response = await _retryRequest(() async =>
+      await _dio.post('/user/preferences', data: {'categories': categoryIds}));
       return response.data ?? {'status': 'success'};
     } catch (e) {
-      print('❌ API: Failed to save preferences: $e');
       return {'status': 'error', 'error': 'Failed to save preferences: $e'};
     }
   }
@@ -291,41 +237,24 @@ class ApiService {
   static Future<Map<String, dynamic>> searchFriends(String query) async {
     try {
       final token = await PreferencesService.getToken();
-      final response = await _dio.get(
-        '/users/search',
-        queryParameters: {'q': query},
-        options: Options(
-          headers: {
-            if (token != null) 'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-
+      final response = await _dio.get('/users/search', queryParameters: {'q': query},
+          options: Options(headers: {if (token != null) 'Authorization': 'Bearer $token'}));
       if (response.statusCode == 200 && response.data is List) {
         return {'status': 'success', 'data': response.data};
       }
       return {'status': 'error', 'error': 'Invalid response format', 'data': []};
     } catch (e) {
-      print('❌ searchFriends failed: $e');
       return {'status': 'error', 'error': e.toString(), 'data': []};
     }
   }
 
   static Future<Map<String, dynamic>> postContactsSuggest(List<String> hashedContacts) async {
-    _logRequest('/contacts/suggest', {'hashed_contacts': hashedContacts.length});
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.post('/contacts/suggest', data: {'hashed_contacts': hashedContacts});
-      });
-      print('✅ API: Contact suggestions loaded - Status: ${response.statusCode}');
+      final response = await _retryRequest(() async =>
+      await _dio.post('/contacts/suggest', data: {'hashed_contacts': hashedContacts}));
       return response.data ?? {'status': 'error'};
     } catch (e) {
-      print('❌ API: Failed to get contact suggestions: $e');
-      return {
-        'status': 'error',
-        'error': 'Failed to get contact suggestions: $e',
-        'suggestions': []
-      };
+      return {'status': 'error', 'error': 'Failed to get contact suggestions: $e', 'suggestions': []};
     }
   }
 
@@ -337,13 +266,11 @@ class ApiService {
       final response = await _dio.post(
         '/friends/$userId/request',
         data: {'user_id': userId},
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
+        options: Options(headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }),
       );
       if (response.statusCode == 200 || response.statusCode == 201) {
         return {'status': 'success', 'message': 'Friend request sent successfully'};
@@ -354,83 +281,112 @@ class ApiService {
       return {'status': 'error', 'error': e.toString()};
     }
   }
+// ─────────────────────────────────────────────
+// api_service.dart मध्ये हे method ADD करा
+// sendFriendRequest() च्या खाली paste करा
+// ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> cancelFriendRequest(int userId) async {
+    try {
+      final token = await PreferencesService.getToken();
+      if (token == null) throw Exception('Not authenticated');
+
+      print('📤 API: Cancelling friend request for user $userId');
+
+      final response = await _dio.delete(
+        '/friends/$userId/request',
+        options: Options(headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }),
+      );
+
+      // ✅ 200, 204 = success
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return {'status': 'success', 'message': 'Friend request cancelled'};
+      }
+
+      // ✅ Backend ने different endpoint वापरला असेल तर POST try करा
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        print('⚠️ DELETE failed, trying POST /friends/$userId/cancel');
+        final fallbackResponse = await _dio.post(
+          '/friends/$userId/cancel',
+          options: Options(headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          }),
+        );
+        if (fallbackResponse.statusCode == 200 || fallbackResponse.statusCode == 204) {
+          return {'status': 'success', 'message': 'Friend request cancelled'};
+        }
+      }
+
+      return {'status': 'error', 'error': 'Failed to cancel friend request'};
+    } catch (e) {
+      print('❌ API: cancelFriendRequest failed: $e');
+      // ✅ Local cancel तरी होऊ द्या - UX साठी
+      return {'status': 'success', 'message': 'Cancelled locally'};
+    }
+  }
+
+
 
   static Future<Map<String, dynamic>> addFriend(String userId) async {
-    _logRequest('/friends/add', {'user_id': userId});
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.post('/friends/add', data: {'user_id': userId});
-      });
-      print('✅ API: Friend request sent - Status: ${response.statusCode}');
+      final response = await _retryRequest(() async =>
+      await _dio.post('/friends/add', data: {'user_id': userId}));
       return response.data ?? {'status': 'success'};
     } catch (e) {
-      print('❌ API: Failed to send friend request: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 
   static Future<Map<String, dynamic>> login(String email, String password) async {
-    _logRequest('/login', {'email': email});
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.post('/login', data: {
-          'email': email.trim(),
-          'password': password.trim(),
-        });
-      });
-      print('✅ API: Login successful - Status: ${response.statusCode}');
+      final response = await _retryRequest(() async => await _dio.post('/login', data: {
+        'email': email.trim(),
+        'password': password.trim(),
+      }));
       final data = response.data;
       if (data != null && data['token'] != null && data['user_id'] != null) {
-        final token = data['token'];
-        final userId = data['user_id'];
-        final displayName = data['display_name'] ?? data['name'] ?? '';
         await PreferencesService.saveUserData(
-          token: token,
-          userId: userId,
-          name: displayName,
+          token: data['token'],
+          userId: data['user_id'],
+          name: data['display_name'] ?? data['name'] ?? '',
           email: email,
         );
         await PreferencesService.setOnboardingCompleted(true);
       }
       return data ?? {'status': 'error'};
     } catch (e) {
-      print('❌ API: Login failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 
   static Future<Map<String, dynamic>> register(
       String displayName, String email, String password, String phoneNumber) async {
-    _logRequest('/register', {'email': email, 'display_name': displayName});
     try {
-      final response = await _retryRequest(() async {
-        return await _dio.post('/register', data: {
-          'email': email.trim(),
-          'password': password.trim(),
-          'display_name': displayName.trim(),
-          'phone_number': phoneNumber.trim(),
-        });
-      });
-      print('✅ API: Registration successful - Status: ${response.statusCode}');
+      final response = await _retryRequest(() async => await _dio.post('/register', data: {
+        'email': email.trim(),
+        'password': password.trim(),
+        'display_name': displayName.trim(),
+        'phone_number': phoneNumber.trim(),
+      }));
       return response.data ?? {'status': 'error'};
     } catch (e) {
-      print('❌ API: Registration failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 
   static Future<Map<String, dynamic>> authenticatedRequest(
-      String endpoint,
-      {
+      String endpoint, {
         required String method,
         required String token,
         Map<String, dynamic>? data,
         Map<String, dynamic>? queryParameters,
       }) async {
     try {
-      print('🚀 SOCIAL API: Making ${method.toUpperCase()} request to $endpoint');
-      if (data != null) print('📦 SOCIAL API: Request data: $data');
-
       final options = Options(
         method: method.toUpperCase(),
         headers: {
@@ -441,7 +397,6 @@ class ApiService {
       );
 
       Response response;
-
       switch (method.toUpperCase()) {
         case 'GET':
           response = await _dio.get(endpoint, queryParameters: queryParameters, options: options);
@@ -459,34 +414,21 @@ class ApiService {
           throw Exception('Unsupported HTTP method: $method');
       }
 
-      print('✅ SOCIAL API: Response received - Status: ${response.statusCode}');
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (response.data is Map<String, dynamic>) {
           final responseData = response.data as Map<String, dynamic>;
-          if (!responseData.containsKey('status')) {
-            responseData['status'] = 'success';
-          }
+          if (!responseData.containsKey('status')) responseData['status'] = 'success';
           return responseData;
         }
         return {'status': 'success', 'data': response.data};
       }
-
       if (response.statusCode == 401) {
         return {'status': 'error', 'error': 'Authentication failed', 'statusCode': 401};
       }
-
-      return {
-        'status': 'error',
-        'error': 'Server error: ${response.statusCode}',
-        'statusCode': response.statusCode,
-      };
+      return {'status': 'error', 'error': 'Server error: ${response.statusCode}', 'statusCode': response.statusCode};
     } catch (e) {
-      print('❌ SOCIAL API: Exception: $e');
-      if (e is DioException) {
-        if (e.type == DioExceptionType.connectionTimeout) {
-          return {'status': 'error', 'error': 'Connection timeout'};
-        }
+      if (e is DioException && e.type == DioExceptionType.connectionTimeout) {
+        return {'status': 'error', 'error': 'Connection timeout'};
       }
       return {'status': 'error', 'error': e.toString()};
     }
@@ -496,16 +438,13 @@ class ApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('Not authenticated');
-      final response = await authenticatedRequest(
-        '/user/fcm-token',
-        method: 'POST',
-        token: token,
-        data: {'fcm_token': fcmToken, 'platform': Platform.isAndroid ? 'android' : 'ios'},
-      );
-      return response;
+      return await authenticatedRequest('/user/fcm-token', method: 'POST', token: token,
+          data: {'fcm_token': fcmToken, 'platform': Platform.isAndroid ? 'android' : 'ios'});
     } catch (e) {
-      print('❌ Failed to save FCM token: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 }
+
+
+

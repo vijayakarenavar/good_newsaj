@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
+import 'package:good_news/core/services/social_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ─────────────────────────────────────────────
-// Friend Request Status
-// ─────────────────────────────────────────────
 enum FriendStatus { none, pending, friend }
 
-/// 📸 INSTAGRAM STYLE - Content-sized card only
 class SocialPostCardWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final TextEditingController commentController;
@@ -37,50 +33,100 @@ class SocialPostCardWidget extends StatefulWidget {
 
 class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
   bool _isSendingRequest = false;
+  bool _isCancellingRequest = false;
+  bool _isCheckingStatus = true;
   FriendStatus _friendStatus = FriendStatus.none;
   int? _cachedUserId;
 
-  // ─────────────────────────────────────────────
-  // SharedPreferences Keys
-  // ─────────────────────────────────────────────
   static const String _prefPrefix = 'friend_status_';
-
-  String get _prefKey {
-    final userId = _cachedUserId ?? widget.post['user_id']?.toString() ?? widget.post['author'];
-    return '$_prefPrefix$userId';
-  }
 
   @override
   void initState() {
     super.initState();
-    _loadFriendStatus();
+    _initFriendStatus();
   }
 
-  /// Load saved status from SharedPreferences
-  Future<void> _loadFriendStatus() async {
+  Future<void> _initFriendStatus() async {
     final userId = await _extractUserId();
-    if (userId == null) return;
+
+    if (userId == null) {
+      if (mounted) setState(() => _isCheckingStatus = false);
+      return;
+    }
 
     final prefs = await SharedPreferences.getInstance();
     final savedStatus = prefs.getString('$_prefPrefix$userId');
 
-    if (mounted) {
-      setState(() {
-        switch (savedStatus) {
-          case 'pending':
-            _friendStatus = FriendStatus.pending;
-            break;
-          case 'friend':
-            _friendStatus = FriendStatus.friend;
-            break;
-          default:
-            _friendStatus = FriendStatus.none;
+    if (savedStatus == 'friend') {
+      if (mounted) {
+        setState(() {
+          _friendStatus = FriendStatus.friend;
+          _isCheckingStatus = false;
+        });
+      }
+      return;
+    }
+
+    if (savedStatus == 'pending') {
+      if (mounted) {
+        setState(() {
+          _friendStatus = FriendStatus.pending;
+          _isCheckingStatus = false;
+        });
+      }
+      _checkIfNowFriend(userId);
+      return;
+    }
+
+    await _checkFriendStatusFromAPI(userId);
+    if (mounted) setState(() => _isCheckingStatus = false);
+  }
+
+  Future<void> _checkFriendStatusFromAPI(int userId) async {
+    try {
+      final response = await SocialApiService.getFriends();
+      if (response['status'] == 'success') {
+        final friendsList = response['data'] as List? ?? [];
+        final isFriend = friendsList.any((friend) {
+          final fId = friend['id'] ?? friend['user_id'] ?? friend['friend_id'];
+          if (fId == null) return false;
+          final fIdInt = fId is int ? fId : int.tryParse(fId.toString());
+          return fIdInt == userId;
+        });
+        if (isFriend) {
+          await _saveFriendStatus(userId, FriendStatus.friend);
+          if (mounted) setState(() => _friendStatus = FriendStatus.friend);
+          return;
         }
-      });
+      }
+      if (mounted) setState(() => _friendStatus = FriendStatus.none);
+    } catch (e) {
+      print('❌ _checkFriendStatusFromAPI failed: $e');
+      if (mounted) setState(() => _friendStatus = FriendStatus.none);
     }
   }
 
-  /// Save status to SharedPreferences
+  Future<void> _checkIfNowFriend(int userId) async {
+    try {
+      final response = await SocialApiService.getFriends();
+      if (response['status'] == 'success') {
+        final friendsList = response['data'] as List? ?? [];
+        final isFriend = friendsList.any((friend) {
+          final fId = friend['id'] ?? friend['user_id'] ?? friend['friend_id'];
+          if (fId == null) return false;
+          final fIdInt = fId is int ? fId : int.tryParse(fId.toString());
+          return fIdInt == userId;
+        });
+        if (isFriend) {
+          await _saveFriendStatus(userId, FriendStatus.friend);
+          if (mounted) setState(() => _friendStatus = FriendStatus.friend);
+        }
+      }
+    } catch (e) {
+      print('❌ _checkIfNowFriend failed: $e');
+    }
+  }
+
   Future<void> _saveFriendStatus(int userId, FriendStatus status) async {
     final prefs = await SharedPreferences.getInstance();
     String value;
@@ -104,10 +150,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         widget.post['author_id'] ??
         widget.post['created_by'] ??
         widget.post['posted_by_id'] ??
-        widget.post['posted_by'] ??
-        widget.post['creator_id'] ??
-        widget.post['userId'] ??
-        widget.post['authorId'];
+        widget.post['creator_id'];
 
     if (directUserId != null) {
       if (directUserId is int) {
@@ -125,13 +168,11 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     final authorName = widget.post['author'] ?? widget.post['display_name'];
     if (authorName != null && authorName.toString().isNotEmpty) {
       try {
-        final searchResult =
-        await ApiService.searchFriends(authorName.toString());
-        if (searchResult['status'] == 'success' &&
-            searchResult['data'] is List) {
+        final searchResult = await ApiService.searchFriends(authorName.toString());
+        if (searchResult['status'] == 'success' && searchResult['data'] is List) {
           final users = searchResult['data'] as List;
           if (users.isNotEmpty) {
-            var matchedUser = users.firstWhere(
+            final matchedUser = users.firstWhere(
                   (user) =>
               user['display_name']?.toString().toLowerCase() ==
                   authorName.toString().toLowerCase() ||
@@ -141,15 +182,10 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             );
             final foundId = matchedUser['id'] ?? matchedUser['user_id'];
             if (foundId != null) {
-              if (foundId is int) {
-                _cachedUserId = foundId;
-                return foundId;
-              } else if (foundId is String) {
-                final parsed = int.tryParse(foundId);
-                if (parsed != null) {
-                  _cachedUserId = parsed;
-                  return parsed;
-                }
+              final parsed = foundId is int ? foundId : int.tryParse(foundId.toString());
+              if (parsed != null) {
+                _cachedUserId = parsed;
+                return parsed;
               }
             }
           }
@@ -168,46 +204,39 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
       if (userId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: const Text('Unable to send friend request'),
+            content: const Text('Unable to find user. Please try again.'),
             backgroundColor: Colors.red.shade600,
             behavior: SnackBarBehavior.floating,
-            shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ));
+          setState(() => _isSendingRequest = false);
         }
-        setState(() => _isSendingRequest = false);
         return;
       }
 
       final response = await ApiService.sendFriendRequest(userId);
 
       if (response['status'] == 'success') {
-        // Save to SharedPreferences so it persists after app restart
         await _saveFriendStatus(userId, FriendStatus.pending);
-
-        setState(() {
-          _friendStatus = FriendStatus.pending;
-          _isSendingRequest = false;
-        });
-
         if (mounted) {
+          setState(() {
+            _friendStatus = FriendStatus.pending;
+            _isSendingRequest = false;
+          });
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Row(children: [
               const Icon(Icons.check_circle, color: Colors.white),
               const SizedBox(width: 12),
-              Expanded(
-                  child: Text(
-                      'Friend request sent to ${widget.post['author']}!')),
+              Expanded(child: Text('Friend request sent to ${widget.post['author']}!')),
             ]),
             backgroundColor: Colors.green.shade600,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ));
         }
       } else {
-        setState(() => _isSendingRequest = false);
         if (mounted) {
+          setState(() => _isSendingRequest = false);
           final errorMsg = response['message']?.toString() ??
               response['error']?.toString() ??
               'Failed to send friend request';
@@ -215,22 +244,48 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
             content: Text(errorMsg),
             backgroundColor: Colors.orange.shade700,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ));
         }
       }
     } catch (e) {
-      setState(() => _isSendingRequest = false);
       if (mounted) {
+        setState(() => _isSendingRequest = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
+    }
+  }
+
+  // ✅ NO POPUP - Sent click केलं तर directly Add button येतो
+  Future<void> _cancelFriendRequest() async {
+    final userId = await _extractUserId();
+    if (userId == null) return;
+
+    setState(() => _isCancellingRequest = true);
+
+    try {
+      final response = await ApiService.cancelFriendRequest(userId);
+      await _saveFriendStatus(userId, FriendStatus.none);
+      if (mounted) {
+        setState(() {
+          _friendStatus = FriendStatus.none;
+          _isCancellingRequest = false;
+        });
+      }
+    } catch (e) {
+      await _saveFriendStatus(userId, FriendStatus.none);
+      if (mounted) {
+        setState(() {
+          _friendStatus = FriendStatus.none;
+          _isCancellingRequest = false;
+        });
+      }
+      print('⚠️ Cancel request failed, cancelled locally: $e');
     }
   }
 
@@ -240,17 +295,13 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     final imageUrl = widget.post['image_url'];
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isTablet = MediaQuery.of(context).size.width > 600;
-
     final hasImage = imageUrl != null && imageUrl.toString().isNotEmpty;
     final content = widget.post['content']?.toString().trim() ?? '';
     final hasContent = content.isNotEmpty;
 
     return Container(
       width: double.infinity,
-      margin: EdgeInsets.symmetric(
-        horizontal: isTablet ? 16.0 : 12.0,
-        vertical: 6.0,
-      ),
+      margin: EdgeInsets.symmetric(horizontal: isTablet ? 16.0 : 12.0, vertical: 6.0),
       decoration: BoxDecoration(
         color: isDark ? Colors.black : Colors.white,
         border: Border.all(
@@ -260,9 +311,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         borderRadius: BorderRadius.circular(isTablet ? 12.0 : 10.0),
         boxShadow: [
           BoxShadow(
-            color: isDark
-                ? Colors.black.withOpacity(0.3)
-                : Colors.black.withOpacity(0.06),
+            color: isDark ? Colors.black.withOpacity(0.3) : Colors.black.withOpacity(0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -295,14 +344,8 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           CircleAvatar(
             radius: avatarRadius,
             backgroundColor: themeColor,
-            child: Text(
-              widget.post['avatar'] ?? '',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: avatarRadius * 0.9,
-              ),
-            ),
+            child: Text(widget.post['avatar'] ?? '',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: avatarRadius * 0.9)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -310,23 +353,15 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  widget.post['author'] ?? '',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: isTablet ? 16.0 : 15.0,
-                    color: isDark ? Colors.white : const Color(0xFF262626),
-                  ),
-                ),
-                Text(
-                  _formatTimestamp(widget.post['created_at']),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? const Color(0xFFA8A8A8)
-                        : const Color(0xFF8E8E8E),
-                  ),
-                ),
+                Text(widget.post['author'] ?? '',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: isTablet ? 16.0 : 15.0,
+                        color: isDark ? Colors.white : const Color(0xFF262626))),
+                Text(_formatTimestamp(widget.post['created_at']),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFFA8A8A8) : const Color(0xFF8E8E8E))),
               ],
             ),
           ),
@@ -342,11 +377,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
               children: [
                 Icon(Icons.people, size: 13, color: themeColor),
                 const SizedBox(width: 5),
-                Text('Social',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: themeColor)),
+                Text('Social', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: themeColor)),
               ],
             ),
           ),
@@ -369,29 +400,20 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
           memCacheHeight: 800,
           placeholder: (context, url) => Container(
             color: isDark ? const Color(0xFF262626) : const Color(0xFFF0F0F0),
-            child: Center(
-              child: CircularProgressIndicator(
-                color: Theme.of(context).colorScheme.primary,
-                strokeWidth: 2,
-              ),
-            ),
+            child: Center(child: CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary, strokeWidth: 2)),
           ),
           errorWidget: (context, url, error) => Container(
             color: isDark ? const Color(0xFF262626) : const Color(0xFFF0F0F0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.broken_image_rounded,
-                    size: 48,
-                    color: isDark
-                        ? const Color(0xFF737373)
-                        : const Color(0xFF8E8E8E)),
+                Icon(Icons.broken_image_rounded, size: 48,
+                    color: isDark ? const Color(0xFF737373) : const Color(0xFF8E8E8E)),
                 const SizedBox(height: 8),
                 Text('Failed to load image',
                     style: TextStyle(
-                        color: isDark
-                            ? const Color(0xFF737373)
-                            : const Color(0xFF8E8E8E),
+                        color: isDark ? const Color(0xFF737373) : const Color(0xFF8E8E8E),
                         fontSize: 14)),
               ],
             ),
@@ -416,40 +438,25 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           _actionButton(
-            icon: widget.post['isLiked']
-                ? Icons.favorite
-                : Icons.favorite_border,
+            icon: widget.post['isLiked'] ? Icons.favorite : Icons.favorite_border,
             color: widget.post['isLiked'] ? Colors.red : iconColor,
-            size: iconSize,
-            count: likes > 0 ? likes : null,
-            isDark: isDark,
+            size: iconSize, count: likes > 0 ? likes : null, isDark: isDark,
             onTap: () => widget.onToggleLike(widget.post),
           ),
           const SizedBox(width: 8),
           _actionButton(
-            icon: Icons.mode_comment_outlined,
-            color: iconColor,
-            size: iconSize,
-            count: comments > 0 ? comments : null,
-            isDark: isDark,
+            icon: Icons.mode_comment_outlined, color: iconColor, size: iconSize,
+            count: comments > 0 ? comments : null, isDark: isDark,
             onTap: () => widget.onOpenCommentPage(postId, widget.post),
           ),
           const SizedBox(width: 8),
           _actionButton(
-            icon: Icons.send_outlined,
-            color: iconColor,
-            size: iconSize,
-            count: null,
-            isDark: isDark,
-            onTap: () => widget.onShare(widget.post),
+            icon: Icons.send_outlined, color: iconColor, size: iconSize,
+            count: null, isDark: isDark, onTap: () => widget.onShare(widget.post),
           ),
           const Spacer(),
-
-          // ─────────────────────────────────────────────
-          // ✅ DYNAMIC BUTTON based on FriendStatus
-          // ─────────────────────────────────────────────
           if (widget.onAddFriend != null)
-            _isSendingRequest
+            (_isCheckingStatus || _isSendingRequest || _isCancellingRequest)
                 ? const SizedBox(
               width: 20,
               height: 20,
@@ -461,71 +468,111 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
     );
   }
 
-  /// ✅ Button changes based on status:
-  /// none    → "Add"      (green)
-  /// pending → "Sent ✓"  (grey, disabled)
-  /// friend  → "Friends 👥" (blue/theme, disabled)
   Widget _buildFriendButton(BuildContext context, bool isDark) {
-    final themeColor = Theme.of(context).colorScheme.primary;
-
     switch (_friendStatus) {
+
+    // STATE 1: Already Friends
       case FriendStatus.friend:
-        return TextButton(
-          onPressed: null, // already friends, no action
-          style: TextButton.styleFrom(
-            backgroundColor:
-            isDark ? const Color(0xFF1A3A5C) : Colors.blue.shade50,
-            foregroundColor: Colors.blue,
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6)),
-            minimumSize: const Size(70, 30),
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A3A5C) : Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue.shade300, width: 1),
           ),
-          child: const Text(
-            'Friends 👥',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.people, size: 14, color: Colors.blue.shade600),
+                const SizedBox(width: 5),
+                Text('Friends',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.blue.shade600)),
+              ],
+            ),
           ),
         );
 
+    // STATE 2: Sent - click केलं तर direct Add button (no popup)
       case FriendStatus.pending:
-        return TextButton(
-          onPressed: null, // request already sent
-          style: TextButton.styleFrom(
-            backgroundColor: isDark
-                ? const Color(0xFF262626)
-                : const Color(0xFFEFEFEF),
-            foregroundColor: isDark
-                ? const Color(0xFFA8A8A8)
-                : const Color(0xFF8E8E8E),
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6)),
-            minimumSize: const Size(60, 30),
-          ),
-          child: const Text(
-            'Sent ✓',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        return GestureDetector(
+          onTap: _cancelFriendRequest,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF2A2A2A) : const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                  color: isDark ? Colors.white24 : Colors.grey.shade300, width: 1),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.check, size: 13,
+                      color: isDark ? Colors.white54 : Colors.grey.shade600),
+                  const SizedBox(width: 4),
+                  Text('Sent',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white54 : Colors.grey.shade600)),
+                  const SizedBox(width: 3),
+                  Icon(Icons.close, size: 11,
+                      color: isDark ? Colors.white38 : Colors.grey.shade400),
+                ],
+              ),
+            ),
           ),
         );
 
+    // STATE 3: Add Button - Green Glow
       case FriendStatus.none:
       default:
-        return TextButton(
-          onPressed: _sendFriendRequest,
-          style: TextButton.styleFrom(
-            backgroundColor: themeColor,
-            foregroundColor: Colors.white,
-            padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6)),
-            minimumSize: const Size(60, 30),
-          ),
-          child: const Text(
-            'Add',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        return GestureDetector(
+          onTap: _sendFriendRequest,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF4CAF50), Color(0xFF43A047)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF4CAF50).withOpacity(0.45),
+                  blurRadius: 8,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: const Color(0xFF4CAF50).withOpacity(0.2),
+                  blurRadius: 16,
+                  spreadRadius: 0,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_add_alt_1, size: 13, color: Colors.white),
+                  SizedBox(width: 5),
+                  Text('Add',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.3)),
+                ],
+              ),
+            ),
           ),
         );
     }
@@ -554,16 +601,11 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
         SizedBox(
           height: 14,
           child: count != null
-              ? Text(
-            '$count',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? const Color(0xFFA8A8A8)
-                  : const Color(0xFF8E8E8E),
-            ),
-          )
+              ? Text('$count',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? const Color(0xFFA8A8A8) : const Color(0xFF8E8E8E)))
               : const SizedBox.shrink(),
         ),
       ],
@@ -577,15 +619,13 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
       child: RichText(
         text: TextSpan(
           style: TextStyle(
-            fontSize: 14,
-            color: isDark ? Colors.white : const Color(0xFF262626),
-            height: 1.25,
-          ),
+              fontSize: 14,
+              color: isDark ? Colors.white : const Color(0xFF262626),
+              height: 1.25),
           children: [
             TextSpan(
-              text: '${widget.post['author']} ',
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+                text: '${widget.post['author']} ',
+                style: const TextStyle(fontWeight: FontWeight.w600)),
             TextSpan(text: content),
           ],
         ),
@@ -600,10 +640,9 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
       child: Text(
         _formatTimestamp(widget.post['created_at']).toUpperCase(),
         style: TextStyle(
-          fontSize: 10,
-          color: isDark ? const Color(0xFFA8A8A8) : const Color(0xFF8E8E8E),
-          letterSpacing: 0.2,
-        ),
+            fontSize: 10,
+            color: isDark ? const Color(0xFFA8A8A8) : const Color(0xFF8E8E8E),
+            letterSpacing: 0.2),
       ),
     );
   }
@@ -641,12 +680,10 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
                   placeholder: (context, url) => Center(
-                    child: CircularProgressIndicator(
-                        color: Theme.of(context).colorScheme.primary),
-                  ),
-                  errorWidget: (context, url, error) => const Center(
-                    child: Icon(Icons.error, color: Colors.white, size: 48),
-                  ),
+                      child: CircularProgressIndicator(
+                          color: Theme.of(context).colorScheme.primary)),
+                  errorWidget: (context, url, error) =>
+                  const Center(child: Icon(Icons.error, color: Colors.white, size: 48)),
                 ),
               ),
             ),
@@ -658,8 +695,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   padding: const EdgeInsets.all(8),
                   decoration: const BoxDecoration(
                       color: Colors.black54, shape: BoxShape.circle),
-                  child:
-                  const Icon(Icons.close, color: Colors.white, size: 24),
+                  child: const Icon(Icons.close, color: Colors.white, size: 24),
                 ),
                 onPressed: () => Navigator.pop(context),
               ),
@@ -673,10 +709,7 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    colors: [
-                      Colors.black.withOpacity(0.8),
-                      Colors.transparent
-                    ],
+                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
                   ),
                 ),
                 padding: const EdgeInsets.all(20),
@@ -684,36 +717,33 @@ class _SocialPostCardWidgetState extends State<SocialPostCardWidget> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor:
-                          Theme.of(context).colorScheme.primary,
-                          child: Text(widget.post['avatar'] ?? '',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14)),
+                    Row(children: [
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        child: Text(widget.post['avatar'] ?? '',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.post['author'] ?? '',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                    color: Colors.white)),
+                            Text(_formatTimestamp(widget.post['created_at']),
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12)),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(widget.post['author'] ?? '',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
-                                      color: Colors.white)),
-                              Text(_formatTimestamp(widget.post['created_at']),
-                                  style: const TextStyle(
-                                      color: Colors.white70, fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ]),
                     const SizedBox(height: 12),
                     Text(
                       widget.post['content'] ?? '',

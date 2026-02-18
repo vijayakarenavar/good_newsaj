@@ -477,19 +477,19 @@ class _HomeScreenState extends State<HomeScreen>
       _currentIndex = 0;
     });
 
-    if (categoryId != null) {
-      setState(() {
-        _allArticles.clear();
-        _nextCursor = null;
-        _hasMore = true;
-      });
-      await _loadArticles(isInitial: true);
-    }
-
+    // ✅ FIX: आधी existing articles filter करून दाखवा
     _updateDisplayedItems();
 
-    if (_displayedItems.isNotEmpty && mounted) {
-      _preloadImages(_displayedItems, 0);
+    // ✅ FIX: Category साठी articles नसतील तरच API call करा
+    if (categoryId != null) {
+      final existing = _allArticles
+          .where((a) => a['category_id'] == categoryId)
+          .toList();
+
+      if (existing.isEmpty && _hasMore && !_isLoadingMore) {
+        // Background मध्ये load - clear न करता
+        _loadArticles(isInitial: false);
+      }
     }
 
     _scrollToCategoryPage(categoryId);
