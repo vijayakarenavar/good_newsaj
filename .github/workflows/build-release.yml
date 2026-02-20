@@ -1,39 +1,40 @@
-name: Build Signed APK
+name: Build Flutter APK
 
 on:
   push:
     tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+      - "v*.*.*"   # v1.0.13 सारखा tag push केला की build सुरू होईल
+  workflow_dispatch:   # manual run button
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
+      # ✅ Flutter latest stable setup
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.19.0"
+          flutter-version: "3.22.0"   # MUST for Dart 3.9+
+          channel: stable
           cache: true
 
-      - name: Flutter Pub Get
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Get dependencies
         run: flutter pub get
 
+      # ✅ Build APK
       - name: Build APK
         run: flutter build apk --release
 
-      - name: Upload APK
+      # ✅ Upload APK to GitHub
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk
+          name: app-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
