@@ -7,7 +7,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// Load keystore properties
+// Load keystore properties (local development)
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
@@ -40,10 +40,15 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file("release_key.jks")   // ✅ Correct path
-            storePassword = keystoreProperties["storePassword"] as String
+            // GitHub Actions madhe env variables vapareel
+            // Local madhe key.properties vapareel
+            keyAlias = System.getenv("KEY_ALIAS")
+                ?: keystoreProperties["keyAlias"] as? String ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD")
+                ?: keystoreProperties["keyPassword"] as? String ?: ""
+            storePassword = System.getenv("KEY_STORE_PASSWORD")
+                ?: keystoreProperties["storePassword"] as? String ?: ""
+            storeFile = file("release_key.jks")
         }
     }
 
