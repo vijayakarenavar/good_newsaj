@@ -22,6 +22,8 @@ android/app/*.keystore
 keystore.txt
 key.txt
 secrets.txt
+keystore_base64.txt
+keystore_b64.txt
 
 # iOS
 ios/Flutter/
