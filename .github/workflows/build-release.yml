@@ -3,33 +3,30 @@ name: Build Flutter APK
 on:
   push:
     tags:
-      - "v*.*.*"
-  workflow_dispatch:
+      - "v*"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # 🔥 FORCE Flutter Latest
-      - name: Install Flutter
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
           channel: stable
+          cache: false
 
-      # 🔥 Verify Flutter & Dart version
-      - name: Check Flutter Version
-        run: |
-          flutter --version
-          dart --version
-
-      - name: Clean Pub Cache
-        run: flutter clean
-
-      - name: Get Packages
+      - name: Install dependencies
         run: flutter pub get
 
       - name: Build APK
@@ -38,5 +35,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
+          name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
