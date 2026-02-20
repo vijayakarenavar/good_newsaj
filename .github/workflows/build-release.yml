@@ -17,7 +17,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.29.3"   # ✅ he update kela
+          flutter-version: "3.41.2"   # ✅ he update kela
           channel: 'stable'            # ✅ he add kela
       - name: Flutter Pub Get
         run: flutter pub get
