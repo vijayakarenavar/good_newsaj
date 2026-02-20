@@ -6,7 +6,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  contents: write   # ✅ IMPORTANT for GitHub Release
+  contents: write   # ✅ IMPORTANT for GitHub release
 
 jobs:
   build:
@@ -30,26 +30,34 @@ jobs:
         with:
           channel: 'stable'
 
-      # 4️⃣ Setup Keystore & key.properties
-      - name: Setup Keystore
+      # 4️⃣ CREATE .env file (🔥 IMPORTANT)
+      - name: Create .env file
         run: |
-          mkdir -p android/app
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release_key.jks
+          echo "${{ secrets.ENV_FILE }}" > .env
 
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+      # 5️⃣ Setup Keystore
+      - name: Setup Keystore & key.properties
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release_key.jks
+          echo "storePassword=$KEYSTORE_PASSWORD" > android/key.properties
+          echo "keyPassword=$KEY_PASSWORD" >> android/key.properties
+          echo "keyAlias=$KEY_ALIAS" >> android/key.properties
           echo "storeFile=release_key.jks" >> android/key.properties
 
-      # 5️⃣ Flutter dependencies
+      # 6️⃣ Install Dependencies
       - name: Get dependencies
         run: flutter pub get
 
-      # 6️⃣ Build Signed Release APK
+      # 7️⃣ Build Signed APK
       - name: Build Signed Release APK
         run: flutter build apk --release
 
-      # 7️⃣ Create GitHub Release & Upload APK
+      # 8️⃣ Upload APK to GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
