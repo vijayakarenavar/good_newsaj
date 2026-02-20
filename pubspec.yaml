@@ -50,7 +50,7 @@ flutter:
     - assets/icons/
     - assets/videos/
     - assets/splash_animation.json
-    - .env
+
 
 
 flutter_launcher_icons:
