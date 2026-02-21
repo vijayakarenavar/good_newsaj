@@ -1,48 +1,42 @@
-name: Build Release APK
-
+name: Build APK
 on:
   push:
-    branches: [ "main" ]
-
+    tags:
+      - "v*"
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
           distribution: 'temurin'
-
-      - name: Decode Keystore
-        run: echo ${{ secrets.KEYSTORE_BASE64 }} | base64 --decode > keystore.jks
-        shell: bash
-
-      - name: Set up Flutter
+          java-version: '17'
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: "3.41.2"
           channel: 'stable'
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      - name: Build Release APK
-        run: flutter build apk --release
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d ' \n\r' | base64 --decode > android/app/release_key.jks
+      - name: Verify Keystore
         env:
-          ANDROID_KEYSTORE_FILE: keystore.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-
-      - name: Check APK output (Debug)
-        run: ls -la build/app/outputs/apk/release/
-
-      - name: Upload Release APK
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+        run: |
+          keytool -list -keystore android/app/release_key.jks -storepass "$KEY_STORE_PASSWORD"
+      - name: Flutter Pub Get
+        run: flutter pub get
+      - name: Build APK
+        env:
+          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: flutter build apk --release
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: release-apk
-          path: build/app/outputs/apk/release/app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
