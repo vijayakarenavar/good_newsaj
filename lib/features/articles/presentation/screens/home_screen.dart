@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen>
   int? _previousPageIndex;
 
   static const int LOAD_MORE_THRESHOLD = 3;
-  static const int PAGE_SIZE = 40; // ✅ .env शी match
+  //static const int oPAGE_SIZE = 40;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = [
     'Education',
@@ -76,7 +76,6 @@ class _HomeScreenState extends State<HomeScreen>
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
   final Set<dynamic> _seenArticleIds = {};
-  // DateTime? _loadingStartTime;
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
@@ -167,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
       await Future.wait([
         _loadArticles(isInitial: true),
-        _loadSocialPosts(),
+        // SOCIAL_DISABLED: _loadSocialPosts() - Social tab तात्पुरता बंद
         _loadVideoPosts(),
       ]);
       _updateDisplayedItems();
@@ -302,18 +301,17 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // ================================================================
-// FIX 1: _loadArticles - duplicate prevent करण्यासाठी seen IDs track करतो
-// ================================================================
-// नंतर हा _loadArticles replace करा:
+  // _loadArticles - duplicate prevent करण्यासाठी seen IDs track करतो
+  // ================================================================
   Future<void> _loadArticles({bool isInitial = false}) async {
     if (_isLoadingMore) return;
-    if (!_hasMore && !isInitial) return; // ✅ hasMore false असेल तर stop
+    if (!_hasMore && !isInitial) return;
 
     try {
       if (mounted) setState(() => _isLoadingMore = true);
 
       final response = await ApiService.getUnifiedFeed(
-        //limit: PAGE_SIZE,
+        limit: 9999, // ✅ UNLIMITED: server वरून सगळे articles load करा
         cursor: isInitial ? null : _nextCursor,
         categoryId: _selectedCategoryId,
       );
@@ -326,7 +324,6 @@ class _HomeScreenState extends State<HomeScreen>
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
 
-        // ✅ Duplicate filter - seen IDs वापरून
         if (isInitial) {
           _seenArticleIds.clear();
         }
@@ -346,7 +343,6 @@ class _HomeScreenState extends State<HomeScreen>
           _nextCursor = response['next_cursor'];
           _hasMore = response['has_more'] ?? (response['next_cursor'] != null);
 
-          // ✅ नवीन articles नाही आले तर hasMore false करा
           if (uniqueArticles.isEmpty && !isInitial) {
             _hasMore = false;
           }
@@ -359,14 +355,16 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-
   Future<void> _loadSocialPosts() async {
+    // SOCIAL_DISABLED: Social tab तात्पुरता बंद केला आहे
+    // पुन्हा चालू करायचा असेल तर खालील code uncomment करा:
+    /*
     try {
       final response = await SocialApiService.getPosts();
       if (response['status'] == 'success') {
         final postsList = response['posts'] as List;
         final List<int> locallyLikedPosts =
-        await PreferencesService.getLikedPosts();
+            await PreferencesService.getLikedPosts();
         if (mounted) {
           setState(() {
             _socialPosts = postsList
@@ -378,6 +376,7 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       print('❌ Error loading social: $e');
     }
+    */
   }
 
   Map<String, dynamic> _formatSocialPost(
@@ -494,21 +493,21 @@ class _HomeScreenState extends State<HomeScreen>
           }
         }
       } else if (_selectedTabIndex == 2) {
-        _displayedItems = List.from(_socialPosts);
+        // SOCIAL_DISABLED: Social tab तात्पुरता बंद
+        // _displayedItems = List.from(_socialPosts);
+        _displayedItems = [];
       } else {
         _displayedItems = [];
       }
     });
   }
 
-  /// ================================================================
-// FIX 2: _selectCategory - category बदलताना सर्व reset होतो
-// ================================================================
-
+  // ================================================================
+  // _selectCategory - category बदलताना सर्व reset होतो
+  // ================================================================
   void _selectCategory(int? categoryId) async {
     if (categoryId == _selectedCategoryId) return;
 
-    // ✅ पूर्ण reset
     setState(() {
       _selectedTabIndex = 1;
       _selectedCategoryId = categoryId;
@@ -528,6 +527,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     _scrollToCategoryPage(categoryId);
   }
+
   void _scrollToCategoryPage(int? categoryId) {
     final categoryList = _buildCategoryList();
     final index = categoryList.indexWhere((cat) => cat['id'] == categoryId);
@@ -541,6 +541,7 @@ class _HomeScreenState extends State<HomeScreen>
       _scrollCategoryChipsToIndex(index);
     }
   }
+
   void _scrollCategoryChipsToIndex(int index) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_categoryScrollController.hasClients) return;
@@ -606,7 +607,8 @@ class _HomeScreenState extends State<HomeScreen>
     categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
     if (currentIndex != -1 && currentIndex == categoryList.length - 1) {
-      _onTabChanged(2);
+      // SOCIAL_DISABLED: Social tab नाही, Profile वर जा
+      _onTabChanged(3);
     } else if (currentIndex != -1 && currentIndex < categoryList.length - 1) {
       final nextCategory = categoryList[currentIndex + 1];
       _selectCategory(nextCategory['id']);
@@ -651,9 +653,12 @@ class _HomeScreenState extends State<HomeScreen>
     } else if (index == 1) {
       targetPage = 1;
     } else if (index == 2) {
+      // SOCIAL_DISABLED: index 2 = Social - तात्पुरता skip, Profile दाखवतो
       targetPage = totalNewsPages + 1;
+    } else if (index == 3) {
+      targetPage = totalNewsPages + 1; // SOCIAL_DISABLED: Profile page
     } else {
-      targetPage = totalNewsPages + 2;
+      targetPage = totalNewsPages + 1;
     }
 
     if (_selectedTabIndex != index) {
@@ -670,9 +675,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // ================================================================
-// FIX 3: _handleTabSpecificRefresh - News refresh करताना reset
-// ================================================================
-
+  // _handleTabSpecificRefresh - News refresh करताना reset
+  // ================================================================
   Future<void> _handleTabSpecificRefresh(int tabIndex) async {
     setState(() => _isRefreshing = true);
     try {
@@ -688,10 +692,9 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
       } else if (tabIndex == 1) {
-        // ✅ पूर्ण reset
         _preloadedImages.clear();
         _allArticles.clear();
-        _seenArticleIds.clear(); // ✅ हे add केलं
+        _seenArticleIds.clear();
         _nextCursor = null;
         _hasMore = true;
         await _loadArticles(isInitial: true);
@@ -706,13 +709,14 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
       } else if (tabIndex == 2) {
-        await _loadSocialPosts();
+        // SOCIAL_DISABLED: Social refresh बंद
+        // await _loadSocialPosts();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('✨ Social posts refreshed!'),
+              content: Text('Social tab तात्पुरता बंद आहे'),
               duration: Duration(seconds: 1),
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.orange,
             ),
           );
         }
@@ -751,10 +755,11 @@ class _HomeScreenState extends State<HomeScreen>
 
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
-    final socialPageIndex = totalNewsPages + 1;
-    final profilePageIndex = totalNewsPages + 2;
 
-    if (previousPage == socialPageIndex &&
+    // SOCIAL_DISABLED: Social page नाही, Profile directly totalNewsPages + 1 वर
+    final profilePageIndex = totalNewsPages + 1;
+
+    if (previousPage == profilePageIndex &&
         pageIndex >= 1 &&
         pageIndex <= totalNewsPages &&
         pageIndex != 1) {
@@ -788,10 +793,8 @@ class _HomeScreenState extends State<HomeScreen>
       if (previousCategoryIndex != categoryIndex) {
         categoryIndexToScroll = categoryIndex;
       }
-    } else if (pageIndex == socialPageIndex) {
-      newTabIndex = 2;
-      newCategoryId = null;
     } else if (pageIndex == profilePageIndex) {
+      // SOCIAL_DISABLED: Profile page
       newTabIndex = 3;
       newCategoryId = null;
       if (_selectedTabIndex != 3) {
@@ -837,7 +840,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   int _getTotalPageCount() {
     final categoryList = _buildCategoryList();
-    return 1 + categoryList.length + 2;
+    // SOCIAL_DISABLED: Social page काढला - Video + News pages + Profile
+    // पूर्वी: 1 + categoryList.length + 2 (Video + News + Social + Profile)
+    // आता:   1 + categoryList.length + 1 (Video + News + Profile)
+    return 1 + categoryList.length + 1;
   }
 
   void _showSnackBar(String message) {
@@ -986,6 +992,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   void _handleCreatePost() async {
+    // SOCIAL_DISABLED: Create post तात्पुरता बंद
+    // पुन्हा चालू करायचा असेल तर खालील code uncomment करा:
+    /*
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CreatePostScreen()),
@@ -994,6 +1003,14 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       await _loadSocialPosts();
       _updateDisplayedItems();
     }
+    */
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Social feature तात्पुरता बंद आहे'),
+        backgroundColor: Colors.orange,
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
@@ -1377,19 +1394,19 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               ),
             ),
           ),
-          _buildDivider(isDark),
-          _buildMenuItem(
-            context,
-            title: 'Blocked Users',
-            icon: Icons.block,
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => const BlockedUsersScreen(),
-                ),
-              );
-            },
-          ),
+          // _buildDivider(isDark),
+          // _buildMenuItem(
+          //   context,
+          //   title: 'Blocked Users',
+          //   icon: Icons.block,
+          //   onTap: () {
+          //     Navigator.of(context).push(
+          //       MaterialPageRoute(
+          //         builder: (context) => const BlockedUsersScreen(),
+          //       ),
+          //     );
+          //   },
+          // ),
           _buildDivider(isDark),
           _buildMenuItem(
             context,
@@ -1572,31 +1589,31 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               : _buildArticlesReadCard(),
         ),
         SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
-        SliverToBoxAdapter(
-          child: _buildSectionCard(
-            context,
-            child: QuickActionsWidget(
-              onMyPostsTap: () => _showMyPosts(context),
-              onFriendRequestsTap: () => _showFriendRequests(context),
-              onSettingsTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                    builder: (context) => const SettingsScreen()),
-              ),
-              friendRequestsCount: _friendRequestsCount,
-            ),
-          ),
-        ),
+        // SliverToBoxAdapter(
+        //   child: _buildSectionCard(
+        //     context,
+        //     child: QuickActionsWidget(
+        //       onMyPostsTap: () => _showMyPosts(context),
+        //       onFriendRequestsTap: () => _showFriendRequests(context),
+        //       onSettingsTap: () => Navigator.of(context).push(
+        //         MaterialPageRoute(
+        //             builder: (context) => const SettingsScreen()),
+        //       ),
+        //       friendRequestsCount: _friendRequestsCount,
+        //     ),
+        //   ),
+        // ),
         SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
-        SliverToBoxAdapter(
-          child: _buildSectionCard(
-            context,
-            child: FriendsSectionWidget(
-              friends: _friends,
-              isLoading: _isFriendsLoading,
-              onFriendsUpdated: _loadFriends,
-            ),
-          ),
-        ),
+        // SliverToBoxAdapter(
+        //   child: _buildSectionCard(
+        //     context,
+        //     child: FriendsSectionWidget(
+        //       friends: _friends,
+        //       isLoading: _isFriendsLoading,
+        //       onFriendsUpdated: _loadFriends,
+        //     ),
+        //   ),
+        // ),
         SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
         SliverToBoxAdapter(
           child: _buildMenuList(context),
@@ -1611,38 +1628,13 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     super.build(context);
     final categoryList = _buildCategoryList();
     return Scaffold(
-      // ✅ FIX: build() मधील bottom "Loading..." indicator पूर्णपणे काढला
-      // आता Scaffold body directly _buildMainContent दाखवतो - कोणताही overlay नाही
       body: SafeArea(
         child: _buildMainContent(categoryList),
       ),
-      floatingActionButton: _showFab && _selectedTabIndex == 2
-          ? SpeedDialFAB(
-        actions: [
-          SpeedDialAction(
-            icon: Icons.person_add,
-            label: 'Add Friend',
-            heroTag: 'add_friend_fab',
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => const FriendsModal(),
-              );
-            },
-          ),
-          SpeedDialAction(
-            icon: Icons.edit,
-            label: 'Create Post',
-            heroTag: 'create_post_fab',
-            onPressed: () {
-              _handleCreatePost();
-            },
-          ),
-        ],
-      )
-          : null,
+      // SOCIAL_DISABLED: Social tab नसल्यामुळे FAB नको
+      // floatingActionButton: _showFab && _selectedTabIndex == 2
+      //     ? SpeedDialFAB(...) : null,
+      floatingActionButton: null,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -1683,13 +1675,18 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               isActive: _selectedTabIndex == 1,
               onTap: () => _onTabChanged(1),
             ),
-            _buildNavItem(
-              icon: Icons.people_outline,
-              activeIcon: Icons.people,
-              label: 'Social',
-              isActive: _selectedTabIndex == 2,
-              onTap: () => _onTabChanged(2),
-            ),
+            // ============================================================
+            // SOCIAL_DISABLED: Social tab तात्पुरता बंद केला आहे
+            // पुन्हा चालू करायचा असेल तर खालील block uncomment करा
+            // आणि _getTotalPageCount() मध्ये +1 ऐवजी +2 करा
+            // ============================================================
+            // _buildNavItem(
+            //   icon: Icons.people_outline,
+            //   activeIcon: Icons.people,
+            //   label: 'Social',
+            //   isActive: _selectedTabIndex == 2,
+            //   onTap: () => _onTabChanged(2),
+            // ),
             _buildNavItem(
               icon: Icons.person_outline,
               activeIcon: Icons.person,
@@ -1815,11 +1812,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               activeCategoryIndex: categoryIndex,
             );
           } else if (pageIndex == totalNewsPages + 1) {
-            return _buildTabContent(
-              items: _socialPosts,
-              itemBuilder: _buildSocialPost,
-            );
-          } else if (pageIndex == totalNewsPages + 2) {
+            // SOCIAL_DISABLED: Social page काढला, Profile दाखवतो
             return _buildProfilePage();
           } else {
             return Container();
@@ -1828,11 +1821,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       ),
     );
   }
-
-// ============================================================
-// METHOD 2: हा _buildNewsTabContent method replace करा
-// PageView ठेवला, शेवटच्या article वर auto load more होतं
-// ============================================================
 
   Widget _buildNewsTabContent({
     required String categoryName,
@@ -1843,7 +1831,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }) {
     return Column(
       children: [
-        // Category Chips bar - same as before
         Container(
           height: 50,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1910,11 +1897,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
-
-        // Content area
         Expanded(
           child: (items.isEmpty && (_isLoadingMore || _isInitialLoading))
-          // ✅ Articles load होत असताना spinner दाखवा - refresh नाही
               ? Center(
             child: CircularProgressIndicator(
               color: Theme.of(context).colorScheme.primary,
@@ -1931,7 +1915,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               physics: const ClampingScrollPhysics(),
               itemCount: items.length,
               onPageChanged: (index) {
-                // ✅ शेवटून 5 articles आधीच load करा (3 वरून 5 केला)
                 if (index >= items.length - 5 &&
                     _hasMore &&
                     !_isLoadingMore) {
@@ -1947,24 +1930,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       ],
     );
   }
+
   Widget _buildTabContent({
     required List<Map<String, dynamic>> items,
     required Widget Function(Map<String, dynamic>) itemBuilder,
   }) {
-    if (_selectedTabIndex == 2) {
-      if (items.isEmpty) {
-        return _buildEmptyStateForTab('Social');
-      }
-      return ListView.builder(
-        physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.zero,
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          return itemBuilder(items[index]);
-        },
-      );
-    }
-
+    // SOCIAL_DISABLED: Social ListView logic काढला
     return GestureDetector(
       onVerticalDragEnd: _onVerticalDragEnd,
       child: PageView.builder(
@@ -1994,6 +1965,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   Widget _buildSocialPost(Map<String, dynamic> post) {
+    // SOCIAL_DISABLED: Social post widget - तात्पुरता वापरात नाही
     final postId = post['id'] as String;
     _commentControllers.putIfAbsent(postId, () => TextEditingController());
     return SocialPostCardWidget(
@@ -2060,12 +2032,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       onPressed = () => _handleTabSpecificRefresh(1);
       buttonText = 'Refresh';
     } else if (tabName == 'Social') {
-      message = 'No social posts yet!';
-      subMessage = 'Be the first to share something positive!';
+      // SOCIAL_DISABLED: Social empty state
+      message = 'Social tab तात्पुरता बंद आहे';
+      subMessage = 'लवकरच परत येईल!';
       icon = Icons.people_outline;
-      onPressed = _handleCreatePost;
-      buttonText = 'Create Post';
-      buttonIcon = Icons.edit;
+      onPressed = null;
+      buttonText = '';
     } else {
       message = 'No articles in $tabName';
       subMessage = 'Try another category.';
@@ -2455,270 +2427,270 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
 }
 
 // ==================== INLINE WIDGETS ====================
-class QuickActionsWidget extends StatelessWidget {
-  final VoidCallback onMyPostsTap;
-  final VoidCallback onFriendRequestsTap;
-  final VoidCallback onSettingsTap;
-  final int friendRequestsCount;
+// class QuickActionsWidget extends StatelessWidget {
+//   final VoidCallback onMyPostsTap;
+//   final VoidCallback onFriendRequestsTap;
+//   final VoidCallback onSettingsTap;
+//   final int friendRequestsCount;
+//
+//   const QuickActionsWidget({
+//     Key? key,
+//     required this.onMyPostsTap,
+//     required this.onFriendRequestsTap,
+//     required this.onSettingsTap,
+//     this.friendRequestsCount = 0,
+//   }) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final theme = Theme.of(context);
+//     final isDark = theme.brightness == Brightness.dark;
+//     final primaryColor = theme.colorScheme.primary;
+//
+//     return Padding(
+//       padding: const EdgeInsets.all(16.0),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text(
+//             'Quick Actions',
+//             style: theme.textTheme.titleMedium?.copyWith(
+//               fontWeight: FontWeight.bold,
+//               color: isDark ? Colors.white : Colors.black87,
+//             ),
+//           ),
+//           const SizedBox(height: 12),
+//           Row(
+//             children: [
+//               Expanded(
+//                 child: _buildActionButton(
+//                   context,
+//                   icon: Icons.article_outlined,
+//                   label: 'My Posts',
+//                   onTap: onMyPostsTap,
+//                   isDark: isDark,
+//                   primaryColor: primaryColor,
+//                 ),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: _buildActionButton(
+//                   context,
+//                   icon: Icons.person_add_outlined,
+//                   label: 'Friend\nRequests',
+//                   onTap: onFriendRequestsTap,
+//                   isDark: isDark,
+//                   primaryColor: primaryColor,
+//                   badge: friendRequestsCount > 0 ? friendRequestsCount : null,
+//                 ),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: _buildActionButton(
+//                   context,
+//                   icon: Icons.settings_outlined,
+//                   label: 'Settings',
+//                   onTap: onSettingsTap,
+//                   isDark: isDark,
+//                   primaryColor: primaryColor,
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+//
+//   Widget _buildActionButton(
+//       BuildContext context, {
+//         required IconData icon,
+//         required String label,
+//         required VoidCallback onTap,
+//         required bool isDark,
+//         required Color primaryColor,
+//         int? badge,
+//       }) {
+//     return Material(
+//       color: Colors.transparent,
+//       child: InkWell(
+//         onTap: onTap,
+//         borderRadius: BorderRadius.circular(12),
+//         child: Container(
+//           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+//           decoration: BoxDecoration(
+//             color: isDark
+//                 ? Colors.white.withOpacity(0.03)
+//                 : Colors.black.withOpacity(0.02),
+//             borderRadius: BorderRadius.circular(12),
+//             border: Border.all(
+//               color: isDark
+//                   ? Colors.white.withOpacity(0.06)
+//                   : Colors.black.withOpacity(0.04),
+//               width: 1,
+//             ),
+//           ),
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//             children: [
+//               Stack(
+//                 clipBehavior: Clip.none,
+//                 children: [
+//                   Icon(
+//                     icon,
+//                     size: 28,
+//                     color: primaryColor,
+//                   ),
+//                   if (badge != null && badge > 0)
+//                     Positioned(
+//                       right: -6,
+//                       top: -6,
+//                       child: Container(
+//                         padding: const EdgeInsets.all(4),
+//                         decoration: BoxDecoration(
+//                           color: Colors.red,
+//                           shape: BoxShape.circle,
+//                         ),
+//                         constraints: const BoxConstraints(
+//                           minWidth: 18,
+//                           minHeight: 18,
+//                         ),
+//                         child: Center(
+//                           child: Text(
+//                             badge > 9 ? '9+' : '$badge',
+//                             style: const TextStyle(
+//                               color: Colors.white,
+//                               fontSize: 10,
+//                               fontWeight: FontWeight.bold,
+//                             ),
+//                           ),
+//                         ),
+//                       ),
+//                     ),
+//                 ],
+//               ),
+//               const SizedBox(height: 8),
+//               Text(
+//                 label,
+//                 textAlign: TextAlign.center,
+//                 style: TextStyle(
+//                   fontSize: 12,
+//                   fontWeight: FontWeight.w500,
+//                   color: isDark ? Colors.white : Colors.black87,
+//                   height: 1.2,
+//                 ),
+//                 maxLines: 2,
+//                 overflow: TextOverflow.ellipsis,
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
 
-  const QuickActionsWidget({
-    Key? key,
-    required this.onMyPostsTap,
-    required this.onFriendRequestsTap,
-    required this.onSettingsTap,
-    this.friendRequestsCount = 0,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Quick Actions',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionButton(
-                  context,
-                  icon: Icons.article_outlined,
-                  label: 'My Posts',
-                  onTap: onMyPostsTap,
-                  isDark: isDark,
-                  primaryColor: primaryColor,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  context,
-                  icon: Icons.person_add_outlined,
-                  label: 'Friend\nRequests',
-                  onTap: onFriendRequestsTap,
-                  isDark: isDark,
-                  primaryColor: primaryColor,
-                  badge: friendRequestsCount > 0 ? friendRequestsCount : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  context,
-                  icon: Icons.settings_outlined,
-                  label: 'Settings',
-                  onTap: onSettingsTap,
-                  isDark: isDark,
-                  primaryColor: primaryColor,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-      BuildContext context, {
-        required IconData icon,
-        required String label,
-        required VoidCallback onTap,
-        required bool isDark,
-        required Color primaryColor,
-        int? badge,
-      }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withOpacity(0.03)
-                : Colors.black.withOpacity(0.02),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark
-                  ? Colors.white.withOpacity(0.06)
-                  : Colors.black.withOpacity(0.04),
-              width: 1,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(
-                    icon,
-                    size: 28,
-                    color: primaryColor,
-                  ),
-                  if (badge != null && badge > 0)
-                    Positioned(
-                      right: -6,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 18,
-                          minHeight: 18,
-                        ),
-                        child: Center(
-                          child: Text(
-                            badge > 9 ? '9+' : '$badge',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: isDark ? Colors.white : Colors.black87,
-                  height: 1.2,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class FriendsSectionWidget extends StatelessWidget {
-  final List<Map<String, dynamic>> friends;
-  final bool isLoading;
-  final VoidCallback onFriendsUpdated;
-
-  const FriendsSectionWidget({
-    Key? key,
-    required this.friends,
-    required this.isLoading,
-    required this.onFriendsUpdated,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryColor = theme.colorScheme.primary;
-
-    if (isLoading) {
-      return Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Center(
-          child: CircularProgressIndicator(
-            color: primaryColor,
-            strokeWidth: 2,
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Friends (${friends.length})',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isDark ? Colors.white : Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (friends.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Text(
-                  'No friends yet',
-                  style: TextStyle(
-                    color: isDark ? Colors.white60 : Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 100,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: friends.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 16),
-                itemBuilder: (context, index) {
-                  final friend = friends[index];
-                  final name =
-                      friend['username'] ?? friend['display_name'] ?? '';
-                  return Column(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: primaryColor.withOpacity(0.2),
-                        child: Text(
-                          name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                          style: TextStyle(
-                            color: primaryColor,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        width: 70,
-                        child: Text(
-                          name,
-                          style: TextStyle(
-                            color: isDark ? Colors.white : Colors.black87,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
+// class FriendsSectionWidget extends StatelessWidget {
+//   final List<Map<String, dynamic>> friends;
+//   final bool isLoading;
+//   final VoidCallback onFriendsUpdated;
+//
+//   const FriendsSectionWidget({
+//     Key? key,
+//     required this.friends,
+//     required this.isLoading,
+//     required this.onFriendsUpdated,
+//   }) : super(key: key);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final theme = Theme.of(context);
+//     final isDark = theme.brightness == Brightness.dark;
+//     final primaryColor = theme.colorScheme.primary;
+//
+//     if (isLoading) {
+//       return Padding(
+//         padding: const EdgeInsets.all(24.0),
+//         child: Center(
+//           child: CircularProgressIndicator(
+//             color: primaryColor,
+//             strokeWidth: 2,
+//           ),
+//         ),
+//       );
+//     }
+//
+//     return Padding(
+//       padding: const EdgeInsets.all(16.0),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text(
+//             'Friends (${friends.length})',
+//             style: theme.textTheme.titleMedium?.copyWith(
+//               fontWeight: FontWeight.bold,
+//               color: isDark ? Colors.white : Colors.black87,
+//             ),
+//           ),
+//           const SizedBox(height: 12),
+//           if (friends.isEmpty)
+//             Center(
+//               child: Padding(
+//                 padding: const EdgeInsets.all(24.0),
+//                 child: Text(
+//                   'No friends yet',
+//                   style: TextStyle(
+//                     color: isDark ? Colors.white60 : Colors.grey[600],
+//                     fontSize: 14,
+//                   ),
+//                 ),
+//               ),
+//             )
+//           else
+//             SizedBox(
+//               height: 100,
+//               child: ListView.separated(
+//                 scrollDirection: Axis.horizontal,
+//                 itemCount: friends.length,
+//                 separatorBuilder: (_, __) => const SizedBox(width: 16),
+//                 itemBuilder: (context, index) {
+//                   final friend = friends[index];
+//                   final name =
+//                       friend['username'] ?? friend['display_name'] ?? '';
+//                   return Column(
+//                     children: [
+//                       CircleAvatar(
+//                         radius: 28,
+//                         backgroundColor: primaryColor.withOpacity(0.2),
+//                         child: Text(
+//                           name.isNotEmpty ? name[0].toUpperCase() : 'U',
+//                           style: TextStyle(
+//                             color: primaryColor,
+//                             fontSize: 20,
+//                             fontWeight: FontWeight.bold,
+//                           ),
+//                         ),
+//                       ),
+//                       const SizedBox(height: 8),
+//                       SizedBox(
+//                         width: 70,
+//                         child: Text(
+//                           name,
+//                           style: TextStyle(
+//                             color: isDark ? Colors.white : Colors.black87,
+//                             fontSize: 12,
+//                           ),
+//                           overflow: TextOverflow.ellipsis,
+//                           textAlign: TextAlign.center,
+//                         ),
+//                       ),
+//                     ],
+//                   );
+//                 },
+//               ),
+//             ),
+//         ],
+//       ),
+//     );
+//   }
+// }
