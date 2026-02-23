@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen>
   int? _previousPageIndex;
 
   static const int LOAD_MORE_THRESHOLD = 3;
-  static const int PAGE_SIZE = 25;
+  static const int PAGE_SIZE = 40; // ✅ .env शी match
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = [
     'Education',
@@ -75,6 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
+  final Set<dynamic> _seenArticleIds = {};
   // DateTime? _loadingStartTime;
 
   Map<String, dynamic>? _userProfile;
@@ -300,19 +301,23 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // ================================================================
+// FIX 1: _loadArticles - duplicate prevent करण्यासाठी seen IDs track करतो
+// ================================================================
+// नंतर हा _loadArticles replace करा:
   Future<void> _loadArticles({bool isInitial = false}) async {
     if (_isLoadingMore) return;
+    if (!_hasMore && !isInitial) return; // ✅ hasMore false असेल तर stop
+
     try {
-      if (mounted)
-        setState(() {
-          _isLoadingMore = true;
-          // _loadingStartTime = DateTime.now();
-        });
+      if (mounted) setState(() => _isLoadingMore = true);
+
       final response = await ApiService.getUnifiedFeed(
-        limit: PAGE_SIZE,
-        cursor: _nextCursor,
+        //limit: PAGE_SIZE,
+        cursor: isInitial ? null : _nextCursor,
         categoryId: _selectedCategoryId,
       );
+
       if (!mounted) return;
       if (response['status'] == 'success') {
         final List<dynamic> items = response['items'] ?? [];
@@ -320,27 +325,40 @@ class _HomeScreenState extends State<HomeScreen>
             .where((item) => item['type'] == 'article')
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
+
+        // ✅ Duplicate filter - seen IDs वापरून
+        if (isInitial) {
+          _seenArticleIds.clear();
+        }
+        final uniqueArticles = newArticles.where((article) {
+          final id = article['id'];
+          if (_seenArticleIds.contains(id)) return false;
+          _seenArticleIds.add(id);
+          return true;
+        }).toList();
+
         setState(() {
           if (isInitial) {
-            _allArticles = newArticles;
+            _allArticles = uniqueArticles;
           } else {
-            _allArticles.addAll(newArticles);
+            _allArticles.addAll(uniqueArticles);
           }
           _nextCursor = response['next_cursor'];
-          _hasMore =
-              response['has_more'] ?? (response['next_cursor'] != null);
+          _hasMore = response['has_more'] ?? (response['next_cursor'] != null);
+
+          // ✅ नवीन articles नाही आले तर hasMore false करा
+          if (uniqueArticles.isEmpty && !isInitial) {
+            _hasMore = false;
+          }
         });
       }
     } catch (e) {
       print('❌ EXCEPTION loading articles: $e');
     } finally {
-      if (mounted)
-        setState(() {
-          _isLoadingMore = false;
-          // _loadingStartTime = null;
-        });
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
+
 
   Future<void> _loadSocialPosts() async {
     try {
@@ -471,7 +489,7 @@ class _HomeScreenState extends State<HomeScreen>
               .where(
                   (article) => article['category_id'] == _selectedCategoryId)
               .toList();
-          if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
+          if (_displayedItems.length < 10 && _hasMore && !_isLoadingMore) {
             Future.delayed(Duration.zero, () => _loadArticles());
           }
         }
@@ -483,24 +501,25 @@ class _HomeScreenState extends State<HomeScreen>
     });
   }
 
+  /// ================================================================
+// FIX 2: _selectCategory - category बदलताना सर्व reset होतो
+// ================================================================
+
   void _selectCategory(int? categoryId) async {
     if (categoryId == _selectedCategoryId) return;
 
+    // ✅ पूर्ण reset
     setState(() {
       _selectedTabIndex = 1;
       _selectedCategoryId = categoryId;
       _currentIndex = 0;
+      _allArticles.clear();
+      _seenArticleIds.clear();
+      _nextCursor = null;
+      _hasMore = true;
     });
 
-    if (categoryId != null) {
-      setState(() {
-        _allArticles.clear();
-        _nextCursor = null;
-        _hasMore = true;
-      });
-      await _loadArticles(isInitial: true);
-    }
-
+    await _loadArticles(isInitial: true);
     _updateDisplayedItems();
 
     if (_displayedItems.isNotEmpty && mounted) {
@@ -509,7 +528,6 @@ class _HomeScreenState extends State<HomeScreen>
 
     _scrollToCategoryPage(categoryId);
   }
-
   void _scrollToCategoryPage(int? categoryId) {
     final categoryList = _buildCategoryList();
     final index = categoryList.indexWhere((cat) => cat['id'] == categoryId);
@@ -523,7 +541,6 @@ class _HomeScreenState extends State<HomeScreen>
       _scrollCategoryChipsToIndex(index);
     }
   }
-
   void _scrollCategoryChipsToIndex(int index) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_categoryScrollController.hasClients) return;
@@ -652,6 +669,10 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // ================================================================
+// FIX 3: _handleTabSpecificRefresh - News refresh करताना reset
+// ================================================================
+
   Future<void> _handleTabSpecificRefresh(int tabIndex) async {
     setState(() => _isRefreshing = true);
     try {
@@ -667,11 +688,14 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
       } else if (tabIndex == 1) {
+        // ✅ पूर्ण reset
         _preloadedImages.clear();
         _allArticles.clear();
+        _seenArticleIds.clear(); // ✅ हे add केलं
         _nextCursor = null;
         _hasMore = true;
         await _loadArticles(isInitial: true);
+        _updateDisplayedItems();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1805,6 +1829,11 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
+// ============================================================
+// METHOD 2: हा _buildNewsTabContent method replace करा
+// PageView ठेवला, शेवटच्या article वर auto load more होतं
+// ============================================================
+
   Widget _buildNewsTabContent({
     required String categoryName,
     required List<Map<String, dynamic>> items,
@@ -1814,7 +1843,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }) {
     return Column(
       children: [
-        // Category Chips bar
+        // Category Chips bar - same as before
         Container(
           height: 50,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1857,9 +1886,8 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                               : isDark
                               ? Colors.white60
                               : Colors.grey[600],
-                          fontWeight: isSelected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                          fontWeight:
+                          isSelected ? FontWeight.w700 : FontWeight.w500,
                           fontSize: isSelected ? 15 : 13,
                         ),
                       ),
@@ -1882,45 +1910,35 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
+
         // Content area
         Expanded(
-          child: GestureDetector(
+          child: (items.isEmpty && (_isLoadingMore || _isInitialLoading))
+          // ✅ Articles load होत असताना spinner दाखवा - refresh नाही
+              ? Center(
+            child: CircularProgressIndicator(
+              color: Theme.of(context).colorScheme.primary,
+              strokeWidth: 3,
+            ),
+          )
+              : GestureDetector(
             onVerticalDragEnd: _onVerticalDragEnd,
             onHorizontalDragEnd: _onHorizontalDragEnd,
-            // ✅ FIX: articles असताना PageView block होत नाही
-            // फक्त articles नसतानाच (items.isEmpty) loading दाखवतो
-            child: _isLoadingMore && items.isEmpty
-                ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    color: Theme.of(context).colorScheme.primary,
-                    strokeWidth: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Loading articles...',
-                    style: TextStyle(
-                      color: Theme.of(context).brightness ==
-                          Brightness.dark
-                          ? Colors.white60
-                          : Colors.grey[600],
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            )
+            child: items.isEmpty && showEmptyState
+                ? _buildEmptyStateForTab(categoryName)
                 : PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
-              itemCount:
-              items.isEmpty && showEmptyState ? 1 : items.length,
-              itemBuilder: (context, index) {
-                if (items.isEmpty && showEmptyState) {
-                  return _buildEmptyStateForTab(categoryName);
+              itemCount: items.length,
+              onPageChanged: (index) {
+                // ✅ शेवटून 5 articles आधीच load करा (3 वरून 5 केला)
+                if (index >= items.length - 5 &&
+                    _hasMore &&
+                    !_isLoadingMore) {
+                  _loadArticles();
                 }
+              },
+              itemBuilder: (context, index) {
                 return _buildArticle(items[index]);
               },
             ),
@@ -1929,7 +1947,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       ],
     );
   }
-
   Widget _buildTabContent({
     required List<Map<String, dynamic>> items,
     required Widget Function(Map<String, dynamic>) itemBuilder,
