@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ Internet Permission (correct spelling) -->
+    <!-- Internet Permission -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -18,15 +18,10 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
-    <!-- Other permissions -->
-    <uses-permission android:name="android.permission.READ_CONTACTS" />
-
     <application
         android:label="joy scroll"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true"
-        android:networkSecurityConfig="@xml/network_security_config">
+        android:icon="@mipmap/ic_launcher">
 
         <activity
             android:name=".MainActivity"
@@ -68,7 +63,6 @@
         <intent>
             <action android:name="android.intent.action.GET_CONTENT" />
         </intent>
-        <!-- 👇 url_launcher साठी आवश्यक -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />

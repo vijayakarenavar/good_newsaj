@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen>
   int? _previousPageIndex;
 
   static const int LOAD_MORE_THRESHOLD = 3;
-  //static const int oPAGE_SIZE = 40;
+  static const int PAGE_SIZE = 9999;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = [
     'Education',
@@ -75,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
   final Map<String, GlobalKey<_VideoPostWidgetState>> _videoKeys = {};
-  final Set<dynamic> _seenArticleIds = {};
+  // DateTime? _loadingStartTime;
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
@@ -166,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
       await Future.wait([
         _loadArticles(isInitial: true),
-        // SOCIAL_DISABLED: _loadSocialPosts() - Social tab तात्पुरता बंद
+        _loadSocialPosts(),
         _loadVideoPosts(),
       ]);
       _updateDisplayedItems();
@@ -300,71 +300,88 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ================================================================
-  // _loadArticles - duplicate prevent करण्यासाठी seen IDs track करतो
-  // ================================================================
   Future<void> _loadArticles({bool isInitial = false}) async {
     if (_isLoadingMore) return;
-    if (!_hasMore && !isInitial) return;
-
     try {
       if (mounted) setState(() => _isLoadingMore = true);
 
-      final response = await ApiService.getUnifiedFeed(
-        limit: 9999, // ✅ UNLIMITED: server वरून सगळे articles load करा
-        cursor: isInitial ? null : _nextCursor,
-        categoryId: _selectedCategoryId,
-      );
+      if (isInitial) {
+        // ✅ सगळ्या categories एकाच वेळी fetch - Future.wait
+        final categoryIds = [null, ..._categoryMap.keys];
 
-      if (!mounted) return;
-      if (response['status'] == 'success') {
-        final List<dynamic> items = response['items'] ?? [];
-        List<Map<String, dynamic>> newArticles = items
-            .where((item) => item['type'] == 'article')
-            .map((item) => Map<String, dynamic>.from(item))
+        final responses = await Future.wait(
+            categoryIds.map((categoryId) =>
+                ApiService.getUnifiedFeed(
+                  limit: 9999,
+                  cursor: null,
+                  categoryId: categoryId,
+                )
+            )
+        );
+
+        // प्रत्येक category चे articles वेगळे ठेवा
+        Map<int?, List<Map<String, dynamic>>> categoryArticles = {};
+
+        for (int i = 0; i < categoryIds.length; i++) {
+          final categoryId = categoryIds[i];
+          final response = responses[i];
+          if (response['status'] == 'success') {
+            final items = response['items'] ?? [];
+            final articles = (items as List)
+                .where((item) => item['type'] == 'article')
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
+            categoryArticles[categoryId] = articles;
+            print('📂 $categoryId: ${articles.length} articles');
+          }
+        }
+
+        // ✅ Round-robin interleave
+        List<Map<String, dynamic>> interleaved = [];
+        final lists = categoryArticles.values
+            .where((list) => list.isNotEmpty)
             .toList();
 
-        if (isInitial) {
-          _seenArticleIds.clear();
+        int maxLen = lists.fold(0, (max, list) =>
+        list.length > max ? list.length : max);
+
+        for (int i = 0; i < maxLen; i++) {
+          for (final list in lists) {
+            if (i < list.length) {
+              interleaved.add(list[i]);
+            }
+          }
         }
-        final uniqueArticles = newArticles.where((article) {
-          final id = article['id'];
-          if (_seenArticleIds.contains(id)) return false;
-          _seenArticleIds.add(id);
-          return true;
-        }).toList();
 
-        setState(() {
-          if (isInitial) {
-            _allArticles = uniqueArticles;
-          } else {
-            _allArticles.addAll(uniqueArticles);
-          }
-          _nextCursor = response['next_cursor'];
-          _hasMore = response['has_more'] ?? (response['next_cursor'] != null);
+        // Duplicates काढा
+        final seen = <dynamic>{};
+        final unique = interleaved
+            .where((a) => seen.add(a['id']))
+            .toList();
 
-          if (uniqueArticles.isEmpty && !isInitial) {
+        if (mounted) {
+          setState(() {
+            _allArticles = unique;
             _hasMore = false;
-          }
-        });
+            _nextCursor = null;
+          });
+        }
+        print('✅ Total: ${unique.length} articles');
       }
     } catch (e) {
-      print('❌ EXCEPTION loading articles: $e');
+      print('❌ EXCEPTION: $e');
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
   Future<void> _loadSocialPosts() async {
-    // SOCIAL_DISABLED: Social tab तात्पुरता बंद केला आहे
-    // पुन्हा चालू करायचा असेल तर खालील code uncomment करा:
-    /*
     try {
       final response = await SocialApiService.getPosts();
       if (response['status'] == 'success') {
         final postsList = response['posts'] as List;
         final List<int> locallyLikedPosts =
-            await PreferencesService.getLikedPosts();
+        await PreferencesService.getLikedPosts();
         if (mounted) {
           setState(() {
             _socialPosts = postsList
@@ -376,7 +393,6 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {
       print('❌ Error loading social: $e');
     }
-    */
   }
 
   Map<String, dynamic> _formatSocialPost(
@@ -485,26 +501,18 @@ class _HomeScreenState extends State<HomeScreen>
           _displayedItems = List.from(_allArticles);
         } else {
           _displayedItems = _allArticles
-              .where(
-                  (article) => article['category_id'] == _selectedCategoryId)
+              .where((article) => article['category_id'] == _selectedCategoryId)
               .toList();
-          if (_displayedItems.length < 10 && _hasMore && !_isLoadingMore) {
+          if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
             Future.delayed(Duration.zero, () => _loadArticles());
           }
         }
-      } else if (_selectedTabIndex == 2) {
-        // SOCIAL_DISABLED: Social tab तात्पुरता बंद
-        // _displayedItems = List.from(_socialPosts);
-        _displayedItems = [];
       } else {
         _displayedItems = [];
       }
     });
   }
 
-  // ================================================================
-  // _selectCategory - category बदलताना सर्व reset होतो
-  // ================================================================
   void _selectCategory(int? categoryId) async {
     if (categoryId == _selectedCategoryId) return;
 
@@ -512,17 +520,21 @@ class _HomeScreenState extends State<HomeScreen>
       _selectedTabIndex = 1;
       _selectedCategoryId = categoryId;
       _currentIndex = 0;
-      _allArticles.clear();
-      _seenArticleIds.clear();
-      _nextCursor = null;
-      _hasMore = true;
     });
 
-    await _loadArticles(isInitial: true);
+    // ✅ FIX: आधी existing articles filter करून दाखवा
     _updateDisplayedItems();
 
-    if (_displayedItems.isNotEmpty && mounted) {
-      _preloadImages(_displayedItems, 0);
+    // ✅ FIX: Category साठी articles नसतील तरच API call करा
+    if (categoryId != null) {
+      final existing = _allArticles
+          .where((a) => a['category_id'] == categoryId)
+          .toList();
+
+      if (existing.isEmpty && _hasMore && !_isLoadingMore) {
+        // Background मध्ये load - clear न करता
+        _loadArticles(isInitial: false);
+      }
     }
 
     _scrollToCategoryPage(categoryId);
@@ -607,8 +619,7 @@ class _HomeScreenState extends State<HomeScreen>
     categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
 
     if (currentIndex != -1 && currentIndex == categoryList.length - 1) {
-      // SOCIAL_DISABLED: Social tab नाही, Profile वर जा
-      _onTabChanged(3);
+      _onTabChanged(3); // ✅ Profile
     } else if (currentIndex != -1 && currentIndex < categoryList.length - 1) {
       final nextCategory = categoryList[currentIndex + 1];
       _selectCategory(nextCategory['id']);
@@ -648,17 +659,26 @@ class _HomeScreenState extends State<HomeScreen>
     final totalNewsPages = categoryList.length;
     int targetPage;
 
+    // if (index == 0) {
+    //   targetPage = 0;
+    // } else if (index == 1) {
+    //   targetPage = 1;
+    // } else if (index == 2) {
+    //   targetPage = totalNewsPages + 1;
+    // } else {
+    //   targetPage = totalNewsPages + 2;
+    // }
+
+
+
     if (index == 0) {
       targetPage = 0;
     } else if (index == 1) {
       targetPage = 1;
-    } else if (index == 2) {
-      // SOCIAL_DISABLED: index 2 = Social - तात्पुरता skip, Profile दाखवतो
-      targetPage = totalNewsPages + 1;
-    } else if (index == 3) {
-      targetPage = totalNewsPages + 1; // SOCIAL_DISABLED: Profile page
+    } else if (index == 3) {          // Profile साठी index 3 च ठेवा
+      targetPage = totalNewsPages + 1; // +1 कारण social page नाही
     } else {
-      targetPage = totalNewsPages + 1;
+      targetPage = 1;
     }
 
     if (_selectedTabIndex != index) {
@@ -674,9 +694,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // ================================================================
-  // _handleTabSpecificRefresh - News refresh करताना reset
-  // ================================================================
   Future<void> _handleTabSpecificRefresh(int tabIndex) async {
     setState(() => _isRefreshing = true);
     try {
@@ -694,11 +711,9 @@ class _HomeScreenState extends State<HomeScreen>
       } else if (tabIndex == 1) {
         _preloadedImages.clear();
         _allArticles.clear();
-        _seenArticleIds.clear();
         _nextCursor = null;
         _hasMore = true;
         await _loadArticles(isInitial: true);
-        _updateDisplayedItems();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -709,14 +724,13 @@ class _HomeScreenState extends State<HomeScreen>
           );
         }
       } else if (tabIndex == 2) {
-        // SOCIAL_DISABLED: Social refresh बंद
-        // await _loadSocialPosts();
+        await _loadSocialPosts();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Social tab तात्पुरता बंद आहे'),
+              content: Text('✨ Social posts refreshed!'),
               duration: Duration(seconds: 1),
-              backgroundColor: Colors.orange,
+              backgroundColor: Colors.green,
             ),
           );
         }
@@ -755,23 +769,7 @@ class _HomeScreenState extends State<HomeScreen>
 
     final categoryList = _buildCategoryList();
     final totalNewsPages = categoryList.length;
-
-    // SOCIAL_DISABLED: Social page नाही, Profile directly totalNewsPages + 1 वर
     final profilePageIndex = totalNewsPages + 1;
-
-    if (previousPage == profilePageIndex &&
-        pageIndex >= 1 &&
-        pageIndex <= totalNewsPages &&
-        pageIndex != 1) {
-      Future.delayed(Duration.zero, () {
-        if (mounted && _horizontalPageController.hasClients) {
-          _horizontalPageController.jumpToPage(1);
-          _previousPageIndex = 1;
-          _scrollCategoryChipsToIndex(0);
-        }
-      });
-      return;
-    }
 
     int newTabIndex;
     int? newCategoryId;
@@ -783,18 +781,31 @@ class _HomeScreenState extends State<HomeScreen>
     } else if (pageIndex >= 1 && pageIndex <= totalNewsPages) {
       newTabIndex = 1;
       final categoryIndex = pageIndex - 1;
-      newCategoryId = categoryList[categoryIndex]['id'];
 
-      final previousCategoryIndex =
-      previousPage >= 1 && previousPage <= totalNewsPages
-          ? previousPage - 1
-          : null;
+      // ✅ FIX: Profile वरून आल्यास All category (page 1) वर जा
+      if (previousPage == profilePageIndex) {
+        newCategoryId = null;
+        categoryIndexToScroll = 0;
+        Future.delayed(Duration.zero, () {
+          if (mounted && _horizontalPageController.hasClients) {
+            _horizontalPageController.jumpToPage(1);
+            _previousPageIndex = 1;
+            _scrollCategoryChipsToIndex(0);
+          }
+        });
+      } else {
+        newCategoryId = categoryList[categoryIndex]['id'];
 
-      if (previousCategoryIndex != categoryIndex) {
-        categoryIndexToScroll = categoryIndex;
+        final previousCategoryIndex =
+        previousPage >= 1 && previousPage <= totalNewsPages
+            ? previousPage - 1
+            : null;
+
+        if (previousCategoryIndex != categoryIndex) {
+          categoryIndexToScroll = categoryIndex;
+        }
       }
     } else if (pageIndex == profilePageIndex) {
-      // SOCIAL_DISABLED: Profile page
       newTabIndex = 3;
       newCategoryId = null;
       if (_selectedTabIndex != 3) {
@@ -838,12 +849,14 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  // int _getTotalPageCount() {
+  //   final categoryList = _buildCategoryList();
+  //   return 1 + categoryList.length + 2;
+  // }
+
   int _getTotalPageCount() {
     final categoryList = _buildCategoryList();
-    // SOCIAL_DISABLED: Social page काढला - Video + News pages + Profile
-    // पूर्वी: 1 + categoryList.length + 2 (Video + News + Social + Profile)
-    // आता:   1 + categoryList.length + 1 (Video + News + Profile)
-    return 1 + categoryList.length + 1;
+    return 1 + categoryList.length + 1; // +2 वरून +1 केला (social नाही)
   }
 
   void _showSnackBar(String message) {
@@ -992,9 +1005,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   void _handleCreatePost() async {
-    // SOCIAL_DISABLED: Create post तात्पुरता बंद
-    // पुन्हा चालू करायचा असेल तर खालील code uncomment करा:
-    /*
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CreatePostScreen()),
@@ -1003,14 +1013,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       await _loadSocialPosts();
       _updateDisplayedItems();
     }
-    */
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Social feature तात्पुरता बंद आहे'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
@@ -1628,13 +1630,38 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     super.build(context);
     final categoryList = _buildCategoryList();
     return Scaffold(
+      // ✅ FIX: build() मधील bottom "Loading..." indicator पूर्णपणे काढला
+      // आता Scaffold body directly _buildMainContent दाखवतो - कोणताही overlay नाही
       body: SafeArea(
         child: _buildMainContent(categoryList),
       ),
-      // SOCIAL_DISABLED: Social tab नसल्यामुळे FAB नको
-      // floatingActionButton: _showFab && _selectedTabIndex == 2
-      //     ? SpeedDialFAB(...) : null,
-      floatingActionButton: null,
+      floatingActionButton: _showFab && _selectedTabIndex == 2
+          ? SpeedDialFAB(
+        actions: [
+          SpeedDialAction(
+            icon: Icons.person_add,
+            label: 'Add Friend',
+            heroTag: 'add_friend_fab',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const FriendsModal(),
+              );
+            },
+          ),
+          SpeedDialAction(
+            icon: Icons.edit,
+            label: 'Create Post',
+            heroTag: 'create_post_fab',
+            onPressed: () {
+              _handleCreatePost();
+            },
+          ),
+        ],
+      )
+          : null,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -1675,11 +1702,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               isActive: _selectedTabIndex == 1,
               onTap: () => _onTabChanged(1),
             ),
-            // ============================================================
-            // SOCIAL_DISABLED: Social tab तात्पुरता बंद केला आहे
-            // पुन्हा चालू करायचा असेल तर खालील block uncomment करा
-            // आणि _getTotalPageCount() मध्ये +1 ऐवजी +2 करा
-            // ============================================================
             // _buildNavItem(
             //   icon: Icons.people_outline,
             //   activeIcon: Icons.people,
@@ -1811,8 +1833,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
               categoryList: categoryList,
               activeCategoryIndex: categoryIndex,
             );
-          } else if (pageIndex == totalNewsPages + 1) {
-            // SOCIAL_DISABLED: Social page काढला, Profile दाखवतो
+          // } else if (pageIndex == totalNewsPages + 1) {
+          //   return _buildTabContent(
+          //     items: _socialPosts,
+          //     itemBuilder: _buildSocialPost,
+          //   );
+          } else if (pageIndex == totalNewsPages + 1) { // Profile आता +1 वर(adi +2 hota)
             return _buildProfilePage();
           } else {
             return Container();
@@ -1831,6 +1857,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }) {
     return Column(
       children: [
+        // Category Chips bar
         Container(
           height: 50,
           padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1873,8 +1900,9 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
                               : isDark
                               ? Colors.white60
                               : Colors.grey[600],
-                          fontWeight:
-                          isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           fontSize: isSelected ? 15 : 13,
                         ),
                       ),
@@ -1897,31 +1925,45 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
             },
           ),
         ),
+        // Content area
         Expanded(
-          child: (items.isEmpty && (_isLoadingMore || _isInitialLoading))
-              ? Center(
-            child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary,
-              strokeWidth: 3,
-            ),
-          )
-              : GestureDetector(
+          child: GestureDetector(
             onVerticalDragEnd: _onVerticalDragEnd,
             onHorizontalDragEnd: _onHorizontalDragEnd,
-            child: items.isEmpty && showEmptyState
-                ? _buildEmptyStateForTab(categoryName)
+            // ✅ FIX: articles असताना PageView block होत नाही
+            // फक्त articles नसतानाच (items.isEmpty) loading दाखवतो
+            child: _isLoadingMore && items.isEmpty
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    color: Theme.of(context).colorScheme.primary,
+                    strokeWidth: 3,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading articles...',
+                    style: TextStyle(
+                      color: Theme.of(context).brightness ==
+                          Brightness.dark
+                          ? Colors.white60
+                          : Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
                 : PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
-              itemCount: items.length,
-              onPageChanged: (index) {
-                if (index >= items.length - 5 &&
-                    _hasMore &&
-                    !_isLoadingMore) {
-                  _loadArticles();
-                }
-              },
+              itemCount:
+              items.isEmpty && showEmptyState ? 1 : items.length,
               itemBuilder: (context, index) {
+                if (items.isEmpty && showEmptyState) {
+                  return _buildEmptyStateForTab(categoryName);
+                }
                 return _buildArticle(items[index]);
               },
             ),
@@ -1935,7 +1977,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     required List<Map<String, dynamic>> items,
     required Widget Function(Map<String, dynamic>) itemBuilder,
   }) {
-    // SOCIAL_DISABLED: Social ListView logic काढला
     return GestureDetector(
       onVerticalDragEnd: _onVerticalDragEnd,
       child: PageView.builder(
@@ -1944,9 +1985,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         itemCount: items.isEmpty ? 1 : items.length,
         itemBuilder: (context, index) {
           if (items.isEmpty) {
-            return _buildEmptyStateForTab(
-              _selectedTabIndex == 0 ? 'Video' : 'Social',
-            );
+            return _buildEmptyStateForTab('Video');
           }
           return itemBuilder(items[index]);
         },
@@ -1965,7 +2004,6 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
   }
 
   Widget _buildSocialPost(Map<String, dynamic> post) {
-    // SOCIAL_DISABLED: Social post widget - तात्पुरता वापरात नाही
     final postId = post['id'] as String;
     _commentControllers.putIfAbsent(postId, () => TextEditingController());
     return SocialPostCardWidget(
@@ -2032,12 +2070,12 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
       onPressed = () => _handleTabSpecificRefresh(1);
       buttonText = 'Refresh';
     } else if (tabName == 'Social') {
-      // SOCIAL_DISABLED: Social empty state
-      message = 'Social tab तात्पुरता बंद आहे';
-      subMessage = 'लवकरच परत येईल!';
+      message = 'No social posts yet!';
+      subMessage = 'Be the first to share something positive!';
       icon = Icons.people_outline;
-      onPressed = null;
-      buttonText = '';
+      onPressed = _handleCreatePost;
+      buttonText = 'Create Post';
+      buttonIcon = Icons.edit;
     } else {
       message = 'No articles in $tabName';
       subMessage = 'Try another category.';
