@@ -167,7 +167,7 @@ class PreferencesService {
     await _init();
     await clearLikedPosts();
     await _prefs!.clear(); // 🔥 clears FCM token, auth, everything
-    print('🚪 User logged out - all data cleared');
+    //'🚪 User logged out - all data cleared');
   }
 
   // 👇 Helper methods (optional but kept for compatibility)

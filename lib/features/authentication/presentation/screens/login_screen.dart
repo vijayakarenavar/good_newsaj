@@ -44,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
 
-      print('Login Response: $response');
+      //'Login Response: $response');
 
       if (response['token'] != null) {
         await PreferencesService.saveUserData(
@@ -69,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _showError(response['message'] ?? 'Invalid email or password');
       }
     } catch (e) {
-      print('Login Exception: $e');
+      //'Login Exception: $e');
       _showError('Login failed. Please check your connection and try again.');
     }
 

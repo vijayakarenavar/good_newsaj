@@ -23,13 +23,13 @@ class _TestCardsScreenState extends State<TestCardsScreen> {
   @override
   void initState() {
     super.initState();
-    print('🧪 TEST: TestCardsScreen initialized');
+    //'🧪 TEST: TestCardsScreen initialized');
     _cardController = TCardController();
     _loadArticles();
   }
 
   Future<void> _loadArticles() async {
-    print('🧪 TEST: Starting to load articles from Unified Feed...');
+    //'🧪 TEST: Starting to load articles from Unified Feed...');
 
     try {
       setState(() {
@@ -38,23 +38,23 @@ class _TestCardsScreenState extends State<TestCardsScreen> {
         _apiStatus = 'Connecting';
       });
 
-      print('📞 TEST: Calling ApiService.getUnifiedFeed(limit: 20)...');
+      //'📞 TEST: Calling ApiService.getUnifiedFeed(limit: 20)...');
       final response = await ApiService.getUnifiedFeed(limit: 20);
 
-      print('📦 TEST: Received API response');
-      print('🔍 TEST: Response keys: ${response.keys.toList()}');
-      print('📊 TEST: Response status: ${response['status']}');
+      //'📦 TEST: Received API response');
+      //'🔍 TEST: Response keys: ${response.keys.toList()}');
+      //'📊 TEST: Response status: ${response['status']}');
 
       if (response['status'] == 'success' && response['items'] != null) {
         final feedItems = response['items'] as List;
-        print('📰 TEST: Found ${feedItems.length} items in response');
+        //'📰 TEST: Found ${feedItems.length} items in response');
 
         // Filter only articles (not social posts or videos)
         final articleItems = feedItems
             .where((item) => item['type'] == 'article')
             .toList();
 
-        print('📄 TEST: Filtered to ${articleItems.length} articles');
+        //'📄 TEST: Filtered to ${articleItems.length} articles');
 
         setState(() {
           articles = List<Map<String, dynamic>>.from(
@@ -76,14 +76,14 @@ class _TestCardsScreenState extends State<TestCardsScreen> {
           _apiStatus = 'Connected';
         });
 
-        print('✅ TEST: Successfully loaded ${articles.length} articles from Unified Feed');
+        //'✅ TEST: Successfully loaded ${articles.length} articles from Unified Feed');
       } else {
-        print('❌ TEST: Invalid response format - status: ${response['status']}, items: ${response['items']}');
+        //'❌ TEST: Invalid response format - status: ${response['status']}, items: ${response['items']}');
         throw Exception('Invalid response format');
       }
     } catch (e) {
-      print('❌ TEST: API call failed, using fallback data');
-      print('📄 TEST: Error details: $e');
+      //'❌ TEST: API call failed, using fallback data');
+      //'📄 TEST: Error details: $e');
 
       setState(() {
         _isLoading = false;
@@ -92,7 +92,7 @@ class _TestCardsScreenState extends State<TestCardsScreen> {
         _apiStatus = 'Failed';
       });
 
-      print('💾 TEST: Loaded ${articles.length} articles from sample data');
+      //'💾 TEST: Loaded ${articles.length} articles from sample data');
     }
   }
 

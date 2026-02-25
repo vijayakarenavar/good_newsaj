@@ -57,7 +57,7 @@ class _MessagesScreenState extends State<MessagesScreen> with RouteAware {
         throw Exception(response['error'] ?? 'Failed to load conversations');
       }
     } catch (e) {
-      print('❌ MESSAGES: Failed to load conversations: $e');
+      //'❌ MESSAGES: Failed to load conversations: $e');
       setState(() {
         _conversations = [];
         _isLoading = false;
@@ -373,7 +373,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      print('❌ CHAT: Failed to load messages: $e');
+      //'❌ CHAT: Failed to load messages: $e');
     }
   }
 

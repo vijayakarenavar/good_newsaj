@@ -63,25 +63,25 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
       _isLoadingComments[postId] = true;
     });
 
-    print('📡 MY POSTS: Loading comments for post $postId');
+    //'📡 MY POSTS: Loading comments for post $postId');
 
     final result = await SocialApiService.getComments(postId);
 
-    print('📡 MY POSTS: Comments result: $result');
+    //'📡 MY POSTS: Comments result: $result');
 
     if (result['status'] == 'success') {
       final comments = (result['comments'] as List?)
           ?.map((c) => Map<String, dynamic>.from(c))
           .toList() ?? [];
 
-      print('✅ MY POSTS: Loaded ${comments.length} comments for post $postId');
+      //'✅ MY POSTS: Loaded ${comments.length} comments for post $postId');
 
       setState(() {
         _postComments[postId] = comments;
         _isLoadingComments[postId] = false;
       });
     } else {
-      print('❌ MY POSTS: Failed to load comments: ${result['error']}');
+      //'❌ MY POSTS: Failed to load comments: ${result['error']}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -103,7 +103,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
     });
 
     try {
-      print('📱 MY POSTS: Loading ALL posts for user ${widget.userId}');
+      //'📱 MY POSTS: Loading ALL posts for user ${widget.userId}');
 
       final publicResponse = await SocialApiService.getPosts(limit: 100, visibility: 'public');
       final friendsResponse = await SocialApiService.getPosts(limit: 100, visibility: 'friends');
@@ -131,7 +131,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
       final friendsPosts = filterUserPosts(friendsResponse);
       final privatePosts = filterUserPosts(privateResponse);
 
-      print('📱 MY POSTS: Public: ${publicPosts.length}, Friends: ${friendsPosts.length}, Private: ${privatePosts.length}');
+      //'📱 MY POSTS: Public: ${publicPosts.length}, Friends: ${friendsPosts.length}, Private: ${privatePosts.length}');
 
       setState(() {
         _publicPosts = publicPosts;
@@ -140,7 +140,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
       });
 
     } catch (e) {
-      print('❌ MY POSTS: Error loading posts: $e');
+      //'❌ MY POSTS: Error loading posts: $e');
       setState(() {
         _error = e.toString();
       });

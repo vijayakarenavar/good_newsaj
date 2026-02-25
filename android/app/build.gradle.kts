@@ -15,22 +15,22 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.lc.good_news"
+    namespace = "com.joyscroll.app"   // ✅ CHANGE
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17   // ✅ Updated
+        targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"   // ✅ Updated
     }
 
     defaultConfig {
-        applicationId = "com.lc.good_news"
+        applicationId = "com.joyscroll.app"   // ✅ CHANGE
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -42,7 +42,7 @@ android {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file("release_key.jks")   // ✅ Correct path
+            storeFile = file("release_key.jks")   // तुमचा keystore
             storePassword = keystoreProperties["storePassword"] as String
         }
     }
@@ -50,12 +50,17 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true          // ✅ Production optimize
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
 
         debug {
-            applicationIdSuffix = ".debug"
+            applicationIdSuffix = ".debug"   // Debug separate app
+            versionNameSuffix = "-debug"
             isDebuggable = true
         }
     }
@@ -75,4 +80,8 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
+}
+
+flutter {
+    source = "../.."
 }

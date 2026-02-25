@@ -11,8 +11,8 @@
 // // ✅ Top-level background message handler (MUST be top-level or static)
 // @pragma('vm:entry-point')
 // Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-//   print('📱 Background message received: ${message.messageId}');
-//   print('📱 Data: ${message.data}');
+//   //'📱 Background message received: ${message.messageId}');
+//   //'📱 Data: ${message.data}');
 //
 //   // Handle notification data when app is in background
 //   if (message.data.isNotEmpty) {
@@ -33,12 +33,12 @@
 //   // ✅ Initialize FCM
 //   static Future<void> initialize() async {
 //     if (_isInitialized) {
-//       print('⚠️ FCM already initialized');
+//       //'⚠️ FCM already initialized');
 //       return;
 //     }
 //
 //     try {
-//       print('🚀 Initializing FCM...');
+//       //'🚀 Initializing FCM...');
 //
 //       // 1️⃣ Request permission
 //       NotificationSettings settings = await _fcm.requestPermission(
@@ -51,10 +51,10 @@
 //         provisional: false,
 //       );
 //
-//       print('✅ Notification permission: ${settings.authorizationStatus}');
+//       //'✅ Notification permission: ${settings.authorizationStatus}');
 //
 //       if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-//         print('⚠️ Notification permission denied');
+//         //'⚠️ Notification permission denied');
 //         return;
 //       }
 //
@@ -63,7 +63,7 @@
 //
 //       // 3️⃣ Get FCM token
 //       _fcmToken = await _fcm.getToken();
-//       print('✅ FCM Token: $_fcmToken');
+//       //'✅ FCM Token: $_fcmToken');
 //
 //       if (_fcmToken != null) {
 //         // Save token to backend
@@ -82,21 +82,21 @@
 //       // 7️⃣ Check if app was opened from a notification
 //       RemoteMessage? initialMessage = await _fcm.getInitialMessage();
 //       if (initialMessage != null) {
-//         print('📱 App opened from notification: ${initialMessage.messageId}');
+//         //'📱 App opened from notification: ${initialMessage.messageId}');
 //         _handleNotificationTap(initialMessage);
 //       }
 //
 //       // 8️⃣ Listen for token refresh
 //       _fcm.onTokenRefresh.listen((newToken) {
-//         print('🔄 FCM Token refreshed: $newToken');
+//         //'🔄 FCM Token refreshed: $newToken');
 //         _fcmToken = newToken;
 //         _saveFCMTokenToBackend(newToken);
 //       });
 //
 //       _isInitialized = true;
-//       print('✅ FCM initialized successfully');
+//       //'✅ FCM initialized successfully');
 //     } catch (e) {
-//       print('❌ FCM initialization failed: $e');
+//       //'❌ FCM initialization failed: $e');
 //     }
 //   }
 //
@@ -119,13 +119,13 @@
 //       onDidReceiveNotificationResponse: _onLocalNotificationTap,
 //     );
 //
-//     print('✅ Local notifications initialized');
+//     //'✅ Local notifications initialized');
 //   }
 //
 //   // ✅ Handle foreground messages
 //   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
-//     print('📱 Foreground message received: ${message.notification?.title}');
-//     print('📱 Data: ${message.data}');
+//     //'📱 Foreground message received: ${message.notification?.title}');
+//     //'📱 Data: ${message.data}');
 //
 //     // Show local notification when app is in foreground
 //     if (message.notification != null) {
@@ -174,27 +174,27 @@
 //         payload: jsonEncode(data),
 //       );
 //
-//       print('✅ Local notification shown: $title');
+//       //'✅ Local notification shown: $title');
 //     } catch (e) {
-//       print('❌ Failed to show local notification: $e');
+//       //'❌ Failed to show local notification: $e');
 //     }
 //   }
 //
 //   // ✅ Handle notification tap (background/terminated)
 //   static void _handleNotificationTap(RemoteMessage message) {
-//     print('📱 Notification tapped: ${message.data}');
+//     //'📱 Notification tapped: ${message.data}');
 //     _navigateBasedOnNotification(message.data);
 //   }
 //
 //   // ✅ Handle local notification tap
 //   static void _onLocalNotificationTap(NotificationResponse response) {
-//     print('📱 Local notification tapped: ${response.payload}');
+//     //'📱 Local notification tapped: ${response.payload}');
 //     if (response.payload != null) {
 //       try {
 //         final data = jsonDecode(response.payload!);
 //         _navigateBasedOnNotification(data);
 //       } catch (e) {
-//         print('❌ Failed to parse notification payload: $e');
+//         //'❌ Failed to parse notification payload: $e');
 //       }
 //     }
 //   }
@@ -202,12 +202,12 @@
 //   // ✅ Navigate based on notification type
 //   static void _navigateBasedOnNotification(Map<String, dynamic> data) {
 //     if (navigatorKey.currentContext == null) {
-//       print('⚠️ No navigator context available');
+//       //'⚠️ No navigator context available');
 //       return;
 //     }
 //
 //     final type = data['type'] as String?;
-//     print('🧭 Navigating for notification type: $type');
+//     //'🧭 Navigating for notification type: $type');
 //
 //     switch (type) {
 //       case 'friend_request':
@@ -221,20 +221,20 @@
 //         _navigateToOwnPost(data);
 //         break;
 //       default:
-//         print('⚠️ Unknown notification type: $type');
+//         //'⚠️ Unknown notification type: $type');
 //     }
 //   }
 //
 //   // ✅ Navigate to friend requests screen
 //   static void _navigateToFriendRequests() {
-//     print('🧭 Navigating to Friend Requests');
+//     //'🧭 Navigating to Friend Requests');
 //     navigatorKey.currentState?.pushNamed('/friend-requests');
 //   }
 //
 //   // ✅ Navigate to friend's post
 //   static void _navigateToPost(Map<String, dynamic> data) {
 //     final postId = data['post_id'];
-//     print('🧭 Navigating to post: $postId');
+//     //'🧭 Navigating to post: $postId');
 //
 //     if (postId != null) {
 //       navigatorKey.currentState?.pushNamed('/post-details', arguments: {'postId': postId});
@@ -244,7 +244,7 @@
 //   // ✅ Navigate to user's own post
 //   static void _navigateToOwnPost(Map<String, dynamic> data) {
 //     final postId = data['post_id'];
-//     print('🧭 Navigating to own post: $postId');
+//     //'🧭 Navigating to own post: $postId');
 //
 //     if (postId != null) {
 //       navigatorKey.currentState?.pushNamed('/my-posts', arguments: {'postId': postId});
@@ -256,11 +256,11 @@
 //     try {
 //       final userToken = await PreferencesService.getToken();
 //       if (userToken == null) {
-//         print('⚠️ User not logged in, cannot save FCM token');
+//         //'⚠️ User not logged in, cannot save FCM token');
 //         return;
 //       }
 //
-//       print('📤 Saving FCM token to backend...');
+//       //'📤 Saving FCM token to backend...');
 //
 //       final response = await ApiService.authenticatedRequest(
 //         '/user/fcm-token',
@@ -270,18 +270,18 @@
 //       );
 //
 //       if (response['status'] == 'success') {
-//         print('✅ FCM token saved to backend');
+//         //'✅ FCM token saved to backend');
 //       } else {
-//         print('⚠️ Failed to save FCM token: ${response['error']}');
+//         //'⚠️ Failed to save FCM token: ${response['error']}');
 //       }
 //     } catch (e) {
-//       print('❌ Error saving FCM token: $e');
+//       //'❌ Error saving FCM token: $e');
 //     }
 //   }
 //
 //   // ✅ Handle background notification (static method)
 //   static Future<void> _handleBackgroundNotification(RemoteMessage message) async {
-//     print('📱 Processing background notification: ${message.data}');
+//     //'📱 Processing background notification: ${message.data}');
 //     // You can add custom logic here (e.g., update local database)
 //   }
 //
@@ -293,9 +293,9 @@
 //     try {
 //       await _fcm.deleteToken();
 //       _fcmToken = null;
-//       print('✅ FCM token deleted');
+//       //'✅ FCM token deleted');
 //     } catch (e) {
-//       print('❌ Failed to delete FCM token: $e');
+//       //'❌ Failed to delete FCM token: $e');
 //     }
 //   }
 //
@@ -303,9 +303,9 @@
 //   static Future<void> subscribeToTopic(String topic) async {
 //     try {
 //       await _fcm.subscribeToTopic(topic);
-//       print('✅ Subscribed to topic: $topic');
+//       //'✅ Subscribed to topic: $topic');
 //     } catch (e) {
-//       print('❌ Failed to subscribe to topic: $e');
+//       //'❌ Failed to subscribe to topic: $e');
 //     }
 //   }
 //
@@ -313,9 +313,9 @@
 //   static Future<void> unsubscribeFromTopic(String topic) async {
 //     try {
 //       await _fcm.unsubscribeFromTopic(topic);
-//       print('✅ Unsubscribed from topic: $topic');
+//       //'✅ Unsubscribed from topic: $topic');
 //     } catch (e) {
-//       print('❌ Failed to unsubscribe from topic: $e');
+//       //'❌ Failed to unsubscribe from topic: $e');
 //     }
 //   }
 // }

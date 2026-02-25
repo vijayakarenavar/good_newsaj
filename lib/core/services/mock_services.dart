@@ -9,14 +9,14 @@ class MockPackageInfo {
 
 class MockUrlLauncher {
   static Future<bool> launchUrl(String url) async {
-    print('Mock: Would launch URL: $url');
+    //'Mock: Would launch URL: $url');
     return true;
   }
 }
 
 class MockImagePicker {
   static Future<String?> pickImage() async {
-    print('Mock: Image picker not available');
+    //'Mock: Image picker not available');
     return null;
   }
 }

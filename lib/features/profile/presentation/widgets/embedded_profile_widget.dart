@@ -90,7 +90,7 @@ class EmbeddedProfileWidgetState extends State<EmbeddedProfileWidget> {
           return;
         }
       } catch (e) {
-        print('⚠️ getUserStats not available: $e');
+        //'⚠️ getUserStats not available: $e');
       }
 
       final history = await UserService.getHistory();

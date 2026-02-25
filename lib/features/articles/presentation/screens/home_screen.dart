@@ -5,27 +5,27 @@ import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/user_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/core/services/social_api_service.dart';
-import 'package:good_news/features/articles/presentation/screens/friends_posts_screen.dart';
-import 'package:good_news/features/profile/presentation/screens/blocked_users_screen.dart';
+//import 'package:good_news/features/articles/presentation/screens/friends_posts_screen.dart';
+//import 'package:good_news/features/profile/presentation/screens/blocked_users_screen.dart';
 import 'package:good_news/features/profile/presentation/screens/edit_profile_screen.dart';
-import 'package:good_news/features/profile/presentation/screens/my_posts_screen.dart';
+//import 'package:good_news/features/profile/presentation/screens/my_posts_screen.dart';
 import 'package:good_news/features/profile/presentation/screens/reading_history_screen.dart';
-import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
-import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
-import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
-import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
+//import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
+//import 'package:good_news/features/social/presentation/screens/create_post_screen.dart';
+//import 'package:good_news/features/social/presentation/screens/friends_modal.dart';
+//import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
-import 'package:good_news/features/articles/presentation/widgets/social_post_card_widget.dart';
+//import 'package:good_news/features/articles/presentation/widgets/social_post_card_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+// import 'package:http/http.dart' as http;
+// import 'dart:convert';
 
 import '../../../../widgets/speed_dial_fab.dart';
-import '../../../social/presentation/screens/comment_screen.dart';
+//import '../../../social/presentation/screens/comment_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen>
             context,
           );
         } catch (e) {
-          print('Image preload failed for: $imageUrl');
+          //'Image preload failed for: $imageUrl');
         }
       }
     }
@@ -184,7 +184,7 @@ class _HomeScreenState extends State<HomeScreen>
         }
       });
     } catch (e) {
-      print('❌ HOME: Failed to load: $e');
+      //'❌ HOME: Failed to load: $e');
       if (mounted) _showSnackBar('Failed to load data. Please retry.');
     } finally {
       if (mounted) setState(() => _isInitialLoading = false);
@@ -201,7 +201,7 @@ class _HomeScreenState extends State<HomeScreen>
         _loadFriendRequestsCount(),
       ]);
     } catch (e) {
-      print('❌ Error loading profile data: $e');
+      //'❌ Error loading profile data: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -222,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() => _userProfile = profile);
       }
     } catch (e) {
-      print('❌ Error loading user profile: $e');
+      //'❌ Error loading user profile: $e');
     }
   }
 
@@ -240,7 +240,7 @@ class _HomeScreenState extends State<HomeScreen>
           return;
         }
       } catch (e) {
-        print('⚠️ getUserStats not available: $e');
+        //'⚠️ getUserStats not available: $e');
       }
       final history = await UserService.getHistory();
       if (mounted) {
@@ -332,7 +332,7 @@ class _HomeScreenState extends State<HomeScreen>
                 .map((item) => Map<String, dynamic>.from(item))
                 .toList();
             categoryArticles[categoryId] = articles;
-            print('📂 $categoryId: ${articles.length} articles');
+            //'📂 $categoryId: ${articles.length} articles');
           }
         }
 
@@ -366,10 +366,10 @@ class _HomeScreenState extends State<HomeScreen>
             _nextCursor = null;
           });
         }
-        print('✅ Total: ${unique.length} articles');
+        //'✅ Total: ${unique.length} articles');
       }
     } catch (e) {
-      print('❌ EXCEPTION: $e');
+      //'❌ EXCEPTION: $e');
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -391,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
     } catch (e) {
-      print('❌ Error loading social: $e');
+      //'❌ Error loading social: $e');
     }
   }
 
@@ -443,7 +443,7 @@ class _HomeScreenState extends State<HomeScreen>
       });
       if (mounted) setState(() => _videoPosts = localVideos);
     } catch (e) {
-      print('❌ Error loading videos: $e');
+      //'❌ Error loading videos: $e');
     }
   }
 
@@ -747,7 +747,7 @@ class _HomeScreenState extends State<HomeScreen>
         }
       }
     } catch (e) {
-      print('❌ Refresh error: $e');
+      //'❌ Refresh error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1004,41 +1004,41 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     }
   }
 
-  void _handleCreatePost() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CreatePostScreen()),
-    );
-    if (result == true && mounted) {
-      await _loadSocialPosts();
-      _updateDisplayedItems();
-    }
-  }
+  // void _handleCreatePost() async {
+  //   final result = await Navigator.push(
+  //     context,
+  //     MaterialPageRoute(builder: (context) => const CreatePostScreen()),
+  //   );
+  //   if (result == true && mounted) {
+  //     await _loadSocialPosts();
+  //     _updateDisplayedItems();
+  //   }
+  // }
 
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
     try {
       final articleId = article['id'];
       if (articleId == null) {
-        print('⚠️ Article ID is null, cannot track');
+        //'⚠️ Article ID is null, cannot track');
         return;
       }
 
-      print('📖 Tracking article read: $articleId');
+      //'📖 Tracking article read: $articleId');
 
       try {
         final newEntryId =
         await UserService.addToHistoryWithNewEntry(articleId);
 
         if (newEntryId != null) {
-          print(
-              '✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
+          // debugPrint(
+             // '✅ SUCCESS! Article $articleId saved to history with Entry ID: $newEntryId');
           if (mounted) {
             setState(() {
               _articlesReadCount++;
             });
           }
         } else {
-          print('⚠️ Backend ने history मध्ये save केलं नाही (null response)');
+          //'⚠️ Backend ने history मध्ये save केलं नाही (null response)');
           if (mounted) {
             setState(() {
               _articlesReadCount++;
@@ -1046,7 +1046,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
           }
         }
       } catch (backendError) {
-        print('⚠️ Backend API error: $backendError');
+        //'⚠️ Backend API error: $backendError');
         if (mounted) {
           setState(() {
             _articlesReadCount++;
@@ -1054,7 +1054,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
         }
       }
     } catch (e) {
-      print('❌ Critical Error in _trackArticleRead: $e');
+      //'❌ Critical Error in _trackArticleRead: $e');
     }
   }
 
@@ -1093,32 +1093,32 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     }
   }
 
-  void _showMyPosts(BuildContext context) {
-    final userId = _userProfile?['id'];
-    if (userId != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => MyPostsScreen(userId: userId),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User ID not available')),
-      );
-    }
-  }
+  // void _showMyPosts(BuildContext context) {
+  //   final userId = _userProfile?['id'];
+  //   if (userId != null) {
+  //     Navigator.of(context).push(
+  //       MaterialPageRoute(
+  //         builder: (context) => MyPostsScreen(userId: userId),
+  //       ),
+  //     );
+  //   } else {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('User ID not available')),
+  //     );
+  //   }
+  // }
 
-  void _showFriendRequests(BuildContext context) async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => const FriendRequestsScreen()),
-    );
-    if (result == true && mounted) {
-      await Future.wait([
-        _loadFriendRequestsCount(),
-        _loadFriends(),
-      ]);
-    }
-  }
+  // void _showFriendRequests(BuildContext context) async {
+  //   final result = await Navigator.of(context).push(
+  //     MaterialPageRoute(builder: (context) => const FriendRequestsScreen()),
+  //   );
+  //   if (result == true && mounted) {
+  //     await Future.wait([
+  //       _loadFriendRequestsCount(),
+  //       _loadFriends(),
+  //     ]);
+  //   }
+  // }
 
   void _showAboutDialog(BuildContext context) {
     showAboutDialog(
@@ -1627,44 +1627,43 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
+     super.build(context);
     final categoryList = _buildCategoryList();
-    return Scaffold(
+     return Scaffold(
       // ✅ FIX: build() मधील bottom "Loading..." indicator पूर्णपणे काढला
       // आता Scaffold body directly _buildMainContent दाखवतो - कोणताही overlay नाही
-      body: SafeArea(
+       body: SafeArea(
         child: _buildMainContent(categoryList),
-      ),
+       ),
       floatingActionButton: _showFab && _selectedTabIndex == 2
           ? SpeedDialFAB(
         actions: [
-          SpeedDialAction(
-            icon: Icons.person_add,
-            label: 'Add Friend',
-            heroTag: 'add_friend_fab',
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                backgroundColor: Colors.transparent,
-                builder: (context) => const FriendsModal(),
-              );
-            },
-          ),
-          SpeedDialAction(
-            icon: Icons.edit,
-            label: 'Create Post',
-            heroTag: 'create_post_fab',
-            onPressed: () {
-              _handleCreatePost();
-            },
-          ),
-        ],
-      )
-          : null,
-      bottomNavigationBar: _buildBottomNavigationBar(),
+          // SpeedDialAction(
+          //   icon: Icons.person_add,
+          //   label: 'Add Friend',
+          //   heroTag: 'add_friend_fab',
+          //   onPressed: () {
+          //     showModalBottomSheet(
+          //       context: context,
+          //       isScrollControlled: true,
+          //       backgroundColor: Colors.transparent,
+          //       builder: (context) => const FriendsModal(),
+          //     );
+          //   },
+          // ),
+          // SpeedDialAction(
+          //   icon: Icons.edit,
+          //   label: 'Create Post',
+          //   heroTag: 'create_post_fab',
+          //   onPressed: () {
+          //     _handleCreatePost();
+          //    },
+          //),
+       ],
+    ): null,
+     bottomNavigationBar: _buildBottomNavigationBar(),
     );
-  }
+   }
 
   Widget _buildBottomNavigationBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2003,36 +2002,36 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     );
   }
 
-  Widget _buildSocialPost(Map<String, dynamic> post) {
-    final postId = post['id'] as String;
-    _commentControllers.putIfAbsent(postId, () => TextEditingController());
-    return SocialPostCardWidget(
-      post: post,
-      commentController: _commentControllers[postId]!,
-      onToggleLike: _toggleLike,
-      onShare: _shareArticle,
-      onAddFriend: (post) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Now following ${post['author']}!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      },
-      onShowFullImage: _showFullImageDialog,
-      onOpenCommentPage: (postId, post) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => CommentPage(
-              postId: postId,
-              post: post,
-            ),
-          ),
-        );
-      },
-    );
-  }
+  // Widget _buildSocialPost(Map<String, dynamic> post) {
+  //   final postId = post['id'] as String;
+  //   _commentControllers.putIfAbsent(postId, () => TextEditingController());
+  //   return SocialPostCardWidget(
+  //     post: post,
+  //     commentController: _commentControllers[postId]!,
+  //     onToggleLike: _toggleLike,
+  //     onShare: _shareArticle,
+  //     onAddFriend: (post) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text('Now following ${post['author']}!'),
+  //           backgroundColor: Colors.green,
+  //         ),
+  //       );
+  //     },
+  //     onShowFullImage: _showFullImageDialog,
+  //     onOpenCommentPage: (postId, post) {
+  //       Navigator.push(
+  //         context,
+  //         MaterialPageRoute(
+  //           builder: (context) => CommentPage(
+  //             postId: postId,
+  //             post: post,
+  //           ),
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
 
   Widget _buildVideoPost(Map<String, dynamic> post) {
     final key = _videoKeys.putIfAbsent(
@@ -2072,10 +2071,10 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
     } else if (tabName == 'Social') {
       message = 'No social posts yet!';
       subMessage = 'Be the first to share something positive!';
-      icon = Icons.people_outline;
-      onPressed = _handleCreatePost;
-      buttonText = 'Create Post';
-      buttonIcon = Icons.edit;
+      // icon = Icons.people_outline;
+      // onPressed = _handleCreatePost;
+      // buttonText = 'Create Post';
+      // buttonIcon = Icons.edit;
     } else {
       message = 'No articles in $tabName';
       subMessage = 'Try another category.';

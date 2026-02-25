@@ -58,29 +58,29 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
   Future<void> _loadFromAPI() async {
     setState(() => _isLoading = true);
     try {
-      print('📡 Loading categories from API...');
+      //'📡 Loading categories from API...');
       final response = await ApiService.getCategories();
 
-      print('📊 API Response type: ${response.runtimeType}');
+      //'📊 API Response type: ${response.runtimeType}');
 
       List<Map<String, dynamic>> apiCategories = _parseCategories(response);
 
       // If we got valid categories from API, use them
       if (apiCategories.isNotEmpty) {
-        print('✅ Using ${apiCategories.length} categories from API');
+        //'✅ Using ${apiCategories.length} categories from API');
         setState(() {
           _allCategories = apiCategories;
           _filteredCategories = List<Map<String, dynamic>>.from(apiCategories);
           _errorMessage = null;
         });
       } else {
-        print('⚠️ No valid categories from API, using mock categories');
+        //'⚠️ No valid categories from API, using mock categories');
         setState(() {
           _errorMessage = 'Using local categories. API data unavailable.';
         });
       }
     } catch (e) {
-      print('❌ Failed to load categories from API: $e');
+      //'❌ Failed to load categories from API: $e');
       setState(() {
         _errorMessage = 'Could not load from server, using local categories';
       });
@@ -94,7 +94,7 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
     try {
       // Format 1: Response is direct List
       if (response is List) {
-        print('✅ Response is List - parsing ${response.length} items');
+        //'✅ Response is List - parsing ${response.length} items');
         return response
             .whereType<Map<String, dynamic>>()
             .toList();
@@ -102,13 +102,13 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
 
       // Format 2: Response is Map with 'categories' or 'data'
       if (response is Map<String, dynamic>) {
-        print('✅ Response is Map');
+        //'✅ Response is Map');
 
         // Try 'categories' key
         if (response.containsKey('categories')) {
           final cats = response['categories'];
           if (cats is List) {
-            print('✅ Found categories key - parsing ${cats.length} items');
+            //'✅ Found categories key - parsing ${cats.length} items');
             return cats.whereType<Map<String, dynamic>>().toList();
           }
         }
@@ -117,16 +117,16 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
         if (response.containsKey('data')) {
           final data = response['data'];
           if (data is List) {
-            print('✅ Found data key - parsing ${data.length} items');
+            //'✅ Found data key - parsing ${data.length} items');
             return data.whereType<Map<String, dynamic>>().toList();
           }
         }
       }
 
-      print('⚠️ Could not parse categories from response');
+      //'⚠️ Could not parse categories from response');
       return [];
     } catch (e) {
-      print('❌ Error parsing categories: $e');
+      //'❌ Error parsing categories: $e');
       return [];
     }
   }
@@ -164,26 +164,26 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
 
     setState(() => _isSaving = true);
     try {
-      print('💾 Saving ${_selectedCategories.length} selected categories...');
+      //'💾 Saving ${_selectedCategories.length} selected categories...');
 
       // Save to local preferences
       await PreferencesService.saveSelectedCategories(_selectedCategories.toList());
       await PreferencesService.setOnboardingCompleted(true);
-      print('✅ Saved to local preferences');
+      //'✅ Saved to local preferences');
 
       // Also try to save to server if authenticated
       final token = await PreferencesService.getToken();
       if (token != null && token.isNotEmpty) {
-        print('📤 Saving to server with token...');
+        //'📤 Saving to server with token...');
         await ApiService.saveUserPreferencesAuth(_selectedCategories.toList(), token);
-        print('✅ Saved to server');
+        //'✅ Saved to server');
       } else {
-        print('⚠️ No token found, skipping server save');
+        //'⚠️ No token found, skipping server save');
       }
 
       _navigateToApp();
     } catch (e) {
-      print('❌ Error saving preferences: $e');
+      //'❌ Error saving preferences: $e');
       if (mounted) {
         _showErrorSnackBar('Failed to save preferences: ${e.toString()}');
       }

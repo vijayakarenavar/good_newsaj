@@ -51,7 +51,7 @@ class _CommentPageState extends State<CommentPage> {
         _currentUserProfilePicture = null;
       });
     } catch (e) {
-      print('Error loading current user: $e');
+      //'Error loading current user: $e');
     }
   }
 
@@ -68,12 +68,12 @@ class _CommentPageState extends State<CommentPage> {
         throw Exception('Invalid post ID: ${widget.postId}');
       }
 
-      print('📥 Loading comments for post: $postIdInt');
+      //'📥 Loading comments for post: $postIdInt');
 
       // ✅ Use SocialApiService.getComments
       final response = await SocialApiService.getComments(postIdInt);
 
-      print('✅ Comments response: $response');
+      //'✅ Comments response: $response');
 
       if (response['status'] == 'success') {
         final commentsList = response['comments'] as List? ?? [];
@@ -85,17 +85,17 @@ class _CommentPageState extends State<CommentPage> {
           _isLoadingComments = false;
         });
 
-        print('✅ Loaded ${_comments.length} comments');
+        //'✅ Loaded ${_comments.length} comments');
       } else {
         setState(() {
           _comments = [];
           _isLoadingComments = false;
         });
 
-        print('⚠️ Failed to load comments: ${response['error']}');
+        //'⚠️ Failed to load comments: ${response['error']}');
       }
     } catch (e) {
-      print('❌ Error loading comments: $e');
+      //'❌ Error loading comments: $e');
       setState(() {
         _comments = [];
         _isLoadingComments = false;
@@ -136,19 +136,19 @@ class _CommentPageState extends State<CommentPage> {
         throw Exception('Invalid post ID: ${widget.postId}');
       }
 
-      print('📤 Posting comment on post: $postIdInt');
-      print('📝 Comment text: $commentText');
+      //'📤 Posting comment on post: $postIdInt');
+      //'📝 Comment text: $commentText');
 
       // ✅ Use SocialApiService.createComment which uses 'content' field
       final response = await SocialApiService.createComment(postIdInt, commentText);
 
-      print('✅ Post comment response: $response');
-      print('📊 Response status: ${response['status']}');
+      //'✅ Post comment response: $response');
+      //'📊 Response status: ${response['status']}');
 
       if (response['status'] == 'success') {
         _commentController.clear();
 
-        print('✅ Comment posted successfully, reloading comments...');
+        //'✅ Comment posted successfully, reloading comments...');
 
         // Reload comments to get the latest list
         await _loadComments();
@@ -163,7 +163,7 @@ class _CommentPageState extends State<CommentPage> {
           );
         }
       } else {
-        print('⚠️ Comment post failed: ${response['error']}');
+        //'⚠️ Comment post failed: ${response['error']}');
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -175,7 +175,7 @@ class _CommentPageState extends State<CommentPage> {
         }
       }
     } catch (e) {
-      print('❌ Error posting comment: $e');
+      //'❌ Error posting comment: $e');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

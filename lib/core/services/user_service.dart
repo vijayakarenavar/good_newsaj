@@ -8,17 +8,17 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('🔍 Fetching user profile...');
+      //'🔍 Fetching user profile...');
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
         method: 'GET',
         token: token,
       );
 
-      print('✅ Profile response: $response');
+      //'✅ Profile response: $response');
       return Map<String, dynamic>.from(response);
     } catch (e) {
-      print('❌ Error loading user profile: $e');
+      //'❌ Error loading user profile: $e');
       throw Exception('Failed to load user profile: $e');
     }
   }
@@ -29,7 +29,7 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('📊 Fetching user stats from API...');
+      //'📊 Fetching user stats from API...');
 
       try {
         final response = await ApiService.authenticatedRequest(
@@ -38,10 +38,10 @@ class UserService {
           token: token,
         );
 
-        print('✅ Stats from API: $response');
+        //'✅ Stats from API: $response');
 
         if (response is Map) {
-          print('✅ Processing API stats with correct field mapping...');
+          //'✅ Processing API stats with correct field mapping...');
 
           // Map API fields to expected keys (removed favorites_count)
           final stats = {
@@ -51,15 +51,15 @@ class UserService {
             'comments': response['comments_received'] ?? 0,
           };
 
-          print('✅ Final stats: $stats');
+          //'✅ Final stats: $stats');
           return stats;
         }
       } catch (e) {
-        print('⚠️ /user/stats endpoint failed: $e');
+        //'⚠️ /user/stats endpoint failed: $e');
       }
 
       // Full fallback: calculate everything manually
-      print('📊 Calculating all stats manually...');
+      //'📊 Calculating all stats manually...');
       final history = await getHistory();
 
       final stats = {
@@ -69,10 +69,10 @@ class UserService {
         'comments': 0,
       };
 
-      print('✅ Manual stats: $stats');
+      //'✅ Manual stats: $stats');
       return stats;
     } catch (e) {
-      print('❌ Error loading user stats: $e');
+      //'❌ Error loading user stats: $e');
       return {
         'articles_read': 0,
         'posts': 0,
@@ -88,7 +88,7 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('📝 Updating profile with data: $data');
+      //'📝 Updating profile with data: $data');
 
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
@@ -97,13 +97,13 @@ class UserService {
         data: data,
       );
 
-      print('✅ Update profile response: $response');
+      //'✅ Update profile response: $response');
 
       return response['message'] == 'Profile updated successfully' ||
           response['status'] == 'success' ||
           response['success'] == true;
     } catch (e) {
-      print('❌ Error updating profile: $e');
+      //'❌ Error updating profile: $e');
       return false;
     }
   }
@@ -112,11 +112,11 @@ class UserService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ No token found, cannot refresh profile');
+        //'❌ No token found, cannot refresh profile');
         return;
       }
 
-      print('🔄 Refreshing user profile data...');
+      //'🔄 Refreshing user profile data...');
 
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
@@ -130,10 +130,10 @@ class UserService {
         final userId = response['id'];
 
         if (displayName != null && email != null && userId != null) {
-          print('✅ Got profile data:');
-          print('   Display Name: $displayName');
-          print('   Email: $email');
-          print('   User ID: $userId');
+          //'✅ Got profile data:');
+          //'   Display Name: $displayName');
+          //'   Email: $email');
+          //'   User ID: $userId');
 
           // ✅ Update stored user data with correct display_name
           final currentToken = await PreferencesService.getToken();
@@ -145,16 +145,16 @@ class UserService {
               email: email,
             );
 
-            print('💾 Updated display name in preferences: $displayName');
+            //'💾 Updated display name in preferences: $displayName');
 
             // ✅ Verify it was saved
             final savedName = await PreferencesService.getUserDisplayName();
-            print('✅ Verified: Display name is now "$savedName"');
+            //'✅ Verified: Display name is now "$savedName"');
           }
         }
       }
     } catch (e) {
-      print('❌ Failed to refresh user profile: $e');
+      //'❌ Failed to refresh user profile: $e');
     }
   }
 
@@ -166,7 +166,7 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('📝 Adding article $articleId to history...');
+      //'📝 Adding article $articleId to history...');
 
       final response = await ApiService.authenticatedRequest(
         '/user/history',
@@ -175,12 +175,12 @@ class UserService {
         data: {'article_id': articleId},
       );
 
-      print('✅ Add to history response: $response');
+      //'✅ Add to history response: $response');
 
       return response['message'] == 'Added to history successfully' ||
           response['status'] == 'success';
     } catch (e) {
-      print('❌ Error adding to history: $e');
+      //'❌ Error adding to history: $e');
       return false;
     }
   }
@@ -192,7 +192,7 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('📝 Adding article $articleId to history with NEW entry...');
+      //'📝 Adding article $articleId to history with NEW entry...');
 
       // ✅ CRITICAL: Use POST to /user/history to create NEW entry (not update existing)
       final response = await ApiService.authenticatedRequest(
@@ -202,7 +202,7 @@ class UserService {
         data: {'article_id': articleId},
       );
 
-      print('✅ New history entry response: $response');
+      //'✅ New history entry response: $response');
 
       // Extract new entry ID from response (backend should return it)
       if (response is Map) {
@@ -213,7 +213,7 @@ class UserService {
             response['data']?['id'];
 
         if (newEntryId != null && newEntryId is int) {
-          print('✅ Created new history entry with ID: $newEntryId');
+          //'✅ Created new history entry with ID: $newEntryId');
           return newEntryId;
         }
       }
@@ -222,13 +222,13 @@ class UserService {
       if (response['message']?.contains('success') == true ||
           response['status'] == 'success' ||
           response['success'] == true) {
-        print('✅ History entry created (ID not returned by backend)');
+        //'✅ History entry created (ID not returned by backend)');
         return -1; // Success indicator
       }
 
       return null;
     } catch (e) {
-      print('❌ Error adding new history entry: $e');
+      //'❌ Error adding new history entry: $e');
       return null;
     }
   }
@@ -240,7 +240,7 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      print('📖 Fetching reading history...');
+      //'📖 Fetching reading history...');
 
       final response = await ApiService.authenticatedRequest(
         '/user/history',
@@ -248,25 +248,25 @@ class UserService {
         token: token,
       );
 
-      print('📦 History response type: ${response.runtimeType}');
-      print('📦 History response: $response');
+      //'📦 History response type: ${response.runtimeType}');
+      //'📦 History response: $response');
 
       List<dynamic> historyList = [];
 
       if (response is List) {
         historyList = response as List;
-        print('✅ History is List: ${historyList.length} items');
+        //'✅ History is List: ${historyList.length} items');
       } else if (response is Map && response.containsKey('data')) {
         final data = response['data'];
         if (data is List) {
           historyList = data;
-          print('✅ History from data field: ${historyList.length} items');
+          //'✅ History from data field: ${historyList.length} items');
         }
       } else if (response is Map && response.containsKey('history')) {
         final history = response['history'];
         if (history is List) {
           historyList = history;
-          print('✅ History from history field: ${historyList.length} items');
+          //'✅ History from history field: ${historyList.length} items');
         }
       }
 
@@ -299,14 +299,14 @@ class UserService {
           'image_url': article['image_url'],
         };
 
-        print('📖 History article ${processedArticle['id']}: "${processedArticle['title']}"');
-        print('   Summary: ${summary.substring(0, summary.length > 50 ? 50 : summary.length)}...');
-        print('   Category: ${processedArticle['category']}');
+        //'📖 History article ${processedArticle['id']}: "${processedArticle['title']}"');
+        //'   Summary: ${summary.substring(0, summary.length > 50 ? 50 : summary.length)}...');
+        //'   Category: ${processedArticle['category']}');
 
         return processedArticle;
       }).toList();
 
-      print('✅ Returning ${result.length} processed history items with summaries');
+      //'✅ Returning ${result.length} processed history items with summaries');
 
       // Print summary stats
       final withSummary = result.where((a) =>
@@ -315,11 +315,11 @@ class UserService {
           a['summary'] != 'Tap to read this article and discover positive news.'
       ).length;
 
-      print('📊 Articles with valid summaries: $withSummary/${result.length}');
+      //'📊 Articles with valid summaries: $withSummary/${result.length}');
 
       return result;
     } catch (e) {
-      print('❌ Error fetching history: $e');
+      //'❌ Error fetching history: $e');
       return [];
     }
   }

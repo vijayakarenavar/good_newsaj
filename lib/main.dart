@@ -53,7 +53,7 @@ class _GoodNewsAppState extends State<GoodNewsApp> {
         }
 
         return MaterialApp(
-          title: 'Good News',
+          title: 'JoyScroll',
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: _themeService.themeMode,

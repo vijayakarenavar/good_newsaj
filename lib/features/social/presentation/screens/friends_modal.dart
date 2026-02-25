@@ -52,36 +52,36 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
     });
 
     try {
-      print('📱 FRIENDS: Requesting contact permission...');
+      //'📱 FRIENDS: Requesting contact permission...');
 
       if (Platform.isAndroid || Platform.isIOS) {
         var status = await Permission.contacts.status;
-        print('📱 FRIENDS: Current permission status: $status');
+        //'📱 FRIENDS: Current permission status: $status');
 
         if (status.isDenied) {
           final results = await Permission.contacts.request();
           status = results;
-          print('📱 FRIENDS: Permission request result: $status');
+          //'📱 FRIENDS: Permission request result: $status');
         }
 
         if (status.isGranted) {
-          print('✅ FRIENDS: Contact permission granted');
+          //'✅ FRIENDS: Contact permission granted');
           await _loadContactsAndSuggestFriends();
         } else if (status.isPermanentlyDenied) {
-          print('❌ FRIENDS: Contact permission permanently denied');
+          //'❌ FRIENDS: Contact permission permanently denied');
           setState(() {
             _isLoading = false;
             _permissionPermanentlyDenied = true;
           });
         } else {
-          print('❌ FRIENDS: Contact permission denied');
+          //'❌ FRIENDS: Contact permission denied');
           setState(() {
             _isLoading = false;
             _permissionDenied = true;
           });
         }
       } else {
-        print('🌐 FRIENDS: Running on web. Contact permission not available.');
+        //'🌐 FRIENDS: Running on web. Contact permission not available.');
         setState(() {
           _isLoading = false;
           _permissionGranted = true;
@@ -97,7 +97,7 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
         }
       }
     } catch (e) {
-      print('❌ FRIENDS: Permission request failed: $e');
+      //'❌ FRIENDS: Permission request failed: $e');
       setState(() {
         _isLoading = false;
         _permissionDenied = true;
@@ -118,7 +118,7 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
       final contacts = <dynamic>[];
       final phoneNumbers = <String>[];
 
-      print('📞 FRIENDS: Processing ${phoneNumbers.length} real contacts');
+      //'📞 FRIENDS: Processing ${phoneNumbers.length} real contacts');
 
       const salt = 'good_news_app_salt_2024';
       final hashedContacts = phoneNumbers.map((phone) {
@@ -126,7 +126,7 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
         return sha256.convert(utf8.encode(combined)).toString();
       }).toList();
 
-      print('🔐 FRIENDS: Hashed ${hashedContacts.length} phone numbers');
+      //'🔐 FRIENDS: Hashed ${hashedContacts.length} phone numbers');
 
       final response = await ApiService.postContactsSuggest(hashedContacts);
 
@@ -136,12 +136,12 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
           _friendSuggestions = List<Map<String, dynamic>>.from(response['suggestions'] ?? []);
           _isLoading = false;
         });
-        print('✅ FRIENDS: Found ${_friendSuggestions.length} friend suggestions');
+        //'✅ FRIENDS: Found ${_friendSuggestions.length} friend suggestions');
       } else {
         throw Exception('API returned error: ${response['error']}');
       }
     } catch (e) {
-      print('❌ FRIENDS: Failed to load friend suggestions: $e');
+      //'❌ FRIENDS: Failed to load friend suggestions: $e');
       setState(() {
         _isLoading = false;
         _permissionGranted = true;
@@ -173,22 +173,22 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
   Future<List<Map<String, dynamic>>> _searchFriendsFromApi(String query) async {
     if (query.isEmpty) return [];
     try {
-      print('🔍 FRIENDS: Searching for: "$query"');
+      //'🔍 FRIENDS: Searching for: "$query"');
       final response = await ApiService.searchFriends(query);
 
-      print('📡 FRIENDS: Search response status: ${response['status']}');
-      print('📊 FRIENDS: Search response data: ${response['data']}');
+      //'📡 FRIENDS: Search response status: ${response['status']}');
+      //'📊 FRIENDS: Search response data: ${response['data']}');
 
       if (response['status'] == 'success') {
         final data = response['data'] ?? [];
         final results = List<Map<String, dynamic>>.from(data);
-        print('✅ FRIENDS: Found ${results.length} users');
+        //'✅ FRIENDS: Found ${results.length} users');
         return results;
       } else {
         throw Exception(response['error'] ?? 'Search failed');
       }
     } catch (e) {
-      print('❌ FRIENDS: Search failed: $e');
+      //'❌ FRIENDS: Search failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -218,9 +218,9 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
         return;
       }
 
-      print('📤 FRIENDS: Sending friend request to user $userId');
+      //'📤 FRIENDS: Sending friend request to user $userId');
       final response = await ApiService.sendFriendRequest(userId);
-      print('📬 FRIENDS: Friend request response: ${response['status']}');
+      //'📬 FRIENDS: Friend request response: ${response['status']}');
 
       if (response['status'] == 'success') {
         setState(() {
@@ -250,7 +250,7 @@ class _FriendsModalState extends State<FriendsModal> with SingleTickerProviderSt
         throw Exception(response['error'] ?? 'Failed to send request');
       }
     } catch (e) {
-      print('❌ FRIENDS: Failed to send friend request: $e');
+      //'❌ FRIENDS: Failed to send friend request: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1007,10 +1007,10 @@ class FriendSearchDelegate extends SearchDelegate<String> {
     showResults(context);
 
     try {
-      print('🔍 Searching for "$q"...');
+      //'🔍 Searching for "$q"...');
       final results = await onSearch(q);
       _searchResults = results;
-      print('✅ Search completed with ${results.length} results');
+      //'✅ Search completed with ${results.length} results');
 
       final originalQuery = query;
       query = '';
@@ -1022,7 +1022,7 @@ class FriendSearchDelegate extends SearchDelegate<String> {
 
       showResults(context);
     } catch (e) {
-      print('❌ Search error: $e');
+      //'❌ Search error: $e');
       _searchResults = [];
       _isLoading = false;
       _hasSearched = true;

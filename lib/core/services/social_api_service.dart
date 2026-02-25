@@ -28,7 +28,7 @@ class SocialApiService {
     try {
       // ✅ Step 1: Validate file exists
       if (!await imageFile.exists()) {
-        print('❌ UPLOAD: File does not exist at ${imageFile.path}');
+        //'❌ UPLOAD: File does not exist at ${imageFile.path}');
         return {
           'status': 'error',
           'error': 'Image file not found at ${imageFile.path}',
@@ -38,7 +38,7 @@ class SocialApiService {
       // ✅ Step 2: Get auth token
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ UPLOAD: No auth token found');
+        //'❌ UPLOAD: No auth token found');
         return {
           'status': 'error',
           'error': 'Authentication failed - please login again',
@@ -48,7 +48,7 @@ class SocialApiService {
       // ✅ Step 3: Check file size
       final imageLength = await imageFile.length();
       final fileSizeInMB = imageLength / (1024 * 1024);
-      print('📦 UPLOAD: File size: ${fileSizeInMB.toStringAsFixed(2)} MB');
+      //'📦 UPLOAD: File size: ${fileSizeInMB.toStringAsFixed(2)} MB');
 
       if (fileSizeInMB > 5) {
         return {
@@ -57,18 +57,18 @@ class SocialApiService {
         };
       }
 
-      print('📤 UPLOAD: Starting upload...');
-      print('📤 UPLOAD: Image path: ${imageFile.path}');
-      print('📤 UPLOAD: Image size: ${(imageLength / 1024).toStringAsFixed(2)} KB');
+      //'📤 UPLOAD: Starting upload...');
+      //'📤 UPLOAD: Image path: ${imageFile.path}');
+      //'📤 UPLOAD: Image size: ${(imageLength / 1024).toStringAsFixed(2)} KB');
 
       // ✅ Step 4: Get the API URL
       final baseUrl = ApiConstants.baseUrl;
       final url = Uri.parse('$baseUrl/posts/upload');
-      print('📤 UPLOAD: URL: $url');
+      //'📤 UPLOAD: URL: $url');
 
       // ✅ Step 5: Get MIME type - with fallback
       String mimeTypeData = lookupMimeType(imageFile.path) ?? 'image/jpeg';
-      print('📤 UPLOAD: MIME type detected: $mimeTypeData');
+      //'📤 UPLOAD: MIME type detected: $mimeTypeData');
 
       // If mime type detection failed, try to detect by extension
       if (mimeTypeData == 'image/jpeg' && !imageFile.path.contains('.jpg') && !imageFile.path.contains('.jpeg')) {
@@ -80,7 +80,7 @@ class SocialApiService {
         } else if (ext == 'webp') {
           mimeTypeData = 'image/webp';
         }
-        print('📤 UPLOAD: MIME type updated based on extension: $mimeTypeData');
+        //'📤 UPLOAD: MIME type updated based on extension: $mimeTypeData');
       }
 
       final mimeTypeParts = mimeTypeData.split('/');
@@ -96,7 +96,7 @@ class SocialApiService {
       request.headers['Authorization'] = 'Bearer $token';
       request.headers['Accept'] = 'application/json';
 
-      print('✅ UPLOAD: Headers set successfully');
+      //'✅ UPLOAD: Headers set successfully');
 
       // ✅ Step 7: Create MultipartFile - with error handling
       http.MultipartFile? multipartFile;
@@ -109,9 +109,9 @@ class SocialApiService {
           const Duration(seconds: 10),
           onTimeout: () => throw Exception('File reading timeout'),
         );
-        print('✅ UPLOAD: MultipartFile created successfully');
+        //'✅ UPLOAD: MultipartFile created successfully');
       } catch (e) {
-        print('❌ UPLOAD: Failed to create MultipartFile: $e');
+        //'❌ UPLOAD: Failed to create MultipartFile: $e');
         return {
           'status': 'error',
           'error': 'Failed to read image file: ${e.toString()}',
@@ -121,16 +121,16 @@ class SocialApiService {
       request.files.add(multipartFile);
 
       // ✅ Step 8: Send request with timeout
-      print('📤 UPLOAD: Sending request...');
+      //'📤 UPLOAD: Sending request...');
       http.StreamedResponse? streamedResponse;
       try {
         streamedResponse = await request.send().timeout(
           const Duration(seconds: 60),
           onTimeout: () => throw Exception('Upload timeout - server not responding'),
         );
-        print('✅ UPLOAD: Request sent, waiting for response...');
+        //'✅ UPLOAD: Request sent, waiting for response...');
       } catch (e) {
-        print('❌ UPLOAD: Network error: $e');
+        //'❌ UPLOAD: Network error: $e');
         return {
           'status': 'error',
           'error': 'Network error: ${e.toString()}',
@@ -140,9 +140,9 @@ class SocialApiService {
       // ✅ Step 9: Get response
       final response = await http.Response.fromStream(streamedResponse);
 
-      print('📥 UPLOAD: Response status: ${response.statusCode}');
-      print('📥 UPLOAD: Response headers: ${response.headers}');
-      print('📥 UPLOAD: Response body: ${response.body}');
+      //'📥 UPLOAD: Response status: ${response.statusCode}');
+      //'📥 UPLOAD: Response headers: ${response.headers}');
+      //'📥 UPLOAD: Response body: ${response.body}');
 
       // ✅ Step 10: Handle response based on status code
       if (response.statusCode == 200 || response.statusCode == 201) {
@@ -159,7 +159,7 @@ class SocialApiService {
           String? imageUrl = responseData['image_url'] ?? responseData['url'];
 
           if (imageUrl == null || imageUrl.isEmpty) {
-            print('❌ UPLOAD: No image_url in response: $responseData');
+            //'❌ UPLOAD: No image_url in response: $responseData');
             return {
               'status': 'error',
               'error': 'Server did not return image URL',
@@ -168,8 +168,8 @@ class SocialApiService {
 
           // Normalize the URL
           imageUrl = _normalizeImageUrl(imageUrl);
-          print('✅ UPLOAD: Image uploaded successfully!');
-          print('✅ UPLOAD: Final image URL: $imageUrl');
+          //'✅ UPLOAD: Image uploaded successfully!');
+          //'✅ UPLOAD: Final image URL: $imageUrl');
 
           return {
             'status': 'success',
@@ -177,8 +177,8 @@ class SocialApiService {
             'message': responseData['message'] ?? 'Image uploaded successfully',
           };
         } catch (e) {
-          print('❌ UPLOAD: Failed to parse success response: $e');
-          print('❌ UPLOAD: Raw response: ${response.body}');
+          //'❌ UPLOAD: Failed to parse success response: $e');
+          //'❌ UPLOAD: Raw response: ${response.body}');
           return {
             'status': 'error',
             'error': 'Failed to parse server response: ${e.toString()}',
@@ -224,20 +224,20 @@ class SocialApiService {
         }
       }
     } on SocketException catch (e) {
-      print('❌ UPLOAD: Socket error: $e');
+      //'❌ UPLOAD: Socket error: $e');
       return {
         'status': 'error',
         'error': 'Network error - check your internet connection',
       };
     } on TimeoutException catch (e) {
-      print('❌ UPLOAD: Timeout: $e');
+      //'❌ UPLOAD: Timeout: $e');
       return {
         'status': 'error',
         'error': 'Upload timeout - network too slow',
       };
     } catch (e) {
-      print('❌ UPLOAD: Unexpected error: $e');
-      print('❌ UPLOAD: Error type: ${e.runtimeType}');
+      //'❌ UPLOAD: Unexpected error: $e');
+      //'❌ UPLOAD: Error type: ${e.runtimeType}');
       return {
         'status': 'error',
         'error': 'Upload failed: ${e.toString()}',
@@ -289,14 +289,14 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Creating post with visibility: $visibility');
-      print('📡 SOCIAL API: Title: ${title ?? 'No title'}');
-      print('📡 SOCIAL API: Content: $content');
-      print('📡 SOCIAL API: Image URL: ${imageUrl ?? 'No image'}');
+      //'📡 SOCIAL API: Creating post with visibility: $visibility');
+      //'📡 SOCIAL API: Title: ${title ?? 'No title'}');
+      //'📡 SOCIAL API: Content: $content');
+      //'📡 SOCIAL API: Image URL: ${imageUrl ?? 'No image'}');
 
       final requestData = {
         'content': content,
@@ -308,7 +308,7 @@ class SocialApiService {
         requestData['image_url'] = imageUrl;
       }
 
-      print('📡 SOCIAL API: Request data: $requestData');
+      //'📡 SOCIAL API: Request data: $requestData');
 
       final response = await ApiService.authenticatedRequest(
         '/posts',
@@ -317,7 +317,7 @@ class SocialApiService {
         data: requestData,
       );
 
-      print('📡 SOCIAL API: createPost response: $response');
+      //'📡 SOCIAL API: createPost response: $response');
 
       if (response != null && response is Map<String, dynamic>) {
         if (response.containsKey('error')) {
@@ -338,7 +338,7 @@ class SocialApiService {
       return {'status': 'error', 'error': 'No response from server'};
 
     } catch (e) {
-      print('❌ SOCIAL API: createPost failed: $e');
+      //'❌ SOCIAL API: createPost failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -347,11 +347,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Liking post $postId');
+      //'📡 SOCIAL API: Liking post $postId');
 
       final response = await ApiService.authenticatedRequest(
         '/posts/$postId/like',
@@ -359,7 +359,7 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: likePost response: $response');
+      //'📡 SOCIAL API: likePost response: $response');
 
       if (response != null && response is Map<String, dynamic>) {
         return {
@@ -372,7 +372,7 @@ class SocialApiService {
       return response ?? {'status': 'error', 'error': 'No response from server'};
 
     } catch (e) {
-      print('❌ SOCIAL API: likePost failed: $e');
+      //'❌ SOCIAL API: likePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -398,7 +398,7 @@ class SocialApiService {
 
       return response is Map<String, dynamic> ? response : {'status': 'success'};
     } catch (e) {
-      print('❌ SOCIAL API: unlikePost failed: $e');
+      //'❌ SOCIAL API: unlikePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -407,12 +407,12 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token for getComments');
+        //'❌ SOCIAL API: No auth token for getComments');
         throw Exception('No auth token');
       }
 
       final url = '/posts/$postId/comments?limit=$limit&offset=$offset';
-      print('📡 SOCIAL API: Fetching comments from $url');
+      //'📡 SOCIAL API: Fetching comments from $url');
 
       final response = await ApiService.authenticatedRequest(
         url,
@@ -420,8 +420,8 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: getComments raw response: $response');
-      print('📡 SOCIAL API: Response type: ${response.runtimeType}');
+      //'📡 SOCIAL API: getComments raw response: $response');
+      //'📡 SOCIAL API: Response type: ${response.runtimeType}');
 
       if (response == null) {
         return {'status': 'success', 'comments': [], 'has_more': false, 'total_count': 0};
@@ -434,22 +434,22 @@ class SocialApiService {
         if (response.containsKey('data') && response['data'] is List) {
           commentsList = response['data'] as List;
           totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
-          print('✅ SOCIAL API: Found ${commentsList.length} comments in data[] field, total_count: $totalCount');
+          //'✅ SOCIAL API: Found ${commentsList.length} comments in data[] field, total_count: $totalCount');
         }
         else if (response.containsKey('comments') && response['comments'] is List) {
           commentsList = response['comments'] as List;
           totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
-          print('✅ SOCIAL API: Found ${commentsList.length} comments in comments[] field, total_count: $totalCount');
+          //'✅ SOCIAL API: Found ${commentsList.length} comments in comments[] field, total_count: $totalCount');
         }
         else if (response['status'] == 'success') {
-          print('⚠️ SOCIAL API: Success response but no data/comments field');
+          //'⚠️ SOCIAL API: Success response but no data/comments field');
           return {'status': 'success', 'comments': [], 'has_more': false, 'total_count': 0};
         }
       }
       else if (response is List) {
         commentsList = List<dynamic>.from(response as Iterable);
         totalCount = commentsList.length;
-        print('✅ SOCIAL API: Found ${commentsList.length} comments (direct list)');
+        //'✅ SOCIAL API: Found ${commentsList.length} comments (direct list)');
       }
 
       return {
@@ -460,7 +460,7 @@ class SocialApiService {
       };
 
     } catch (e) {
-      print('❌ SOCIAL API: getComments failed: $e');
+      //'❌ SOCIAL API: getComments failed: $e');
       return {
         'status': 'error',
         'error': e.toString(),
@@ -478,7 +478,7 @@ class SocialApiService {
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Blocking friend $friendId');
+      //'📡 SOCIAL API: Blocking friend $friendId');
 
       final response = await ApiService.authenticatedRequest(
         '/friends/$friendId/block',
@@ -486,7 +486,7 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: blockFriend response: $response');
+      //'📡 SOCIAL API: blockFriend response: $response');
 
       if (response != null && response is Map<String, dynamic>) {
         return {
@@ -497,7 +497,7 @@ class SocialApiService {
 
       return {'status': 'success', 'message': 'User blocked'};
     } catch (e) {
-      print('❌ SOCIAL API: blockFriend failed: $e');
+      //'❌ SOCIAL API: blockFriend failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -509,7 +509,7 @@ class SocialApiService {
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Fetching blocked users');
+      //'📡 SOCIAL API: Fetching blocked users');
 
       final response = await ApiService.authenticatedRequest(
         '/blocks',
@@ -517,7 +517,7 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: getBlockedUsers response: $response');
+      //'📡 SOCIAL API: getBlockedUsers response: $response');
 
       List<dynamic> blockedList = [];
 
@@ -536,7 +536,7 @@ class SocialApiService {
         'data': blockedList,
       };
     } catch (e) {
-      print('❌ SOCIAL API: getBlockedUsers failed: $e');
+      //'❌ SOCIAL API: getBlockedUsers failed: $e');
       return {'status': 'error', 'error': e.toString(), 'data': []};
     }
   }
@@ -548,7 +548,7 @@ class SocialApiService {
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Unblocking user $userId');
+      //'📡 SOCIAL API: Unblocking user $userId');
 
       final response = await ApiService.authenticatedRequest(
         '/friends/$userId/unblock',
@@ -556,14 +556,14 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: unblockUser response: $response');
+      //'📡 SOCIAL API: unblockUser response: $response');
 
       return {
         'status': 'success',
         'message': response?['message'] ?? 'User unblocked successfully',
       };
     } catch (e) {
-      print('❌ SOCIAL API: unblockUser failed: $e');
+      //'❌ SOCIAL API: unblockUser failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -572,11 +572,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token for createComment');
+        //'❌ SOCIAL API: No auth token for createComment');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Creating comment on post $postId: "$content"');
+      //'📡 SOCIAL API: Creating comment on post $postId: "$content"');
 
       final response = await ApiService.authenticatedRequest(
         '/posts/$postId/comments',
@@ -585,7 +585,7 @@ class SocialApiService {
         data: {'content': content},
       );
 
-      print('📡 SOCIAL API: createComment response: $response');
+      //'📡 SOCIAL API: createComment response: $response');
 
       if (response != null && response is Map<String, dynamic>) {
         if (response.containsKey('error')) {
@@ -604,7 +604,7 @@ class SocialApiService {
       return {'status': 'success'};
 
     } catch (e) {
-      print('❌ SOCIAL API: createComment failed: $e');
+      //'❌ SOCIAL API: createComment failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -617,12 +617,12 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
       final url = '/posts?limit=$limit&offset=$offset&visibility=$visibility';
-      print('📡 SOCIAL API: Making request to $url');
+      //'📡 SOCIAL API: Making request to $url');
 
       final response = await ApiService.authenticatedRequest(
         url,
@@ -630,7 +630,7 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: getPosts raw response: $response');
+      //'📡 SOCIAL API: getPosts raw response: $response');
 
       if (response == null) {
         throw Exception('Null response from server');
@@ -640,9 +640,9 @@ class SocialApiService {
         final rawImageUrl = post['image_url'] as String?;
         if (rawImageUrl != null && rawImageUrl.isNotEmpty) {
           post['image_url'] = _normalizeImageUrl(rawImageUrl);
-          print('🖼️ Normalized image URL: ${post['image_url']}');
+          //'🖼️ Normalized image URL: ${post['image_url']}');
         } else {
-          print('⚠️ Post ${post['id']} has no image');
+          //'⚠️ Post ${post['id']} has no image');
         }
 
         if (post['comments_count'] != null) {
@@ -654,11 +654,11 @@ class SocialApiService {
         } else {
           post['comments_count'] = 0;
         }
-        print('📊 Post ${post['id']}: comments_count = ${post['comments_count']}');
+        //'📊 Post ${post['id']}: comments_count = ${post['comments_count']}');
       }
 
       if (response is List) {
-        print('✅ SOCIAL API: Found ${response.length} posts (list)');
+        //'✅ SOCIAL API: Found ${response.length} posts (list)');
         final processedPosts = (response as List).map((post) {
           if (post is Map<String, dynamic>) {
             _normalizeImageUrlInPost(post);
@@ -677,7 +677,7 @@ class SocialApiService {
       if (response is Map<String, dynamic>) {
         if (response.containsKey('data') && response['data'] is List) {
           final data = response['data'] as List;
-          print('✅ SOCIAL API: Found ${data.length} posts in data[]');
+          //'✅ SOCIAL API: Found ${data.length} posts in data[]');
           final processedData = data.map((post) {
             if (post is Map<String, dynamic>) {
               _normalizeImageUrlInPost(post);
@@ -730,7 +730,7 @@ class SocialApiService {
 
       throw Exception('Unexpected response format: ${response.runtimeType}');
     } catch (e) {
-      print('❌ SOCIAL API: getPosts failed: $e');
+      //'❌ SOCIAL API: getPosts failed: $e');
       return {
         'status': 'error',
         'error': e.toString(),
@@ -745,11 +745,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Creating conversation with friend $friendId');
+      //'📡 SOCIAL API: Creating conversation with friend $friendId');
 
       final response = await ApiService.authenticatedRequest(
         '/conversations',
@@ -758,7 +758,7 @@ class SocialApiService {
         data: {'friend_id': friendId},
       );
 
-      print('📡 SOCIAL API: createConversation response: $response');
+      //'📡 SOCIAL API: createConversation response: $response');
 
       if (response != null && response['status'] == 'success') {
         return response;
@@ -767,7 +767,7 @@ class SocialApiService {
       return {'status': 'error', 'error': 'Failed to create conversation'};
 
     } catch (e) {
-      print('❌ SOCIAL API: createConversation failed: $e');
+      //'❌ SOCIAL API: createConversation failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -776,11 +776,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Sending message to conversation $conversationId');
+      //'📡 SOCIAL API: Sending message to conversation $conversationId');
 
       final response = await ApiService.authenticatedRequest(
         '/conversations/$conversationId/messages',
@@ -789,11 +789,11 @@ class SocialApiService {
         data: {'content': content},
       );
 
-      print('📡 SOCIAL API: sendMessage response: $response');
+      //'📡 SOCIAL API: sendMessage response: $response');
       return response ?? {'status': 'error', 'error': 'No response from server'};
 
     } catch (e) {
-      print('❌ SOCIAL API: sendMessage failed: $e');
+      //'❌ SOCIAL API: sendMessage failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -802,11 +802,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Fetching friend requests');
+      //'📡 SOCIAL API: Fetching friend requests');
 
       final response = await ApiService.authenticatedRequest(
         '/friends/requests',
@@ -814,11 +814,11 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: getFriendRequests raw response: $response');
-      print('📡 SOCIAL API: Response runtimeType: ${response.runtimeType}');
+      //'📡 SOCIAL API: getFriendRequests raw response: $response');
+      //'📡 SOCIAL API: Response runtimeType: ${response.runtimeType}');
 
       if (response is List) {
-        print('✅ SOCIAL API: Received ${response.length} friend requests (raw list)');
+        //'✅ SOCIAL API: Received ${response.length} friend requests (raw list)');
         return {
           'status': 'success',
           'data': response,
@@ -839,7 +839,7 @@ class SocialApiService {
       };
 
     } catch (e) {
-      print('❌ SOCIAL API: getFriendRequests failed: $e');
+      //'❌ SOCIAL API: getFriendRequests failed: $e');
       return {
         'status': 'error',
         'error': e.toString(),
@@ -852,11 +852,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Accepting friend request $requestId');
+      //'📡 SOCIAL API: Accepting friend request $requestId');
 
       final response = await ApiService.authenticatedRequest(
         '/friends/requests/$requestId/accept',
@@ -864,13 +864,13 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: acceptFriendRequest response: $response');
+      //'📡 SOCIAL API: acceptFriendRequest response: $response');
 
       if (response['status'] == 'success') {
         final friendId = response['friend_id'] ?? response['user_id'];
 
         if (friendId != null) {
-          print('📡 SOCIAL API: Auto-creating conversation with friend $friendId');
+          //'📡 SOCIAL API: Auto-creating conversation with friend $friendId');
           await createConversation(friendId);
         }
 
@@ -883,7 +883,7 @@ class SocialApiService {
       return response;
 
     } catch (e) {
-      print('❌ SOCIAL API: acceptFriendRequest failed: $e');
+      //'❌ SOCIAL API: acceptFriendRequest failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -892,11 +892,11 @@ class SocialApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) {
-        print('❌ SOCIAL API: No auth token found');
+        //'❌ SOCIAL API: No auth token found');
         throw Exception('No auth token');
       }
 
-      print('📡 SOCIAL API: Declining friend request $requestId');
+      //'📡 SOCIAL API: Declining friend request $requestId');
 
       final response = await ApiService.authenticatedRequest(
         '/friends/requests/$requestId/reject',
@@ -904,7 +904,7 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: declineFriendRequest response: $response');
+      //'📡 SOCIAL API: declineFriendRequest response: $response');
 
       return {
         'status': 'success',
@@ -912,7 +912,7 @@ class SocialApiService {
       };
 
     } catch (e) {
-      print('❌ SOCIAL API: declineFriendRequest failed: $e');
+      //'❌ SOCIAL API: declineFriendRequest failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -931,7 +931,7 @@ class SocialApiService {
 
       return response is Map<String, dynamic> ? response : {'status': 'success', 'post': response};
     } catch (e) {
-      print('❌ SOCIAL API: updatePost failed: $e');
+      //'❌ SOCIAL API: updatePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -949,7 +949,7 @@ class SocialApiService {
 
       return response is Map<String, dynamic> ? response : {'status': 'success'};
     } catch (e) {
-      print('❌ SOCIAL API: deletePost failed: $e');
+      //'❌ SOCIAL API: deletePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
@@ -959,7 +959,7 @@ class SocialApiService {
       final token = await PreferencesService.getToken();
       final currentUserId = await PreferencesService.getUserId();
 
-      print('📡 Current user ID: $currentUserId');
+      //'📡 Current user ID: $currentUserId');
 
       if (token == null || currentUserId == null) {
         throw Exception('Not authenticated');
@@ -971,21 +971,21 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 SOCIAL API: getMessages raw response: $response');
-      print('📡 SOCIAL API: Response type: ${response.runtimeType}');
+      //'📡 SOCIAL API: getMessages raw response: $response');
+      //'📡 SOCIAL API: Response type: ${response.runtimeType}');
 
       List<dynamic> rawMessages = [];
 
       if (response is List) {
         rawMessages = List<dynamic>.from(response as Iterable);
-        print('✅ Got ${rawMessages.length} messages (direct list)');
+        //'✅ Got ${rawMessages.length} messages (direct list)');
       } else if (response is Map<String, dynamic>) {
         if (response.containsKey('data') && response['data'] is List) {
           rawMessages = List<dynamic>.from(response['data']);
-          print('✅ Got ${rawMessages.length} messages from data[]');
+          //'✅ Got ${rawMessages.length} messages from data[]');
         } else if (response.containsKey('messages') && response['messages'] is List) {
           rawMessages = List<dynamic>.from(response['messages']);
-          print('✅ Got ${rawMessages.length} messages from messages[]');
+          //'✅ Got ${rawMessages.length} messages from messages[]');
         }
       }
 
@@ -999,7 +999,7 @@ class SocialApiService {
 
         final isMe = senderIdInt == currentUserIdInt;
 
-        print('📧 Message ${m['id']}: sender=$senderIdInt, current=$currentUserIdInt, isMe=$isMe');
+        //'📧 Message ${m['id']}: sender=$senderIdInt, current=$currentUserIdInt, isMe=$isMe');
 
         return <String, dynamic>{
           'id': m['id'].toString(),
@@ -1013,14 +1013,14 @@ class SocialApiService {
 
       messages.sort((a, b) => int.parse(a['id']).compareTo(int.parse(b['id'])));
 
-      print('✅ Processed ${messages.length} messages');
-      print('✅ Current user messages: ${messages.where((m) => m['isMe'] == true).length}');
-      print('✅ Other user messages: ${messages.where((m) => m['isMe'] == false).length}');
+      //'✅ Processed ${messages.length} messages');
+      //'✅ Current user messages: ${messages.where((m) => m['isMe'] == true).length}');
+      //'✅ Other user messages: ${messages.where((m) => m['isMe'] == false).length}');
 
       return {'status': 'success', 'messages': messages};
 
     } catch (e) {
-      print('❌ SOCIAL API: getMessages failed: $e');
+      //'❌ SOCIAL API: getMessages failed: $e');
       return {'status': 'error', 'error': e.toString(), 'messages': []};
     }
   }
@@ -1055,7 +1055,7 @@ class SocialApiService {
 
       return 'No messages yet';
     } catch (e) {
-      print('❌ SOCIAL API: getLastMessage failed: $e');
+      //'❌ SOCIAL API: getLastMessage failed: $e');
       return 'Failed to load message';
     }
   }
@@ -1065,11 +1065,11 @@ class SocialApiService {
       final token = await PreferencesService.getToken();
       final currentUserId = await PreferencesService.getUserId();
 
-      print('📡 SOCIAL API: getConversations called');
-      print('📡 Current User ID: $currentUserId');
+      //'📡 SOCIAL API: getConversations called');
+      //'📡 Current User ID: $currentUserId');
 
       if (token == null || currentUserId == null) {
-        print('❌ SOCIAL API: Missing auth token or user ID');
+        //'❌ SOCIAL API: Missing auth token or user ID');
         throw Exception('Not authenticated');
       }
 
@@ -1079,8 +1079,8 @@ class SocialApiService {
         token: token,
       );
 
-      print('📡 API Response: $response');
-      print('📡 Response Type: ${response.runtimeType}');
+      //'📡 API Response: $response');
+      //'📡 Response Type: ${response.runtimeType}');
 
       if (response == null) {
         return {'status': 'success', 'conversations': []};
@@ -1091,21 +1091,21 @@ class SocialApiService {
       if (response is Map<String, dynamic>) {
         if (response.containsKey('data') && response['data'] is List) {
           rawConversations = List.from(response['data'] as List<dynamic>);
-          print('✅ Found ${rawConversations.length} conversations in data[]');
+          //'✅ Found ${rawConversations.length} conversations in data[]');
         } else if (response.containsKey('conversations') && response['conversations'] is List) {
           rawConversations = List.from(response['conversations'] as List<dynamic>);
-          print('✅ Found ${rawConversations.length} conversations in conversations[]');
+          //'✅ Found ${rawConversations.length} conversations in conversations[]');
         }
       } else if (response is List) {
         rawConversations = List.from(response as Iterable<dynamic>);
-        print('✅ Found ${rawConversations.length} conversations (raw list)');
+        //'✅ Found ${rawConversations.length} conversations (raw list)');
       }
 
       final processed = <Map<String, dynamic>>[];
 
       for (var conv in rawConversations) {
         if (conv is! Map<String, dynamic>) {
-          print('⚠️ Skipping invalid conversation: $conv');
+          //'⚠️ Skipping invalid conversation: $conv');
           continue;
         }
 
@@ -1121,12 +1121,12 @@ class SocialApiService {
           friendName = c['user1_name'] ?? 'Unknown User';
           friendId = c['user1_id'];
         } else {
-          print('❌ Conversation does not involve current user: $c');
+          //'❌ Conversation does not involve current user: $c');
           continue;
         }
 
         if (friendName == 'Unknown User' || friendName.isEmpty || c['user1_name'] == null && c['user2_name'] == null) {
-          print('⚠️ Skipping conversation with unknown user: friend_id=$friendId');
+          //'⚠️ Skipping conversation with unknown user: friend_id=$friendId');
           continue;
         }
 
@@ -1138,7 +1138,7 @@ class SocialApiService {
         });
       }
 
-      print('✅ Processed ${processed.length} valid conversations');
+      //'✅ Processed ${processed.length} valid conversations');
 
       return {
         'status': 'success',
@@ -1146,7 +1146,7 @@ class SocialApiService {
       };
 
     } catch (e) {
-      print('❌ SOCIAL API: getConversations failed: $e');
+      //'❌ SOCIAL API: getConversations failed: $e');
       return {'status': 'error', 'error': e.toString(), 'conversations': []};
     }
   }

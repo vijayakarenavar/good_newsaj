@@ -20,25 +20,15 @@ class ApiService {
   ))
     ..interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        print('🚀 API REQUEST: ${options.method} ${options.uri}');
-        if (options.data != null) print('📦 API DATA: ${options.data}');
         handler.next(options);
       },
       onResponse: (response, handler) {
-        print('✅ API RESPONSE: ${response.statusCode} ${response.requestOptions.uri}');
         handler.next(response);
       },
       onError: (error, handler) {
-        print('❌ API ERROR: ${error.response?.statusCode} ${error.requestOptions.uri}');
-        print('📄 API ERROR DATA: ${error.response?.data}');
         handler.next(error);
       },
     ));
-
-  static void _logRequest(String endpoint, Map<String, dynamic>? params) {
-    print('🚀 API: Making request to ${ApiConstants.baseUrl}$endpoint');
-    if (params != null) print('📋 API: Parameters: $params');
-  }
 
   static Future<T> _retryRequest<T>(Future<T> Function() request, {int maxRetries = 3}) async {
     int attempts = 0;
@@ -49,7 +39,6 @@ class ApiService {
         attempts++;
         if (attempts >= maxRetries) rethrow;
         await Future.delayed(Duration(milliseconds: 1000 * attempts));
-        print('🔄 API: Retry attempt $attempts/$maxRetries');
       }
     }
     throw Exception('Max retries exceeded');
@@ -101,7 +90,6 @@ class ApiService {
         'has_more': false,
       };
     } catch (e) {
-      print('❌ API: Unified feed fetch failed: $e');
       return {
         'status': 'error',
         'error': e.toString(),
@@ -156,14 +144,12 @@ class ApiService {
     final authorName = item['author'] ?? item['display_name'] ?? 'Unknown';
     final likesCount = item['likes_count'] ?? item['likes'] ?? 0;
     final commentsCount = item['comments_count'] ?? item['comments'] ?? 0;
-
-    // ✅ FIX: user_id आता properly save होतो
     final userId = item['user_id'] ?? item['author_id'] ?? item['created_by'];
 
     return {
       'type': 'social_post',
       'id': item['id'].toString(),
-      'user_id': userId,           // ✅ हे होतं missing - आता fix!
+      'user_id': userId,
       'author': authorName,
       'avatar': authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
       'title': item['title'] ?? '',
@@ -262,7 +248,6 @@ class ApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('Not authenticated');
-      print('📤 API: Sending friend request to user $userId');
       final response = await _dio.post(
         '/friends/$userId/request',
         data: {'user_id': userId},
@@ -277,21 +262,14 @@ class ApiService {
       }
       return {'status': 'error', 'error': 'Failed to send friend request'};
     } catch (e) {
-      print('❌ API: sendFriendRequest failed: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
-// ─────────────────────────────────────────────
-// api_service.dart मध्ये हे method ADD करा
-// sendFriendRequest() च्या खाली paste करा
-// ─────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> cancelFriendRequest(int userId) async {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('Not authenticated');
-
-      print('📤 API: Cancelling friend request for user $userId');
 
       final response = await _dio.delete(
         '/friends/$userId/request',
@@ -302,14 +280,11 @@ class ApiService {
         }),
       );
 
-      // ✅ 200, 204 = success
       if (response.statusCode == 200 || response.statusCode == 204) {
         return {'status': 'success', 'message': 'Friend request cancelled'};
       }
 
-      // ✅ Backend ने different endpoint वापरला असेल तर POST try करा
       if (response.statusCode == 404 || response.statusCode == 405) {
-        print('⚠️ DELETE failed, trying POST /friends/$userId/cancel');
         final fallbackResponse = await _dio.post(
           '/friends/$userId/cancel',
           options: Options(headers: {
@@ -324,13 +299,9 @@ class ApiService {
 
       return {'status': 'error', 'error': 'Failed to cancel friend request'};
     } catch (e) {
-      print('❌ API: cancelFriendRequest failed: $e');
-      // ✅ Local cancel तरी होऊ द्या - UX साठी
       return {'status': 'success', 'message': 'Cancelled locally'};
     }
   }
-
-
 
   static Future<Map<String, dynamic>> addFriend(String userId) async {
     try {
@@ -445,5 +416,3 @@ class ApiService {
     }
   }
 }
-
-

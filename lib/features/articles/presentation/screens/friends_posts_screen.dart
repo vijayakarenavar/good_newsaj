@@ -45,7 +45,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
     setState(() => _isLoadingFriends = true);
 
     try {
-      print('📱 FRIENDS POSTS: Loading friends list...');
+      //'📱 FRIENDS POSTS: Loading friends list...');
       final response = await SocialApiService.getFriends();
 
       if (response['status'] == 'success') {
@@ -53,10 +53,10 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
         setState(() {
           _myFriends = friendsList.map((friend) => Map<String, dynamic>.from(friend)).toList();
         });
-        print('✅ FRIENDS POSTS: Loaded ${_myFriends.length} friends');
+        //'✅ FRIENDS POSTS: Loaded ${_myFriends.length} friends');
       }
     } catch (e) {
-      print('❌ FRIENDS POSTS: Error loading friends: $e');
+      //'❌ FRIENDS POSTS: Error loading friends: $e');
     } finally {
       setState(() => _isLoadingFriends = false);
     }
@@ -66,7 +66,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
     setState(() => _isLoadingFriendsPosts = true);
 
     try {
-      print('📱 FRIENDS POSTS: Loading friends posts (visibility=friends)...');
+      //'📱 FRIENDS POSTS: Loading friends posts (visibility=friends)...');
 
       final response = await SocialApiService.getPosts(
         limit: 50,
@@ -79,7 +79,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
         final friendIds = _myFriends.map((f) => f['id'] ?? f['user_id']).toSet();
 
         final List<int> locallyLikedPosts = await PreferencesService.getLikedPosts();
-        print('💾 FRIENDS POSTS: Locally liked posts: $locallyLikedPosts');
+        //'💾 FRIENDS POSTS: Locally liked posts: $locallyLikedPosts');
 
         setState(() {
           _friendsPosts = postsList.where((post) {
@@ -88,10 +88,10 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
           }).map((post) => _formatPost(post, locallyLikedPosts)).toList();
         });
 
-        print('✅ FRIENDS POSTS: Loaded ${_friendsPosts.length} friends posts');
+        //'✅ FRIENDS POSTS: Loaded ${_friendsPosts.length} friends posts');
       }
     } catch (e) {
-      print('❌ FRIENDS POSTS: Error loading friends posts: $e');
+      //'❌ FRIENDS POSTS: Error loading friends posts: $e');
     } finally {
       setState(() => _isLoadingFriendsPosts = false);
     }
@@ -109,7 +109,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
     final localLiked = locallyLikedPosts.contains(postId);
     final isLiked = apiLiked || localLiked;
 
-    print('📊 FRIENDS POST $postId: API liked=$apiLiked, Local liked=$localLiked, Final isLiked=$isLiked');
+    //'📊 FRIENDS POST $postId: API liked=$apiLiked, Local liked=$localLiked, Final isLiked=$isLiked');
 
     return {
       'id': postId.toString(),
@@ -137,28 +137,28 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
     });
 
     try {
-      print('👍 FRIENDS POSTS: ${wasLiked ? 'Unliking' : 'Liking'} post $postId');
+      //'👍 FRIENDS POSTS: ${wasLiked ? 'Unliking' : 'Liking'} post $postId');
 
       final response = wasLiked
           ? await SocialApiService.unlikePost(postId)
           : await SocialApiService.likePost(postId);
 
-      print('👍 FRIENDS POSTS: Like response: ${response['status']}');
+      //'👍 FRIENDS POSTS: Like response: ${response['status']}');
 
       if (response['status'] == 'success') {
         if (!wasLiked) {
           await PreferencesService.saveLikedPost(postId);
-          print('💾 FRIENDS POSTS: Saved like for post $postId to local storage');
+          //'💾 FRIENDS POSTS: Saved like for post $postId to local storage');
         } else {
           await PreferencesService.removeLikedPost(postId);
-          print('🗑️ FRIENDS POSTS: Removed like for post $postId from local storage');
+          //'🗑️ FRIENDS POSTS: Removed like for post $postId from local storage');
         }
 
         if (response['likes_count'] != null) {
           setState(() {
             post['likes'] = response['likes_count'];
           });
-          print('✅ FRIENDS POSTS: Updated likes count from server: ${response['likes_count']}');
+          //'✅ FRIENDS POSTS: Updated likes count from server: ${response['likes_count']}');
         }
       } else {
         if (mounted) {
@@ -167,7 +167,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
             post['likes'] = currentLikes;
           });
         }
-        print('❌ FRIENDS POSTS: Like/unlike failed');
+        //'❌ FRIENDS POSTS: Like/unlike failed');
       }
     } catch (e) {
       if (mounted) {
@@ -176,7 +176,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
           post['likes'] = currentLikes;
         });
       }
-      print('❌ FRIENDS POSTS: Error in like/unlike: $e');
+      //'❌ FRIENDS POSTS: Error in like/unlike: $e');
     }
   }
 
@@ -212,7 +212,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
         });
       }
     } catch (e) {
-      print('❌ Error loading comments: $e');
+      //'❌ Error loading comments: $e');
       setState(() => _isLoadingCommentsMap[postId] = false);
     }
   }
@@ -470,7 +470,7 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
                     );
                   },
                   errorBuilder: (context, error, stackTrace) {
-                    print('❌ Error loading image: $error');
+                    //'❌ Error loading image: $error');
                     return Container(
                       height: 200,
                       decoration: BoxDecoration(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'package:good_news/core/services/theme_service.dart';
 import 'package:good_news/core/services/notification_service.dart';
 import 'package:good_news/core/services/app_info_service.dart';
@@ -6,6 +7,7 @@ import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/features/authentication/presentation/screens/login_screen.dart';
 import 'package:good_news/core/themes/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'PrivacyPolicyScreen.dart';
 
@@ -18,15 +20,15 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late ThemeService _themeService;
-  bool _notificationsEnabled = true;
-  bool _dailyDigest = true;
+  // bool _notificationsEnabled = true;
+  // bool _dailyDigest = true;
   String _appVersion = 'Loading...';
 
   @override
   void initState() {
     super.initState();
     _themeService = ThemeService();
-    // ✅ Load saved preferences (including theme mode)
+    // Load saved preferences (including theme mode)
     _themeService.loadPreferences();
     _loadAppVersion();
   }
@@ -63,7 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Card(
             child: Column(
               children: [
-                // ✅ ONLY LIGHT MODE TOGGLE (THEME COLOR OPTION COMMENTED OUT)
+                // ONLY LIGHT MODE TOGGLE (THEME COLOR OPTION COMMENTED OUT)
 
                 /*
                 // Theme Color Picker
@@ -107,15 +109,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Divider(height: 1),
                 */
 
-                // ✅ Light Mode Toggle (Default = ON)
+                // Light Mode Toggle (Default = ON)
                 ListenableBuilder(
                   listenable: _themeService,
                   builder: (context, child) {
                     return SwitchListTile(
                       title: const Text('Light Mode'),
-                      // 🔁 Updated subtitle to match your preference
                       subtitle: const Text('Light mode is default, toggle for dark theme'),
-                      value: !_themeService.isDarkMode, // true = light mode
+                      value: !_themeService.isDarkMode,
                       onChanged: (value) {
                         _themeService.setThemeMode(
                           value ? ThemeMode.light : ThemeMode.dark,
@@ -130,48 +131,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     );
                   },
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Notifications Section
-          _buildSectionHeader('Notifications', sectionHeaderColor),
-          Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  title: const Text('Push Notifications'),
-                  subtitle: const Text('Receive notifications for new articles'),
-                  value: _notificationsEnabled,
-                  onChanged: (value) {
-                    setState(() {
-                      _notificationsEnabled = value;
-                    });
-                  },
-                  secondary: Icon(
-                    Icons.notifications,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  title: const Text('Daily Digest'),
-                  subtitle: const Text('Get a summary of positive news daily'),
-                  value: _dailyDigest,
-                  onChanged: _notificationsEnabled ? (value) {
-                    setState(() {
-                      _dailyDigest = value;
-                    });
-                  } : null,
-                  secondary: Icon(
-                    Icons.today,
-                    color: _notificationsEnabled
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.grey,
-                  ),
                 ),
               ],
             ),
@@ -202,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _buildSectionHeader('Data & Privacy', sectionHeaderColor),
           Card(
             child: ListTile(
-              leading: Icon(Icons.privacy_tip),
+              leading: const Icon(Icons.privacy_tip),
               title: const Text('Privacy Policy'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -213,20 +172,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
           ),
+
           const SizedBox(height: 16),
 
           // Account Section
           _buildSectionHeader('Account', sectionHeaderColor),
           Card(
             child: ListTile(
-              leading: const Icon(
-                Icons.logout,
-                color: Colors.red,
-              ),
-              title: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.red),
-              ),
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text('Logout', style: TextStyle(color: Colors.red)),
               subtitle: const Text('Sign out of your account'),
               trailing: const Icon(Icons.chevron_right, color: Colors.red),
               onTap: () {
@@ -243,25 +197,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: Icon(
-                    Icons.info,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  leading: Icon(Icons.info, color: Theme.of(context).colorScheme.primary),
                   title: const Text('App Version'),
-                  subtitle: Text('$_appVersion - Home Screen Redesign'),
+                  subtitle: Text('Version $_appVersion'),
                 ),
                 const Divider(height: 1),
                 ListTile(
-                  leading: Icon(
-                    Icons.rate_review,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  leading: Icon(Icons.rate_review, color: Theme.of(context).colorScheme.primary),
                   title: const Text('Rate App'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Thank you for your feedback!')),
+                  onTap: () async {
+                    final url = Uri.parse(
+                      'https://play.google.com/store/apps/details?id=com.joyscroll.app',
                     );
+                    if (await canLaunchUrl(url)) {
+                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                    } else {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Thank you for your feedback!')),
+                        );
+                      }
+                    }
                   },
                 ),
               ],
@@ -286,8 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ✅ COMMENTED OUT BUT STILL AVAILABLE FOR FUTURE USE
-
+  // COMMENTED OUT BUT STILL AVAILABLE FOR FUTURE USE
   void _showThemeColorDialog() {
     showDialog(
       context: context,
@@ -346,11 +302,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-
   void _showCategoriesDialog() async {
     try {
-      print('🔄 SETTINGS: Loading categories...');
-
       final categoriesResponse = await ApiService.getCategories();
 
       List<Map<String, dynamic>> categories = [];
@@ -358,12 +311,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (categoriesResponse['categories'] != null) {
         categories = List<Map<String, dynamic>>.from(categoriesResponse['categories']);
-        print('📂 SETTINGS: Loaded ${categories.length} categories');
       }
 
       final savedCategories = await PreferencesService.getSelectedCategories();
       selectedCategories = Set<int>.from(savedCategories);
-      print('🎯 SETTINGS: Currently selected: $selectedCategories');
 
       if (!mounted) return;
 
@@ -396,20 +347,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             return CheckboxListTile(
                               title: Text(category['name']),
                               subtitle: category['description'] != null
-                                  ? Text(
-                                category['description'],
-                                style: const TextStyle(fontSize: 12),
-                              )
+                                  ? Text(category['description'], style: const TextStyle(fontSize: 12))
                                   : null,
                               value: isSelected,
                               onChanged: (bool? value) {
                                 setDialogState(() {
                                   if (value == true) {
                                     selectedCategories.add(categoryId);
-                                    print('✅ SETTINGS: Added category $categoryId');
                                   } else {
                                     selectedCategories.remove(categoryId);
-                                    print('❌ SETTINGS: Removed category $categoryId');
                                   }
                                 });
                               },
@@ -423,9 +369,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: selectedCategories.length >= 3
-                              ? Colors.green
-                              : Colors.orange,
+                          color: selectedCategories.length >= 3 ? Colors.green : Colors.orange,
                         ),
                       ),
                     ],
@@ -452,7 +396,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       );
     } catch (e) {
-      print('❌ SETTINGS: Failed to load categories: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -466,34 +409,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveCategories(List<int> categoryIds) async {
     try {
-      print('💾 SETTINGS: Saving ${categoryIds.length} categories: $categoryIds');
-
       await PreferencesService.saveSelectedCategories(categoryIds);
-      print('✅ SETTINGS: Saved to local preferences');
 
       try {
         final token = await PreferencesService.getToken();
-        if (token != null && token.isNotEmpty) {
-          final response = await ApiService.saveUserPreferencesAuth(categoryIds, token);
-
-          if (response['status'] == 'success' || response['message'] != null) {
-            print('✅ SETTINGS: Synced with server');
-          } else {
-            print('⚠️ SETTINGS: Server sync failed, using local only');
-          }
-        } else {
-          print('ℹ️ SETTINGS: No token, using local preferences only');
+        if (token !=null && token.isNotEmpty) {
+          await ApiService.saveUserPreferencesAuth(categoryIds, token);
         }
-      } catch (e) {
-        print('⚠️ SETTINGS: Server sync error: $e');
-      }
+      } catch (_) {}
 
       if (mounted) {
         NotificationService.showSuccess('Categories updated successfully!');
-        print('✅ SETTINGS: Category preferences saved');
       }
     } catch (e) {
-      print('❌ SETTINGS: Failed to save categories: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -522,10 +450,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Navigator.of(context).pop();
                 await _logout();
               },
-              child: const Text(
-                'Logout',
-                style: TextStyle(color: Colors.red),
-              ),
+              child: const Text('Logout', style: TextStyle(color: Colors.red)),
             ),
           ],
         );

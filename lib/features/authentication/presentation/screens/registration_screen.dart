@@ -67,7 +67,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _phoneController.text.trim(),
       );
 
-      print('Registration Response: $response');
+      //'Registration Response: $response');
 
       if (response['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +87,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       }
     } catch (e) {
-      print('Registration Exception: $e');
+      //'Registration Exception: $e');
       _showError(
         'Registration failed. Please check your connection and try again.',
       );

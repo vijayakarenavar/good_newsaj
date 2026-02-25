@@ -1,4 +1,4 @@
-package com.lc.good_news
+package com.joyscroll.app
 
 import io.flutter.embedding.android.FlutterActivity
 
