@@ -415,4 +415,59 @@ class ApiService {
       return {'status': 'error', 'error': e.toString()};
     }
   }
+  // ✅ Video Feed API
+  static Future<Map<String, dynamic>> getVideoFeed({int limit = 20}) async {
+    try {
+      final token = await PreferencesService.getToken();
+      final response = await _dio.get(
+        '/videos/feed',
+        queryParameters: {'limit': limit},
+        options: Options(headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        }),
+      );
+
+      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+        final data = response.data as Map<String, dynamic>;
+        return {
+          'status': 'success',
+          'videos': data['videos'] ?? [],
+        };
+      }
+      return {'status': 'error', 'videos': []};
+    } catch (e) {
+      return {'status': 'error', 'videos': []};
+    }
+  }
+
+// ✅ Video Watch Track
+  static Future<void> trackVideoWatch(int videoId, int watchDuration, bool completed) async {
+    try {
+      final token = await PreferencesService.getToken();
+      await _dio.post(
+        '/videos/$videoId/watch',
+        data: {'watch_duration': watchDuration, 'completed': completed},
+        options: Options(headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        }),
+      );
+    } catch (e) {
+      // silently fail - tracking optional आहे
+    }
+  }
+
+// ✅ Video Save
+  static Future<void> saveVideo(int videoId) async {
+    try {
+      final token = await PreferencesService.getToken();
+      await _dio.post(
+        '/videos/$videoId/save',
+        options: Options(headers: {
+          if (token != null) 'Authorization': 'Bearer $token',
+        }),
+      );
+    } catch (e) {
+      // silently fail
+    }
+  }
 }

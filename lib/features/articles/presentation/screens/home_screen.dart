@@ -19,8 +19,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 //import 'package:good_news/features/articles/presentation/widgets/social_post_card_widget.dart';
-import 'package:video_player/video_player.dart';
+// import 'package:video_player/video_player.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 // import 'package:http/http.dart' as http;
 // import 'dart:convert';
 
@@ -423,72 +424,46 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _loadVideoPosts() async {
     try {
-      final List<Map<String, dynamic>> localVideos =
-      List.generate(16, (index) {
-        final videoNum = index + 1;
-        return {
-          'type': 'video_post',
-          'id': 'vid_$videoNum',
-          'author': 'Joy Scroll',
-          'avatar': 'J',
-          'title': _getVideoTitle(videoNum),
-          'content': _getVideoContent(videoNum),
-          'created_at': DateTime.now()
-              .subtract(Duration(hours: index * 2))
-              .toIso8601String(),
-          'likes': 100 + (index * 50),
-          'isLiked': false,
-          'video_url': 'assets/videos/ajay$videoNum.mp4',
-        };
-      });
-      if (mounted) setState(() => _videoPosts = localVideos);
+      final response = await ApiService.getVideoFeed(limit: 20);
+
+      if (response['status'] == 'success' && mounted) {
+        final videosList = response['videos'] as List? ?? [];
+
+        if (videosList.isEmpty) {
+          // API मध्ये videos नसतील तर empty दाखव
+          if (mounted) setState(() => _videoPosts = []);
+          return;
+        }
+
+        setState(() {
+          _videoPosts = videosList.map((video) {
+            final v = video as Map<String, dynamic>;
+            final channelName = v['channel_name'] ?? 'Joy Scroll';
+            return {
+              'type': 'video_post',
+              'id': v['id'].toString(),
+              'api_id': v['id'],                          // tracking साठी int
+              'author': channelName,
+              'avatar': channelName.isNotEmpty ? channelName[0].toUpperCase() : 'J',
+              'title': v['title'] ?? '',
+              'content': v['description'] ?? '',
+              'created_at': v['created_at'],
+              'likes': v['like_count'] ?? 0,
+              'isLiked': false,
+              'video_id': v['video_id'],                  // YouTube ID (e.g. "dQw4w9WgXcQ")
+              'thumbnail_url': v['thumbnail_url'] ?? '',
+              'duration': v['duration'] ?? 0,
+              'category': v['category'] ?? '',
+              // video_url नाही - YouTube player वापरणार
+            };
+          }).toList();
+        });
+      } else {
+        if (mounted) setState(() => _videoPosts = []);
+      }
     } catch (e) {
-      //'❌ Error loading videos: $e');
+      if (mounted) setState(() => _videoPosts = []);
     }
-  }
-
-  String _getVideoTitle(int num) {
-    final titles = [
-      'Finding Joy in Small Moments ✨',
-      'Morning Walk in the Hills 🌿',
-      'Golden Hour Magic 🌅',
-      'Random Acts of Kindness 💚',
-      'Street Food Adventures 🍜',
-      'Monsoon Vibes ☔',
-      'Weekend Creativity 🎨',
-      'Fitness Journey Update 💪',
-      'Coffee & Conversations ☕',
-      'Behind the Scenes 🎬',
-      'Weekly Recap & Gratitude 🙏',
-      'Nature Photography Tips 📸',
-      'Sunset Chasing 🌇',
-      'Street Art Discovery 🎨',
-      'Local Music Scene 🎵',
-      'Weekend Vibes 🌟',
-    ];
-    return titles[(num - 1) % titles.length];
-  }
-
-  String _getVideoContent(int num) {
-    final contents = [
-      'Sometimes happiness is hidden in the simplest things.',
-      'Peaceful moments captured during my morning hike.',
-      'Caught the most beautiful sunset today.',
-      'Witnessed something beautiful that restored my faith.',
-      'Exploring local flavors and the stories behind them.',
-      'There\'s something magical about the first rains.',
-      'Spent my weekend creating something new.',
-      'Small progress is still progress!',
-      'Had an inspiring conversation about life and dreams.',
-      'Here\'s how I create content!',
-      'Reflecting on an amazing week filled with blessings.',
-      'Capturing the beauty of nature one frame at a time.',
-      'The best moments happen at golden hour.',
-      'Found amazing street art in the city today.',
-      'Discovered incredible local talent performing live.',
-      'Making the most of every moment this weekend.',
-    ];
-    return contents[(num - 1) % contents.length];
   }
 
   void _updateDisplayedItems() {
@@ -2131,6 +2106,7 @@ ${url.isNotEmpty ? '🔗 $url' : ''}
 }
 
 // ==================== VIDEO POST WIDGET ====================
+
 class _VideoPostWidget extends StatefulWidget {
   final Map<String, dynamic> post;
   final VoidCallback onToggleLike;
@@ -2154,253 +2130,252 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
   @override
   bool get wantKeepAlive => true;
 
-  VideoPlayerController? _controller;
+  YoutubePlayerController? _ytController;
   bool _isInitialized = false;
   bool _hasError = false;
-  bool _isInitializing = false;
+  bool _tracked = false;         // एकदाच track करायचं
 
   @override
   void initState() {
     super.initState();
+    _initYouTube();
   }
 
-  Future<void> _initializeVideoFromStart() async {
-    if (_isInitializing || _isInitialized) return;
-    _isInitializing = true;
-    if (_controller != null) {
-      await _controller!.pause();
-      await _controller!.dispose();
-      _controller = null;
+  void _initYouTube() {
+    final videoId = widget.post['video_id'] as String?;
+    if (videoId == null || videoId.isEmpty) {
+      setState(() => _hasError = true);
+      return;
     }
+
     try {
-      _controller = VideoPlayerController.asset(widget.post['video_url'])
-        ..setVolume(1.0);
-      await _controller!.initialize();
-      if (!mounted) {
-        _isInitializing = false;
-        return;
-      }
-      setState(() {
-        _isInitialized = true;
-        _hasError = false;
-      });
+      _ytController = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,
+          mute: false,
+          hideControls: false,
+          loop: true,
+        ),
+      );
+      setState(() => _isInitialized = true);
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _hasError = true;
-          _isInitialized = false;
-        });
-      }
-    } finally {
-      _isInitializing = false;
+      setState(() => _hasError = true);
     }
   }
 
   void forcePlay() {
-    if (!_isInitialized) {
-      _initializeVideoFromStart().then((_) {
-        if (mounted && _controller != null) {
-          _controller!.seekTo(Duration.zero);
-          _controller!.play();
-        }
-      });
-    } else if (_controller != null) {
-      _controller!.seekTo(Duration.zero);
-      _controller!.play();
+    _ytController?.play();
+  }
+
+  void _trackWatch() {
+    if (_tracked) return;
+    _tracked = true;
+    final apiId = widget.post['api_id'];
+    if (apiId != null) {
+      ApiService.trackVideoWatch(apiId as int, 0, false);
     }
   }
 
   @override
   void dispose() {
-    _controller?.dispose();
+    _ytController?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
     return VisibilityDetector(
       key: Key(widget.post['id'].toString()),
       onVisibilityChanged: (visibilityInfo) {
-        final visibleFraction = visibilityInfo.visibleFraction;
-        if (visibleFraction > 0.4 && !_isInitialized && !_isInitializing) {
-          _initializeVideoFromStart();
-        }
-        if (visibleFraction > 0.6) {
-          if (_isInitialized && _controller != null) {
-            if (!_controller!.value.isPlaying) {
-              _controller!.seekTo(Duration.zero);
-              _controller!.play();
-            }
-          }
+        final visible = visibilityInfo.visibleFraction;
+        if (visible > 0.6) {
+          _ytController?.play();
+          _trackWatch();           // background मध्ये track
         } else {
-          if (_controller != null && _controller!.value.isPlaying) {
-            _controller!.pause();
-          }
+          _ytController?.pause();
         }
       },
-      child: GestureDetector(
-        onTap: () {
-          if (_controller == null || !_isInitialized) return;
-          if (_controller!.value.isPlaying) {
-            _controller!.pause();
-          } else {
-            _controller!.play();
-          }
-        },
-        child: Container(
-          color: Colors.black,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (_hasError)
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.white, size: 64),
-                      const SizedBox(height: 16),
-                      const Text('Video not available',
-                          style:
-                          TextStyle(color: Colors.white, fontSize: 16)),
-                    ],
-                  ),
-                )
-              else if (_isInitialized && _controller != null)
-                Center(
-                  child: AspectRatio(
-                    aspectRatio: _controller!.value.aspectRatio,
-                    child: VideoPlayer(_controller!),
-                  ),
-                )
-              else
-                Container(color: Colors.black),
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 120,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.black87, Colors.transparent],
+      child: Container(
+        color: Colors.black,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+
+            // ===== VIDEO PLAYER =====
+            if (_hasError)
+              _buildErrorWidget()
+            else if (_isInitialized && _ytController != null)
+              SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: 16,
+                    height: 9,
+                    child: YoutubePlayer(
+                      controller: _ytController!,
+                      showVideoProgressIndicator: true,
+                      progressIndicatorColor: Colors.red,
                     ),
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 220,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black87, Colors.transparent],
-                    ),
+              )
+            else
+              _buildThumbnail(),
+
+            // ===== TOP GRADIENT =====
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: Container(
+                height: 120,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black87, Colors.transparent],
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 30,
-                left: 16,
-                right: 16,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Colors.white,
-                                child: Text(
-                                  widget.post['avatar'] as String,
-                                  style: const TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Text(
-                                  widget.post['author'],
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            widget.post['title'],
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 16),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            widget.post['content'],
-                            style: const TextStyle(color: Colors.white70),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatTimestamp(widget.post['created_at']),
-                            style: const TextStyle(
-                                color: Colors.white54, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+            ),
+
+            // ===== BOTTOM GRADIENT =====
+            Positioned(
+              bottom: 0, left: 0, right: 0,
+              child: Container(
+                height: 220,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Colors.black87, Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+
+            // ===== INFO + BUTTONS =====
+            Positioned(
+              bottom: 30, left: 16, right: 16,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Left: author + title + content
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildActionButton(
-                          icon: widget.post['isLiked'] == true
-                              ? Icons.favorite
-                              : Icons.favorite_border,
-                          label: _formatCount(widget.post['likes']),
-                          color: widget.post['isLiked'] == true
-                              ? Colors.red
-                              : Colors.white,
-                          onTap: widget.onToggleLike,
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 18,
+                              backgroundColor: Colors.white,
+                              child: Text(
+                                widget.post['avatar'] as String? ?? 'J',
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                widget.post['author'] ?? '',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        _buildActionButton(
-                          icon: Icons.chat_bubble_outline,
-                          label: 'Comment',
-                          color: Colors.white,
-                          onTap: widget.onToggleComments,
+                        const SizedBox(height: 12),
+                        Text(
+                          widget.post['title'] ?? '',
+                          style: const TextStyle(color: Colors.white, fontSize: 16),
                         ),
-                        const SizedBox(height: 20),
-                        _buildActionButton(
-                          icon: Icons.share_outlined,
-                          label: 'Share',
-                          color: Colors.white,
-                          onTap: widget.onShare,
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.post['content'] ?? '',
+                          style: const TextStyle(color: Colors.white70),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimestamp(widget.post['created_at']),
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Right: Like, Comment, Share buttons
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildActionButton(
+                        icon: widget.post['isLiked'] == true
+                            ? Icons.favorite
+                            : Icons.favorite_border,
+                        label: _formatCount(widget.post['likes'] ?? 0),
+                        color: widget.post['isLiked'] == true ? Colors.red : Colors.white,
+                        onTap: widget.onToggleLike,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildActionButton(
+                        icon: Icons.chat_bubble_outline,
+                        label: 'Comment',
+                        color: Colors.white,
+                        onTap: widget.onToggleComments,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildActionButton(
+                        icon: Icons.share_outlined,
+                        label: 'Share',
+                        color: Colors.white,
+                        onTap: widget.onShare,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  // Thumbnail दाखव जोपर्यंत video load होत नाही
+  Widget _buildThumbnail() {
+    final thumbUrl = widget.post['thumbnail_url'] as String? ?? '';
+    if (thumbUrl.isNotEmpty) {
+      return CachedNetworkImage(
+        imageUrl: thumbUrl,
+        fit: BoxFit.cover,
+        placeholder: (_, __) => Container(color: Colors.black),
+        errorWidget: (_, __, ___) => Container(color: Colors.black),
+      );
+    }
+    return Container(color: Colors.black);
+  }
+
+  Widget _buildErrorWidget() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, color: Colors.white, size: 64),
+          SizedBox(height: 16),
+          Text('Video not available',
+              style: TextStyle(color: Colors.white, fontSize: 16)),
+        ],
       ),
     );
   }
@@ -2433,15 +2408,13 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
           ),
         ),
         const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(color: Colors.white, fontSize: 12)),
+        Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],
     );
   }
 
   String _formatCount(int count) {
-    if (count >= 1000000)
-      return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
     if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
     return count.toString();
   }
@@ -2450,8 +2423,7 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
     if (timestamp == null) return 'Just now';
     try {
       final dateTime = DateTime.parse(timestamp);
-      final now = DateTime.now();
-      final diff = now.difference(dateTime);
+      final diff = DateTime.now().difference(dateTime);
       if (diff.inMinutes < 1) return 'Just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
       if (diff.inHours < 24) return '${diff.inHours}h ago';
@@ -2462,6 +2434,7 @@ class _VideoPostWidgetState extends State<_VideoPostWidget>
     }
   }
 }
+
 
 // ==================== INLINE WIDGETS ====================
 // class QuickActionsWidget extends StatelessWidget {

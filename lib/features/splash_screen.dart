@@ -3,14 +3,16 @@ import 'package:lottie/lottie.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget nextScreen;
-  final Color backgroundColor;
-  final Color accentColor;
+
+  // OPTIONAL colors
+  final Color? backgroundColor;
+  final Color? accentColor;
 
   const SplashScreen({
     Key? key,
     required this.nextScreen,
-    required this.backgroundColor,
-    required this.accentColor,
+    this.backgroundColor,
+    this.accentColor,
   }) : super(key: key);
 
   @override
@@ -29,12 +31,9 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigateToNextScreen() async {
-    // Minimum 2.5 seconds splash दाखवा
     await Future.delayed(const Duration(milliseconds: 2500));
-
     if (!mounted) return;
 
-    // Next screen वर जा
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (context) => widget.nextScreen),
@@ -49,15 +48,19 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final bgColor = widget.backgroundColor ?? theme.scaffoldBackgroundColor;
+    final accent = widget.accentColor ?? theme.colorScheme.primary;
+
     return Scaffold(
-      backgroundColor: widget.backgroundColor,
+      backgroundColor: bgColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Lottie Animation
             Lottie.asset(
-              'assets/splash_animation.json', // तुमच्या JSON file चे नाव
+              'assets/splash_animation.json',
               width: 300,
               height: 300,
               fit: BoxFit.contain,
@@ -65,17 +68,17 @@ class _SplashScreenState extends State<SplashScreen>
               onLoaded: (composition) {
                 _controller
                   ..duration = composition.duration
-                  ..repeat(); // Loop animation
+                  ..repeat();
               },
             ),
             const SizedBox(height: 24),
-            // App Name
+
             Text(
               'JOY SCROLL',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                color: widget.accentColor,
+                color: accent,
                 letterSpacing: 1.2,
               ),
             ),
@@ -84,8 +87,7 @@ class _SplashScreenState extends State<SplashScreen>
               'Stay Positive, Stay Informed',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[400],
-                letterSpacing: 0.5,
+                color: theme.textTheme.bodySmall?.color,
               ),
             ),
           ],

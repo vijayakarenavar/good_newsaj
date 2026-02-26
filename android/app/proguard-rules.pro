@@ -1,27 +1,31 @@
-# Flutter
+# ================= FLUTTER =================
 -keep class io.flutter.** { *; }
 -keep class io.flutter.embedding.** { *; }
 -dontwarn io.flutter.embedding.**
 
-# Dio
+# ================= CONNECTIVITY PLUS (IMPORTANT) =================
+-keep class dev.fluttercommunity.plus.connectivity.** { *; }
+-dontwarn dev.fluttercommunity.plus.connectivity.**
+
+# ================= DIO / HTTP =================
 -keep class com.squareup.okhttp3.** { *; }
 -dontwarn com.squareup.okhttp3.**
 -keep class okio.** { *; }
 -dontwarn okio.**
 
-# Video Player
+# ================= VIDEO PLAYER =================
 -keep class com.google.android.exoplayer2.** { *; }
 -dontwarn com.google.android.exoplayer2.**
 
-# Cached Network Image
+# ================= GLIDE =================
 -keep class com.bumptech.glide.** { *; }
 -dontwarn com.bumptech.glide.**
 
-# Keep app models
+# ================= KEEP APP MODELS =================
 -keepattributes Signature
 -keepattributes *Annotation*
 -keepattributes SourceFile,LineNumberTable
 
-# Dart/Flutter
+# ================= YOUR APP PACKAGE =================
 -keep class **.joyscroll.** { *; }
 -dontwarn java.lang.invoke.**
