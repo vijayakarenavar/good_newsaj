@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:good_news/core/constants/api_constants.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 
@@ -415,13 +416,29 @@ class ApiService {
       return {'status': 'error', 'error': e.toString()};
     }
   }
-  // ✅ Video Feed API
-  static Future<Map<String, dynamic>> getVideoFeed({int limit = 20}) async {
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // VIDEO FEED API — pagination: limit + offset
+  //
+  // Request:  GET /videos/feed?limit=10           (first page)
+  //           GET /videos/feed?limit=10&offset=10  (second page)
+  //           GET /videos/feed?limit=10&offset=20  (third page) ...
+  //
+  // Response expected: { "videos": [...], "has_more": true/false }
+  //   has_more नसेल तर: returned count >= limit असेल तर more assume करतो
+  // ─────────────────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> getVideoFeed({
+    int limit = 10,
+    int offset = 0,
+  }) async {
     try {
       final token = await PreferencesService.getToken();
       final response = await _dio.get(
         '/videos/feed',
-        queryParameters: {'limit': limit},
+        queryParameters: {
+          'limit': limit,
+          if (offset > 0) 'offset': offset,
+        },
         options: Options(headers: {
           if (token != null) 'Authorization': 'Bearer $token',
         }),
@@ -429,18 +446,36 @@ class ApiService {
 
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
         final data = response.data as Map<String, dynamic>;
+        final rawVideos = data['videos'] as List? ?? [];
+
+        // DEBUG: फक्त first page वर — fix नंतर हा block काढा
+        if (rawVideos.isNotEmpty && offset == 0) {
+          final first = rawVideos[0] as Map<String, dynamic>;
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          debugPrint('🎬 VIDEO API fields:');
+          first.forEach((k, v) => debugPrint('  $k: $v'));
+          debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        }
+
+        // has_more: API ने दिले → वापर; नाहीतर count वरून calculate
+        final hasMore = data['has_more'] as bool?
+            ?? data['hasMore'] as bool?
+            ?? (rawVideos.length >= limit);
+
         return {
           'status': 'success',
-          'videos': data['videos'] ?? [],
+          'videos': rawVideos,
+          'has_more': hasMore,
         };
       }
-      return {'status': 'error', 'videos': []};
+
+      return {'status': 'error', 'videos': [], 'has_more': false};
     } catch (e) {
-      return {'status': 'error', 'videos': []};
+      return {'status': 'error', 'videos': [], 'has_more': false};
     }
   }
 
-// ✅ Video Watch Track
+  // ✅ Video Watch Track
   static Future<void> trackVideoWatch(int videoId, int watchDuration, bool completed) async {
     try {
       final token = await PreferencesService.getToken();
@@ -456,7 +491,7 @@ class ApiService {
     }
   }
 
-// ✅ Video Save
+  // ✅ Video Save
   static Future<void> saveVideo(int videoId) async {
     try {
       final token = await PreferencesService.getToken();
