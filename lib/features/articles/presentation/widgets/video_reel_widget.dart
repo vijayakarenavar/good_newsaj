@@ -4,6 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PERFORMANCE FIX SUMMARY:
+//
+// Problem:  Swipe केल्यावर 1-2 sec pause — कारण प्रत्येक swipe वर नवीन
+//           YoutubePlayerController + WebView init होत होता.
+//
+// Solution: Controller Cache (Map<int, YoutubePlayerController>)
+//           → पुढचा video चा controller आधीच ready ठेवतो
+//           → Swipe झाल्यावर फक्त .play() call होतो — instant!
+// ══════════════════════════════════════════════════════════════════════════════
+
 class VideoReelFeed extends StatefulWidget {
   final List<Map<String, dynamic>> videos;
   final Function(Map<String, dynamic>) onToggleLike;
@@ -27,22 +38,89 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
   int _currentPage = 0;
   bool _isSwiping = false;
 
-  // ✅ Thumbnail असलेले videos फक्त
+  // ✅ KEY FIX: Controller cache — swipe आधीच next video ready
+  final Map<int, YoutubePlayerController> _controllerCache = {};
+
   List<Map<String, dynamic>> get _filteredVideos => widget.videos
       .where((v) => (v['thumbnail_url'] as String? ?? '').isNotEmpty)
       .toList();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // App start होताच पहिले 2 videos ready करतो
+      _preloadControllers(0);
+    });
+  }
+
+  /// Current index पासून current + next video चे controllers बनवतो
+  void _preloadControllers(int currentActualIndex) {
+    final videos = _filteredVideos;
+    if (videos.isEmpty) return;
+
+    // Current + next 1 video preload
+    for (int offset = 0; offset <= 1; offset++) {
+      final idx = (currentActualIndex + offset) % videos.length;
+      if (_controllerCache.containsKey(idx)) continue; // already ready
+
+      final videoId = videos[idx]['video_id'] as String? ?? '';
+      if (videoId.isEmpty) continue;
+
+      final controller = YoutubePlayerController(
+        initialVideoId: videoId,
+        flags: const YoutubePlayerFlags(
+          autoPlay: false,             // ✅ preload — play नाही अजून
+          mute: false,
+          hideControls: true,
+          hideThumbnail: true,
+          disableDragSeek: true,
+          loop: true,
+          enableCaption: false,
+          forceHD: false,              // ✅ faster load
+          useHybridComposition: false, // ✅ Android WebView fast
+        ),
+      );
+      _controllerCache[idx] = controller;
+    }
+
+    // Old controllers dispose — memory leak नाही
+    // 2 positions मागचा dispose करतो
+    final toDispose = <int>[];
+    for (final key in _controllerCache.keys) {
+      final diff = (key - currentActualIndex + videos.length) % videos.length;
+      if (diff > 2 && diff < videos.length - 1) {
+        toDispose.add(key);
+      }
+    }
+    for (final key in toDispose) {
+      _controllerCache[key]?.dispose();
+      _controllerCache.remove(key);
+    }
+  }
+
+  @override
   void dispose() {
     _pageController.dispose();
+    for (final c in _controllerCache.values) {
+      c.dispose();
+    }
+    _controllerCache.clear();
     super.dispose();
   }
 
   void _onPageChanged(int index) {
+    final videos = _filteredVideos;
+    if (videos.isEmpty) return;
+    final actualIndex = index % videos.length;
+
     setState(() {
       _currentPage = index;
       _isSwiping = false;
     });
+
+    // ✅ Swipe होताच पुढचा video preload — user swipe करेपर्यंत ready
+    _preloadControllers(actualIndex);
   }
 
   void _onVerticalDragEnd(DragEndDetails details) {
@@ -51,13 +129,13 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
     if (velocity < -300) {
       _isSwiping = true;
       _pageController.nextPage(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
     } else if (velocity > 300) {
       _isSwiping = true;
       _pageController.previousPage(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 250),
         curve: Curves.easeOut,
       );
     }
@@ -102,25 +180,22 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
         controller: _pageController,
         scrollDirection: Axis.vertical,
         physics: const NeverScrollableScrollPhysics(),
-        // ✅ itemCount: null = infinite scroll
-        itemCount: null,
+        itemCount: null, // infinite
         onPageChanged: _onPageChanged,
         itemBuilder: (context, index) {
-          // ✅ FIX #1: actualIndex वापरा — loop मध्ये same widget reuse होतो
           final actualIndex = index % videos.length;
           final video = videos[actualIndex];
           final isActive = index == _currentPage;
-
-          // ✅ FIX #2: Adjacent pages preload करा (thumbnail पुढे load होते)
           final isPreload = (index - _currentPage).abs() == 1;
 
           return RepaintBoundary(
             child: _VideoReelItem(
-              // ✅ FIX #3: actualIndex key — नवीन player unnecessarily बनत नाही
               key: ValueKey('reel_${actualIndex}_${video['id']}'),
               video: video,
               isActive: isActive,
               isPreload: isPreload,
+              // ✅ INSTANT PLAY: pre-built controller pass — WebView init नाही
+              cachedController: _controllerCache[actualIndex],
               onToggleLike: () => widget.onToggleLike(video),
               onShare: () => widget.onShare(video),
             ),
@@ -131,12 +206,13 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
   }
 }
 
-// ─── Single Reel Item ─────────────────────────────────────────────────────
+// ─── Single Reel Item ─────────────────────────────────────────────────────────
 
 class _VideoReelItem extends StatefulWidget {
   final Map<String, dynamic> video;
   final bool isActive;
-  final bool isPreload; // ✅ FIX: next video thumbnail preload साठी
+  final bool isPreload;
+  final YoutubePlayerController? cachedController;
   final VoidCallback onToggleLike;
   final VoidCallback onShare;
 
@@ -145,6 +221,7 @@ class _VideoReelItem extends StatefulWidget {
     required this.video,
     required this.isActive,
     required this.isPreload,
+    required this.cachedController,
     required this.onToggleLike,
     required this.onShare,
   }) : super(key: key);
@@ -155,7 +232,6 @@ class _VideoReelItem extends StatefulWidget {
 
 class _VideoReelItemState extends State<_VideoReelItem> {
   YoutubePlayerController? _controller;
-  bool _isPlayerReady = false;
   bool _isPlaying = false;
   bool _showThumbnail = true;
   bool _hasError = false;
@@ -163,77 +239,101 @@ class _VideoReelItemState extends State<_VideoReelItem> {
   @override
   void initState() {
     super.initState();
-    if (widget.isActive) _initPlayer();
+    _attachController();
   }
 
   @override
   void didUpdateWidget(_VideoReelItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Cached controller update झाला
+    if (widget.cachedController != oldWidget.cachedController) {
+      _detachController();
+      _attachController();
+      return;
+    }
+
+    // ✅ isActive झाला → instant play
     if (widget.isActive && !oldWidget.isActive) {
-      _initPlayer();
-    } else if (!widget.isActive && oldWidget.isActive) {
-      _destroyPlayer();
+      _startPlaying();
+    }
+    // ✅ isActive गेला → pause
+    else if (!widget.isActive && oldWidget.isActive) {
+      _pauseAndReset();
     }
   }
 
-  void _initPlayer() {
-    final videoId = widget.video['video_id'] as String?;
-    if (videoId == null || videoId.isEmpty) {
+  void _attachController() {
+    if (widget.cachedController != null) {
+      // ✅ Cached controller — no new WebView!
+      _controller = widget.cachedController;
+      _controller!.addListener(_onStateChanged);
+      if (widget.isActive) _startPlaying();
+    } else {
+      // Fallback: cache miss — स्वतः बनवतो
+      _buildFallbackController();
+    }
+  }
+
+  void _detachController() {
+    _controller?.removeListener(_onStateChanged);
+    // ✅ dispose नाही — parent cache manage करतो
+    _controller = null;
+  }
+
+  void _buildFallbackController() {
+    final videoId = widget.video['video_id'] as String? ?? '';
+    if (videoId.isEmpty) {
       if (mounted) setState(() => _hasError = true);
       return;
     }
-    _controller?.removeListener(_onStateChanged);
-    _controller?.dispose();
-    _controller = YoutubePlayerController(
+    final controller = YoutubePlayerController(
       initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
+      flags: YoutubePlayerFlags(
+        autoPlay: widget.isActive,
         mute: false,
         hideControls: true,
         hideThumbnail: true,
         disableDragSeek: true,
         loop: true,
         enableCaption: false,
-        forceHD: false,               // ✅ FIX: HD बंद → faster load
-        useHybridComposition: false,  // ✅ FIX: Android WebView faster
+        forceHD: false,
+        useHybridComposition: false,
       ),
-    )..addListener(_onStateChanged);
-    if (mounted) {
-      setState(() {
-        _showThumbnail = true;
-        _hasError = false;
-        _isPlayerReady = false;
-        _isPlaying = false;
-      });
-    }
+    );
+    _controller = controller;
+    _controller!.addListener(_onStateChanged);
+    if (mounted) setState(() {});
   }
 
-  void _destroyPlayer() {
-    _controller?.removeListener(_onStateChanged);
-    _controller?.dispose();
-    _controller = null;
-    if (mounted) {
-      setState(() {
-        _isPlayerReady = false;
-        _isPlaying = false;
-        _showThumbnail = true;
-      });
-    }
+  // ✅ Instant play — 100ms delay फक्त page transition पूर्ण होण्यासाठी
+  void _startPlaying() {
+    if (_controller == null) return;
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      _controller?.play();
+    });
+  }
+
+  void _pauseAndReset() {
+    _controller?.pause();
+    _controller?.seekTo(Duration.zero);
+    if (mounted) setState(() => _showThumbnail = true);
   }
 
   void _onStateChanged() {
     if (!mounted || _controller == null) return;
-    final isPlaying = _controller!.value.isPlaying;
-    if (_isPlaying != isPlaying) {
+    final playing = _controller!.value.isPlaying;
+    if (_isPlaying != playing) {
       setState(() {
-        _isPlaying = isPlaying;
-        if (isPlaying) _showThumbnail = false;
+        _isPlaying = playing;
+        if (playing) _showThumbnail = false;
       });
     }
   }
 
   void _togglePlayPause() {
-    if (_controller == null || !_isPlayerReady) return;
+    if (_controller == null) return;
     if (_isPlaying) {
       _controller!.pause();
     } else {
@@ -243,8 +343,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
 
   @override
   void dispose() {
-    _controller?.removeListener(_onStateChanged);
-    _controller?.dispose();
+    _detachController();
     super.dispose();
   }
 
@@ -257,7 +356,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
           // 0. BLACK BACKGROUND
           const ColoredBox(color: Colors.black),
 
-          // 1. VIDEO PLAYER — फक्त isActive असताना
+          // 1. VIDEO PLAYER
           if (widget.isActive && !_hasError && _controller != null)
             Positioned.fill(
               child: IgnorePointer(
@@ -265,8 +364,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
                   controller: _controller!,
                   showVideoProgressIndicator: false,
                   onReady: () {
-                    if (mounted) {
-                      setState(() => _isPlayerReady = true);
+                    if (mounted && widget.isActive) {
                       _controller?.play();
                     }
                   },
@@ -278,16 +376,13 @@ class _VideoReelItemState extends State<_VideoReelItem> {
               ),
             ),
 
-          // 2. THUMBNAIL
-          // ✅ FIX: isPreload असताना पण thumbnail दाखवतो — next video ready राहतो
+          // 2. THUMBNAIL — inactive / loading / preload
           if (_showThumbnail || !widget.isActive || widget.isPreload)
             Positioned.fill(child: _buildThumbnail()),
 
           // 3. TOP GRADIENT
           Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
+            top: 0, left: 0, right: 0,
             child: Container(
               height: 140,
               decoration: const BoxDecoration(
@@ -302,9 +397,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
 
           // 4. BOTTOM GRADIENT
           Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
+            bottom: 0, left: 0, right: 0,
             child: Container(
               height: 280,
               decoration: const BoxDecoration(
@@ -321,11 +414,9 @@ class _VideoReelItemState extends State<_VideoReelItem> {
             ),
           ),
 
-          // 5. VIDEO INFO + BUTTONS
+          // 5. VIDEO INFO + ACTION BUTTONS
           Positioned(
-            bottom: 24,
-            left: 16,
-            right: 16,
+            bottom: 24, left: 16, right: 16,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -336,7 +427,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
             ),
           ),
 
-          // 6. TAP → play/pause
+          // 6. TAP → play / pause
           Positioned.fill(
             child: GestureDetector(
               onTap: widget.isActive ? _togglePlayPause : null,
@@ -355,7 +446,6 @@ class _VideoReelItemState extends State<_VideoReelItem> {
       return CachedNetworkImage(
         imageUrl: thumbUrl,
         fit: BoxFit.cover,
-        // ✅ FIX: memCacheWidth — memory कमी वापरतो, faster decode
         memCacheWidth: 720,
         placeholder: (_, __) => Container(color: Colors.black),
         errorWidget: (_, __, ___) => Container(color: Colors.black),
@@ -377,8 +467,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
       children: [
         Row(children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
@@ -445,8 +534,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
           if (category.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.white12,
                 borderRadius: BorderRadius.circular(20),
@@ -454,8 +542,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
               ),
               child: Text(
                 category,
-                style:
-                const TextStyle(color: Colors.white70, fontSize: 11),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ),
           ],
@@ -465,30 +552,15 @@ class _VideoReelItemState extends State<_VideoReelItem> {
   }
 
   Widget _buildActionButtons() {
-    // final isLiked = widget.video['isLiked'] == true;
-    // final likes = widget.video['likes'] as int? ?? 0;
-    // final comments = widget.video['comments'] as int? ?? 0;
-
     return Column(mainAxisSize: MainAxisSize.min, children: [
-      // ✅ LIKE BUTTON — तात्पुरता बंद
-      // _buildActionBtn(
-      //   icon: isLiked ? Icons.favorite : Icons.favorite_border,
-      //   label: likes > 0 ? _formatCount(likes) : '',
-      //   color: isLiked ? Colors.red : Colors.white,
-      //   onTap: widget.onToggleLike,
-      // ),
+      // Like — तात्पुरता बंद
+      // _buildActionBtn(icon: Icons.favorite_border, label: '', color: Colors.white, onTap: widget.onToggleLike),
       // const SizedBox(height: 20),
 
-      // ✅ COMMENT BUTTON — तात्पुरता बंद
-      // _buildActionBtn(
-      //   icon: Icons.chat_bubble_outline_rounded,
-      //   label: comments > 0 ? _formatCount(comments) : '',
-      //   color: Colors.white,
-      //   onTap: () {},
-      // ),
+      // Comment — तात्पुरता बंद
+      // _buildActionBtn(icon: Icons.chat_bubble_outline_rounded, label: '', color: Colors.white, onTap: () {}),
       // const SizedBox(height: 20),
 
-      // Share button चालू
       _buildActionBtn(
         icon: Icons.share_rounded,
         label: 'Share',
@@ -531,12 +603,6 @@ class _VideoReelItemState extends State<_VideoReelItem> {
     );
   }
 
-  String _formatCount(int count) {
-    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
-    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
-    return count.toString();
-  }
-
   String _formatTimestamp(String? timestamp) {
     if (timestamp == null) return 'Just now';
     try {
@@ -546,7 +612,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
       if (diff.inHours < 24) return '${diff.inHours}h ago';
       if (diff.inDays < 7) return '${diff.inDays}d ago';
       return '${(diff.inDays / 7).floor()}w ago';
-    } catch (e) {
+    } catch (_) {
       return 'Just now';
     }
   }
