@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/core/constants/theme_tokens.dart';
 import 'package:good_news/features/authentication/presentation/screens/login_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -67,8 +69,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _phoneController.text.trim(),
       );
 
-      //'Registration Response: $response');
-
       if (response['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -87,7 +87,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       }
     } catch (e) {
-      //'Registration Exception: $e');
       _showError(
         'Registration failed. Please check your connection and try again.',
       );
@@ -104,6 +103,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         duration: const Duration(seconds: 3),
       ),
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -478,6 +484,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
+  // ✅ Terms Checkbox - आता real URLs आहेत
   Widget _buildTermsCheckbox() {
     return Padding(
       padding: const EdgeInsets.only(left: 4.0, right: 8.0, top: 6.0, bottom: 4.0),
@@ -498,42 +505,35 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Terms & Conditions and Privacy Policy link will be added soon.',
-                    ),
-                  ),
-                );
-              },
-              child: Text.rich(
-                TextSpan(
-                  text: 'I agree to the ',
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: 'Terms & Conditions',
-                      style: TextStyle(
-                        color: ThemeTokens.primaryGreen,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    const TextSpan(text: ' and '),
-                    TextSpan(
-                      text: 'Privacy Policy',
-                      style: TextStyle(
-                        color: ThemeTokens.primaryGreen,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ],
+            child: Text.rich(
+              TextSpan(
+                text: 'I agree to the ',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
+                children: [
+                  TextSpan(
+                    text: 'Terms of Service',
+                    style: TextStyle(
+                      color: ThemeTokens.primaryGreen,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => _openUrl('https://goodnewsapp.lemmecode.com/legal/terms'),
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: TextStyle(
+                      color: ThemeTokens.primaryGreen,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => _openUrl('https://goodnewsapp.lemmecode.com/legal/privacy'),
+                  ),
+                ],
               ),
             ),
           ),

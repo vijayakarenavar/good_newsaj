@@ -4,6 +4,9 @@ import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:good_news/features/authentication/presentation/screens/registration_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,9 +21,18 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   String? _emailError;
   String? _passwordError;
+
+  // Google Sign-In instance
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: '301224149408-6pdb30794egs7vjlnqdbjkdm5dbl7r5j.apps.googleusercontent.com',
+    scopes: ['email', 'profile'],
+  );
+
+  static const String _baseUrl = 'https://goodnewsapp.lemmecode.com/api/v1';
 
   @override
   void dispose() {
@@ -33,9 +45,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailController.text.trim().isNotEmpty &&
           _passwordController.text.isNotEmpty;
 
+  // ── Email/Password Login ──────────────────────────────────────────────────
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
 
     try {
@@ -43,8 +55,6 @@ class _LoginScreenState extends State<LoginScreen> {
         _emailController.text.trim(),
         _passwordController.text,
       );
-
-      //'Login Response: $response');
 
       if (response['token'] != null) {
         await PreferencesService.saveUserData(
@@ -69,11 +79,53 @@ class _LoginScreenState extends State<LoginScreen> {
         _showError(response['message'] ?? 'Invalid email or password');
       }
     } catch (e) {
-      //'Login Exception: $e');
       _showError('Login failed. Please check your connection and try again.');
     }
 
     setState(() => _isLoading = false);
+  }
+
+  // ── Google Sign-In ────────────────────────────────────────────────────────
+  Future<void> _googleSignInMethod() async {
+    setState(() => _isGoogleLoading = true);
+
+    try {
+      final GoogleSignInAccount? account = await _googleSignIn.signIn();
+      if (account == null) {
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication auth = await account.authentication;
+      final String? idToken = auth.idToken;
+
+      if (idToken == null) {
+        _showError('Google Sign-In failed. Please try again.');
+        setState(() => _isGoogleLoading = false);
+        return;
+      }
+
+      // ← Dio वापरतो आता
+      final result = await ApiService.googleMobileLogin(idToken);
+
+      if (result['token'] != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google Sign-In successful!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      } else {
+        _showError(result['error'] ?? 'Google Sign-In failed.');
+      }
+    } catch (e) {
+      _showError('Google Sign-In failed: $e');
+    }
+
+    setState(() => _isGoogleLoading = false);
   }
 
   void _showError(String message) {
@@ -92,6 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -118,6 +171,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   _buildPasswordField(),
                   const SizedBox(height: 24),
                   _buildLoginButton(),
+                  const SizedBox(height: 16),
+                  _buildDivider(),
+                  const SizedBox(height: 16),
+                  _buildGoogleButton(),
                   const SizedBox(height: 32),
                   _buildSignUpLink(),
                 ],
@@ -235,11 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
       style: const TextStyle(color: Colors.black87),
       onChanged: (value) {
         setState(() {
-          if (value.isEmpty) {
-            _passwordError = 'Password is required';
-          } else {
-            _passwordError = null;
-          }
+          _passwordError = value.isEmpty ? 'Password is required' : null;
         });
       },
       decoration: InputDecoration(
@@ -277,15 +330,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 : Icons.visibility_off_outlined,
             color: Colors.grey,
           ),
-          onPressed: () {
-            setState(() => _obscurePassword = !_obscurePassword);
-          },
+          onPressed: () =>
+              setState(() => _obscurePassword = !_obscurePassword),
         ),
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter your password';
-        }
+        if (value == null || value.isEmpty) return 'Please enter your password';
         return null;
       },
     );
@@ -298,7 +348,7 @@ class _LoginScreenState extends State<LoginScreen> {
       width: _isLoading ? 56 : fullWidth,
       height: 56,
       child: ElevatedButton(
-        onPressed: _canLogin && !_isLoading ? _login : null,
+        onPressed: _canLogin && !_isLoading && !_isGoogleLoading ? _login : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: ThemeTokens.primaryGreen,
           foregroundColor: Colors.white,
@@ -315,17 +365,98 @@ class _LoginScreenState extends State<LoginScreen> {
             width: 20,
             height: 20,
             child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
-            ),
+                color: Colors.white, strokeWidth: 2),
           )
               : const Text(
             'Login',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Row(
+      children: [
+        Expanded(
+          child: Divider(color: Colors.grey.shade300),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            'OR',
             style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+              color: Colors.grey[500],
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
+        ),
+        Expanded(
+          child: Divider(color: Colors.grey.shade300),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: _isLoading || _isGoogleLoading ? null : _googleSignInMethod,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.black87,
+          side: BorderSide(color: Colors.grey.shade300),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          backgroundColor: Colors.white,
+          elevation: 1,
+          shadowColor: Colors.black12,
+        ),
+        child: _isGoogleLoading
+            ? SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(
+            color: ThemeTokens.primaryGreen,
+            strokeWidth: 2,
+          ),
+        )
+            : Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Google "G" icon
+            Container(
+              width: 22,
+              height: 22,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF4285F4),
+              ),
+              child: const Center(
+                child: Text(
+                  'G',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Sign in with Google',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -337,10 +468,7 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           "Don't have an account? ",
-          style: TextStyle(
-            color: Colors.grey[700],
-            fontSize: 14,
-          ),
+          style: TextStyle(color: Colors.grey[700], fontSize: 14),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 2),

@@ -419,16 +419,9 @@ class ApiService {
 
   // ─────────────────────────────────────────────────────────────────────────
   // VIDEO FEED API — pagination: limit + offset
-  //
-  // Request:  GET /videos/feed?limit=10           (first page)
-  //           GET /videos/feed?limit=10&offset=10  (second page)
-  //           GET /videos/feed?limit=10&offset=20  (third page) ...
-  //
-  // Response expected: { "videos": [...], "has_more": true/false }
-  //   has_more नसेल तर: returned count >= limit असेल तर more assume करतो
   // ─────────────────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getVideoFeed({
-    int limit = 10,
+    int limit = 100,
     int offset = 0,
   }) async {
     try {
@@ -448,7 +441,6 @@ class ApiService {
         final data = response.data as Map<String, dynamic>;
         final rawVideos = data['videos'] as List? ?? [];
 
-        // DEBUG: फक्त first page वर — fix नंतर हा block काढा
         if (rawVideos.isNotEmpty && offset == 0) {
           final first = rawVideos[0] as Map<String, dynamic>;
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -457,7 +449,6 @@ class ApiService {
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         }
 
-        // has_more: API ने दिले → वापर; नाहीतर count वरून calculate
         final hasMore = data['has_more'] as bool?
             ?? data['hasMore'] as bool?
             ?? (rawVideos.length >= limit);
@@ -503,6 +494,70 @@ class ApiService {
       );
     } catch (e) {
       // silently fail
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ DELETE ACCOUNT (GDPR - Play Store Required)
+  // Endpoint: DELETE /api/v1/user/account
+  // ─────────────────────────────────────────────────────────────────────────
+  static Future<Map<String, dynamic>> deleteAccount() async {
+    try {
+      final token = await PreferencesService.getToken();
+      if (token == null) {
+        return {'status': 'error', 'error': 'Not authenticated'};
+      }
+
+      final response = await _dio.delete(
+        '/user/account',
+        options: Options(headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return {'status': 'success', 'message': 'Account deleted successfully'};
+      }
+
+      if (response.statusCode == 401) {
+        return {'status': 'error', 'error': 'Authentication failed'};
+      }
+
+      return {
+        'status': 'error',
+        'error': 'Failed to delete account. Please try again.',
+      };
+    } catch (e) {
+      if (e is DioException && e.type == DioExceptionType.connectionTimeout) {
+        return {'status': 'error', 'error': 'Connection timeout. Please check your internet.'};
+      }
+      return {'status': 'error', 'error': e.toString()};
+    }
+  }
+
+  // ✅ Google Sign-In Mobile
+  static Future<Map<String, dynamic>> googleMobileLogin(String idToken) async {
+    try {
+      final response = await _retryRequest(() async => await _dio.post(
+        '/auth/google/mobile',
+        data: {'id_token': idToken},
+      ));
+
+      final data = response.data;
+      if (data != null && data['token'] != null) {
+        await PreferencesService.saveUserData(
+          token: data['token'],
+          userId: data['user_id'] ?? 0,
+          name: data['user']?['display_name'] ?? 'User',
+          email: data['user']?['email'] ?? '',
+        );
+        await PreferencesService.setOnboardingCompleted(true);
+      }
+      return data ?? {'status': 'error'};
+    } catch (e) {
+      return {'status': 'error', 'error': e.toString()};
     }
   }
 }

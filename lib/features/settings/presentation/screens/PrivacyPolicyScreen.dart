@@ -14,7 +14,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   void initState() {
     super.initState();
     expandedSections = {
-      for (int i = 0; i < 8; i++) i: false,
+      for (int i = 0; i < 9; i++) i: false,
     };
   }
 
@@ -27,27 +27,28 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
         {
           'title': 'Personal Information',
           'items': [
-            'Name',
+            'Name / Display Name',
             'Email Address',
+            'Phone Number (optional)',
             'Password (securely encrypted & never shared)',
-            'User Posts',
-            'Comments & Likes'
           ]
         },
         {
           'title': 'Automatically Collected Data',
           'items': [
-            'App usage data',
+            'App usage data & reading history',
             'Device information',
             'Crash reports',
-            'Analytics for improving user experience'
+            'Video watch history & duration',
+            'Analytics for improving user experience',
           ]
         },
         {
           'title': 'Third-Party Data',
           'items': [
             'RSS News API content',
-            'AI-generated rewritten news (via GPT / AI API)'
+            'AI-generated rewritten news (via GPT / AI API)',
+            'YouTube video metadata (title, thumbnail, video ID)',
           ]
         }
       ]
@@ -58,82 +59,116 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
       'icon': '🎯',
       'items': [
         'Creating and managing your account',
-        'Allowing you to post content, comments, and likes',
-        'Showing personalized news categories',
-        'Improving app features and experience',
-        'Rewriting negative news into positive using AI',
-        'Displaying AI-processed news',
+        'Showing personalized news categories based on your preferences',
+        'Personalizing your video feed (TikTok-style)',
+        'Tracking video watch history to improve recommendations',
+        'Improving app features and overall experience',
+        'Rewriting negative news into positive content using AI',
         'Sending notifications about new posts or updates',
-        'Ensuring app security and preventing misuse'
+        'Ensuring app security and preventing misuse',
       ]
     },
     {
       'id': 2,
       'title': 'Login & Authentication',
       'icon': '🔐',
-      'items': [
-        'Email + Password authentication',
-        'Passwords are encrypted and never stored in plain text'
+      'subsections': [
+        {
+          'title': 'Email & Password Login',
+          'items': [
+            'Standard email + password authentication',
+            'Passwords are encrypted and never stored in plain text',
+            'JWT tokens used for secure session management',
+          ]
+        },
+
       ]
     },
     {
       'id': 3,
+      'title': 'Video Feed & YouTube Data',
+      'icon': '🎬',
+      'items': [
+        'JoyScroll displays YouTube videos in a personalized feed',
+        'Videos are AI-filtered for positive, uplifting content',
+        'We store YouTube video IDs, titles, and thumbnails on our servers',
+        'We track which videos you watch to personalize your feed',
+        'Watch duration and completion status may be recorded',
+        'We do not store actual video files — videos are streamed from YouTube',
+        'YouTube\'s own Terms of Service and Privacy Policy apply to video content',
+        'You can save videos to your favorites within the app',
+      ]
+    },
+    {
+      'id': 4,
       'title': 'How We Store and Protect Data',
       'icon': '🛡️',
       'subsections': [
         {
           'title': 'Security Measures',
           'items': [
-            'Secure encrypted connections (HTTPS)',
-            'Secure password hashing',
+            'Secure encrypted connections (HTTPS/TLS)',
+            'Secure password hashing (bcrypt)',
+            'JWT token-based authentication',
             'Limited access to sensitive data',
-            'Strict server-side validations'
+            'Strict server-side validations',
           ]
         },
         {
           'title': 'Data Policy',
-          'items': ['We never sell, rent, or exchange your personal data']
+          'items': [
+            'We never sell, rent, or exchange your personal data',
+            'Data is stored on secure servers',
+            'We retain data only as long as your account is active',
+          ]
         }
       ]
     },
     {
-      'id': 4,
+      'id': 5,
       'title': 'Third-Party Services',
       'icon': '🔗',
       'items': [
+        'YouTube Data API → for video content in the feed',
         'AI API (GPT / our AI system) → used to rewrite negative news',
         'RSS News APIs → used to fetch news articles',
-        'Database service for storing user data',
-        'All third-party services follow their own privacy policies'
+        'Firebase / Push Notification service → for app notifications',
+        'Database service → for storing user data securely',
+        'All third-party services follow their own privacy policies',
       ]
     },
     {
-      'id': 5,
-      'title': 'User-Generated Content',
-      'icon': '✍️',
+      'id': 8,
+      'title': 'Your Rights & Choices',
+      'icon': '⚖️',
       'items': [
-        'Users can post text posts, comments, and likes',
-        'We do not take responsibility for user-posted content',
-        'We may remove harmful or illegal posts'
+        'Access: You can view your profile and data anytime',
+        'Edit: You can update your display name and phone number',
+        'Delete: You can request full account and data deletion',
+        'Preferences: You can update your news category preferences anytime',
+        'Notifications: You can disable push notifications from device settings',
       ]
     },
     {
-      'id': 6,
+      'id': 9,
       'title': "Children's Privacy",
       'icon': '👶',
       'items': [
+        'JoyScroll is not intended for children under 13 years of age',
         'We do not knowingly collect data from children under 13',
-        'If such data is detected, it will be removed immediately'
+        'If such data is detected, it will be removed immediately',
+        'Parents or guardians may contact us to request data removal',
       ]
     },
     {
-      'id': 7,
+      'id': 10,
       'title': 'Data Deletion Request',
       'icon': '🗑️',
       'items': [
         'Request account or data deletion anytime',
-        'Email: goodnewsapp@gmail.com',
-        'Data deletion within 7–15 working days'
+        'Email: support@joyscroll.com',
+        'Data deletion completed within 7–15 working days',
+        'After deletion, all personal data, posts, and history will be permanently removed',
       ]
     }
   ];
@@ -172,6 +207,27 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
+              // Last Updated Badge
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: primaryColor.withOpacity(0.3)),
+                ),
+                child: Text(
+                  '📅 Last Updated: February 2026  •  Version 1.0',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Intro Card
               Card(
                 elevation: 2,
@@ -191,7 +247,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: 'Good News App ',
+                          text: 'JoyScroll ',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -200,7 +256,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                         ),
                         TextSpan(
                           text:
-                          'is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your information when you use our mobile application.',
+                          'is committed to protecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your information when you use our mobile application — including our News Feed and Video Feed.',
                           style: TextStyle(
                             fontSize: 14,
                             color: isDark ? Colors.white70 : Colors.black87,
@@ -247,9 +303,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                             ),
                           ),
                           trailing: Icon(
-                            isExpanded
-                                ? Icons.expand_less
-                                : Icons.expand_more,
+                            isExpanded ? Icons.expand_less : Icons.expand_more,
                             color: primaryColor,
                           ),
                           onTap: () => _toggleSection(id),
@@ -257,9 +311,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                         if (isExpanded) ...[
                           Divider(
                             height: 1,
-                            color: isDark
-                                ? Colors.grey[700]
-                                : Colors.grey[300],
+                            color: isDark ? Colors.grey[700] : Colors.grey[300],
                           ),
                           Padding(
                             padding: const EdgeInsets.all(16),
@@ -290,10 +342,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
                     border: Border(
-                      left: BorderSide(
-                        color: primaryColor,
-                        width: 4,
-                      ),
+                      left: BorderSide(color: primaryColor, width: 4),
                     ),
                   ),
                   padding: const EdgeInsets.all(16),
@@ -302,11 +351,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            Icons.mail,
-                            color: primaryColor,
-                            size: 24,
-                          ),
+                          Icon(Icons.mail, color: primaryColor, size: 24),
                           const SizedBox(width: 12),
                           Text(
                             'Contact Us',
@@ -330,7 +375,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                       Container(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [primaryColor, primaryColor.withOpacity(0.8)],
+                            colors: [
+                              primaryColor,
+                              primaryColor.withOpacity(0.8)
+                            ],
                           ),
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -338,11 +386,9 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                           color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
-                              // Open email
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content:
-                                  Text('📧 goodnewsapp@gmail.com'),
+                                  content: Text('📧 support@joyscroll.com'),
                                 ),
                               );
                             },
@@ -353,7 +399,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                                 vertical: 12,
                               ),
                               child: const Text(
-                                '📧 goodnewsapp@gmail.com',
+                                '📧 support@joyscroll.com',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
@@ -384,7 +430,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 ),
                 padding: const EdgeInsets.all(16),
                 child: Text(
-                  'We may update this policy occasionally. We will notify users of changes by updating the "Last Updated" date.',
+                  'We may update this policy occasionally. We will notify users of significant changes by updating the "Last Updated" date and, where required, sending an in-app notification.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -401,7 +447,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
     );
   }
 
-  Widget _buildItems(List<String> items, bool isDark) {
+  Widget _buildItems(List<dynamic> items, bool isDark) {
     return Column(
       children: items
           .map((item) => Padding(
@@ -434,7 +480,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   }
 
   Widget _buildSubsections(
-      List<Map<String, dynamic>> subsections,
+      List<dynamic> subsections,
       bool isDark,
       ) {
     return Column(
@@ -455,7 +501,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
             ),
             const SizedBox(height: 8),
             Column(
-              children: (subsection['items'] as List<String>)
+              children: (subsection['items'] as List<dynamic>)
                   .map((item) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(

@@ -9,8 +9,6 @@ import 'package:good_news/features/authentication/presentation/screens/login_scr
 import 'package:good_news/core/themes/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import 'PrivacyPolicyScreen.dart';
-
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({Key? key}) : super(key: key);
 
@@ -20,15 +18,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   late ThemeService _themeService;
-  // bool _notificationsEnabled = true;
-  // bool _dailyDigest = true;
   String _appVersion = 'Loading...';
 
   @override
   void initState() {
     super.initState();
     _themeService = ThemeService();
-    // Load saved preferences (including theme mode)
     _themeService.loadPreferences();
     _loadAppVersion();
   }
@@ -60,56 +55,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Appearance Section
           _buildSectionHeader('Appearance', sectionHeaderColor),
           Card(
             child: Column(
               children: [
-                // ONLY LIGHT MODE TOGGLE (THEME COLOR OPTION COMMENTED OUT)
-
-                /*
-                // Theme Color Picker
-                ListenableBuilder(
-                  listenable: _themeService,
-                  builder: (context, child) {
-                    return ListTile(
-                      leading: Icon(
-                        Icons.palette,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      title: const Text('Theme Color'),
-                      subtitle: Text(
-                        _themeService.themeType == AppThemeType.green
-                            ? 'Green (Default)'
-                            : 'Pink',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 20,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: _themeService.themeType == AppThemeType.green
-                                  ? AppTheme.accentGreen
-                                  : AppTheme.accentPink,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.chevron_right, size: 18),
-                        ],
-                      ),
-                      onTap: () {
-                        _showThemeColorDialog();
-                      },
-                    );
-                  },
-                ),
-                const Divider(height: 1),
-                */
-
-                // Light Mode Toggle (Default = ON)
                 ListenableBuilder(
                   listenable: _themeService,
                   builder: (context, child) {
@@ -138,60 +87,68 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 16),
 
-          // Personalization Section
           _buildSectionHeader('Personalization', sectionHeaderColor),
           Card(
             child: ListTile(
-              leading: Icon(
-                Icons.category,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              leading: Icon(Icons.category, color: Theme.of(context).colorScheme.primary),
               title: const Text('Manage Categories'),
               subtitle: const Text('Choose your preferred news topics'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                _showCategoriesDialog();
-              },
+              onTap: () => _showCategoriesDialog(),
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Data & Privacy Section
-          _buildSectionHeader('Data & Privacy', sectionHeaderColor),
+          _buildSectionHeader('Legal', sectionHeaderColor),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.privacy_tip),
-              title: const Text('Privacy Policy'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PrivacyPolicyScreen()),
-                );
-              },
+            child: Column(
+              children: [
+                // ✅ Privacy Policy — browser मध्ये उघडतो (PrivacyPolicyScreen नाही)
+                ListTile(
+                  leading: Icon(Icons.privacy_tip, color: Theme.of(context).colorScheme.primary),
+                  title: const Text('Privacy Policy'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openPrivacyPolicy(),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: Icon(Icons.description, color: Theme.of(context).colorScheme.primary),
+                  title: const Text('Terms of Service'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openTermsOfService(),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Account Section
           _buildSectionHeader('Account', sectionHeaderColor),
           Card(
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
-              title: const Text('Logout', style: TextStyle(color: Colors.red)),
-              subtitle: const Text('Sign out of your account'),
-              trailing: const Icon(Icons.chevron_right, color: Colors.red),
-              onTap: () {
-                _showLogoutDialog();
-              },
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                  subtitle: const Text('Sign out of your account'),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.red),
+                  onTap: () => _showLogoutDialog(),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.delete_forever, color: Colors.red),
+                  title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
+                  subtitle: const Text('Permanently delete your account and all data', style: TextStyle(fontSize: 12)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.red),
+                  onTap: () => _showDeleteAccountDialog(),
+                ),
+              ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // About Section
           _buildSectionHeader('About', sectionHeaderColor),
           Card(
             child: Column(
@@ -207,9 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   title: const Text('Rate App'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () async {
-                    final url = Uri.parse(
-                      'https://play.google.com/store/apps/details?id=com.joyscroll.app',
-                    );
+                    final url = Uri.parse('https://play.google.com/store/apps/details?id=com.joyscroll.app');
                     if (await canLaunchUrl(url)) {
                       await launchUrl(url, mode: LaunchMode.externalApplication);
                     } else {
@@ -234,16 +189,121 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(bottom: 8, top: 8),
       child: Text(
         title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: color),
       ),
     );
   }
 
-  // COMMENTED OUT BUT STILL AVAILABLE FOR FUTURE USE
+  // ✅ Privacy Policy — browser मध्ये उघडतो
+  Future<void> _openPrivacyPolicy() async {
+    final url = Uri.parse('https://goodnewsapp.lemmecode.com/legal/privacy');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Privacy Policy')),
+        );
+      }
+    }
+  }
+
+  // ✅ Terms of Service — browser मध्ये उघडतो
+  Future<void> _openTermsOfService() async {
+    final url = Uri.parse('https://goodnewsapp.lemmecode.com/legal/terms');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Terms of Service')),
+        );
+      }
+    }
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Delete Account?', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+          content: const Text(
+            'This will permanently delete your account and ALL your data:\n\n'
+                '• Reading history\n'
+                '• Saved articles and videos\n'
+                '• Likes and comments\n'
+                '• Posts\n'
+                '• Friends and connections\n\n'
+                'This action CANNOT be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteAccount();
+              },
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Delete Forever'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _deleteAccount() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await ApiService.deleteAccount();
+      if (mounted) Navigator.of(context).pop();
+
+      if (result['status'] == 'success') {
+        await PreferencesService.logout();
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+          );
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Account deleted successfully'), backgroundColor: Colors.green),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['error'] ?? 'Failed to delete account. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showThemeColorDialog() {
     showDialog(
       context: context,
@@ -266,12 +326,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
                 secondary: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentGreen,
-                    shape: BoxShape.circle,
-                  ),
+                  width: 20, height: 20,
+                  decoration: const BoxDecoration(color: AppTheme.accentGreen, shape: BoxShape.circle),
                 ),
               ),
               RadioListTile<AppThemeType>(
@@ -287,12 +343,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   }
                 },
                 secondary: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.accentPink,
-                    shape: BoxShape.circle,
-                  ),
+                  width: 20, height: 20,
+                  decoration: const BoxDecoration(color: AppTheme.accentPink, shape: BoxShape.circle),
                 ),
               ),
             ],
@@ -305,7 +357,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showCategoriesDialog() async {
     try {
       final categoriesResponse = await ApiService.getCategories();
-
       List<Map<String, dynamic>> categories = [];
       Set<int> selectedCategories = {};
 
@@ -330,10 +381,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Select at least 3 categories to personalize your feed:',
-                        style: TextStyle(fontSize: 14),
-                      ),
+                      const Text('Select at least 3 categories to personalize your feed:', style: TextStyle(fontSize: 14)),
                       const SizedBox(height: 16),
                       Flexible(
                         child: ListView.builder(
@@ -343,7 +391,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             final category = categories[index];
                             final categoryId = category['id'] as int;
                             final isSelected = selectedCategories.contains(categoryId);
-
                             return CheckboxListTile(
                               title: Text(category['name']),
                               subtitle: category['description'] != null
@@ -376,10 +423,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Cancel'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
                   TextButton(
                     onPressed: selectedCategories.length >= 3
                         ? () async {
@@ -398,10 +442,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load categories: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to load categories: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -410,24 +451,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveCategories(List<int> categoryIds) async {
     try {
       await PreferencesService.saveSelectedCategories(categoryIds);
-
       try {
         final token = await PreferencesService.getToken();
-        if (token !=null && token.isNotEmpty) {
+        if (token != null && token.isNotEmpty) {
           await ApiService.saveUserPreferencesAuth(categoryIds, token);
         }
       } catch (_) {}
-
-      if (mounted) {
-        NotificationService.showSuccess('Categories updated successfully!');
-      }
+      if (mounted) NotificationService.showSuccess('Categories updated successfully!');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save categories: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Failed to save categories: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -441,10 +475,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('Logout'),
           content: const Text('Are you sure you want to logout?'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop();
@@ -462,22 +493,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       await PreferencesService.clearToken();
       await PreferencesService.clearUserData();
-
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (context) => const LoginScreen()),
               (route) => false,
         );
-
         NotificationService.showSuccess('Logged out successfully');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Logout failed: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Logout failed: $e'), backgroundColor: Colors.red),
         );
       }
     }
