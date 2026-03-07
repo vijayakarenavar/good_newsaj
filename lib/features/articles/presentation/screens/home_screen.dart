@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen>
   final Set<String> _preloadedImages = {};
 
   // ─── Video Pagination ───────────────────────────────────────────────────
-  static const int _kVideoPageSize = 10;
+  static const int _kVideoPageSize = 100;
   int _videoOffset = 0;
   bool _videoHasMore = true;
   bool _videoLoadingMore = false;

@@ -28,8 +28,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Google Sign-In instance
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: '301224149408-6pdb30794egs7vjlnqdbjkdm5dbl7r5j.apps.googleusercontent.com',
     scopes: ['email', 'profile'],
+    serverClientId: '293043554696-41f65f90a0opo0jq15ves6d2fhb1v2qe.apps.googleusercontent.com',
   );
 
   static const String _baseUrl = 'https://goodnewsapp.lemmecode.com/api/v1';
@@ -97,6 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final GoogleSignInAuthentication auth = await account.authentication;
+
+      // ✅ Debug prints
+      print("ID TOKEN: ${auth.idToken}");
+      print("ACCESS TOKEN: ${auth.accessToken}");
+
       final String? idToken = auth.idToken;
 
       if (idToken == null) {
@@ -105,7 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // ← Dio वापरतो आता
       final result = await ApiService.googleMobileLogin(idToken);
 
       if (result['token'] != null) {
@@ -428,24 +432,10 @@ class _LoginScreenState extends State<LoginScreen> {
             : Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Google "G" icon
-            Container(
+            Image.asset(
+              'assets/images/g-logo.png',
               width: 22,
               height: 22,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF4285F4),
-              ),
-              child: const Center(
-                child: Text(
-                  'G',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ),
             const SizedBox(width: 12),
             const Text(

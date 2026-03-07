@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:good_news/core/services/theme_service.dart';
 import 'package:good_news/core/services/notification_service.dart';
 import 'package:good_news/core/services/app_info_service.dart';
@@ -104,7 +104,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Card(
             child: Column(
               children: [
-                // ✅ Privacy Policy — browser मध्ये उघडतो (PrivacyPolicyScreen नाही)
                 ListTile(
                   leading: Icon(Icons.privacy_tip, color: Theme.of(context).colorScheme.primary),
                   title: const Text('Privacy Policy'),
@@ -194,7 +193,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ✅ Privacy Policy — browser मध्ये उघडतो
   Future<void> _openPrivacyPolicy() async {
     final url = Uri.parse('https://goodnewsapp.lemmecode.com/legal/privacy');
     if (await canLaunchUrl(url)) {
@@ -208,7 +206,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ✅ Terms of Service — browser मध्ये उघडतो
   Future<void> _openTermsOfService() async {
     final url = Uri.parse('https://goodnewsapp.lemmecode.com/legal/terms');
     if (await canLaunchUrl(url)) {
@@ -491,6 +488,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _logout() async {
     try {
+      // ✅ Google Sign-Out — दरवेळी account selection dialog येईल
+      try {
+        final GoogleSignIn googleSignIn = GoogleSignIn();
+        await googleSignIn.signOut();
+      } catch (e) {
+        // silently fail
+      }
+
       await PreferencesService.clearToken();
       await PreferencesService.clearUserData();
       if (mounted) {
