@@ -97,10 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       final GoogleSignInAuthentication auth = await account.authentication;
-
       // ✅ Debug prints
-      print("ID TOKEN: ${auth.idToken}");
-      print("ACCESS TOKEN: ${auth.accessToken}");
+      // print("ID TOKEN: ${auth.idToken}");
+      // print("ACCESS TOKEN: ${auth.accessToken}");
 
       final String? idToken = auth.idToken;
 

@@ -9,7 +9,7 @@ class ReadingHistoryScreen extends StatefulWidget {
   State<ReadingHistoryScreen> createState() => _ReadingHistoryScreenState();
 }
 
-class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ FIXED!
+class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {
   List<Map<String, dynamic>> _historyArticles = [];
   bool _isLoading = true;
 
@@ -21,24 +21,15 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
 
   Future<void> _loadHistory() async {
     setState(() => _isLoading = true);
-
     try {
       final history = await UserService.getHistory();
-
       if (mounted) {
         setState(() {
           _historyArticles = history;
           _isLoading = false;
         });
-
-        debugPrint('📚 HISTORY: Loaded ${_historyArticles.length} articles');
-        if (_historyArticles.isNotEmpty) {
-          debugPrint('📚 HISTORY: First article keys: ${_historyArticles.first.keys.toList()}');
-          debugPrint('📚 HISTORY: First article summary: ${_historyArticles.first['summary']}');
-        }
       }
     } catch (e) {
-      debugPrint('❌ HISTORY: Error loading history: $e');
       if (mounted) {
         setState(() {
           _historyArticles = [];
@@ -70,10 +61,7 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
         automaticallyImplyLeading: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            debugPrint('📖 HISTORY: Back button pressed, closing Reading History');
-            Navigator.of(context).pop();
-          },
+          onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
           IconButton(
@@ -90,7 +78,6 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
           ? _buildEmptyState(context)
           : Column(
         children: [
-          // History count
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -107,8 +94,6 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
               ],
             ),
           ),
-
-          // History list
           Expanded(
             child: RefreshIndicator(
               onRefresh: _loadHistory,
@@ -131,7 +116,6 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
   Widget _buildEmptyState(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -140,22 +124,22 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
           const SizedBox(height: 16),
           Text(
             'No reading history yet',
-            style: textTheme.headlineSmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.8)),
+            style: textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.8)),
           ),
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: Text(
               'Articles you read will appear here',
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+              style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurface.withOpacity(0.7)),
               textAlign: TextAlign.center,
             ),
           ),
           const SizedBox(height: 24),
           ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
+            onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.explore),
             label: const Text('Explore Articles'),
             style: ElevatedButton.styleFrom(
@@ -168,13 +152,17 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
     );
   }
 
-  Widget _buildHistoryCard(Map<String, dynamic> article, ColorScheme colorScheme, TextTheme textTheme) {
-    // Get summary with fallback
-    final summary = article['rewritten_summary'] ?? article['summary'] ?? 'Tap to read this article and discover positive news.';
-
-    // Make sure we show a decent summary for very short or missing text
-    final displaySummary = (summary.isEmpty || summary == 'No summary available' || summary.length < 20)
-        ? 'Tap "Read Again" to view this article in your feed.'
+  Widget _buildHistoryCard(
+      Map<String, dynamic> article,
+      ColorScheme colorScheme,
+      TextTheme textTheme) {
+    final summary = article['rewritten_summary'] ??
+        article['summary'] ??
+        article['content'] ??
+        '';
+    final displaySummary =
+    (summary.isEmpty || summary == 'No summary available' || summary.length < 20)
+        ? 'Tap "Read Again" to view this article.'
         : summary;
 
     return Card(
@@ -190,7 +178,7 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header with category and read date
+              // Category + date row
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -210,11 +198,14 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
                   ),
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 14, color: colorScheme.onSurface.withOpacity(0.6)),
+                      Icon(Icons.access_time,
+                          size: 14,
+                          color: colorScheme.onSurface.withOpacity(0.6)),
                       const SizedBox(width: 4),
                       Text(
                         _formatDate(article['read_at']),
-                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+                        style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.7)),
                       ),
                     ],
                   ),
@@ -242,11 +233,14 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceVariant.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: colorScheme.outline.withOpacity(0.12)),
+                  border:
+                  Border.all(color: colorScheme.outline.withOpacity(0.12)),
                 ),
                 child: Text(
                   displaySummary,
-                  style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface.withOpacity(0.8), height: 1.4),
+                  style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface.withOpacity(0.8),
+                      height: 1.4),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -260,11 +254,13 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.check_circle, size: 14, color: colorScheme.primary),
+                      Icon(Icons.check_circle,
+                          size: 14, color: colorScheme.primary),
                       const SizedBox(width: 4),
                       Text(
                         'Read ${_formatDate(article['read_at'])}',
-                        style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurface.withOpacity(0.7)),
+                        style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.7)),
                       ),
                     ],
                   ),
@@ -275,9 +271,11 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
                     style: ElevatedButton.styleFrom(
                       backgroundColor: colorScheme.primary,
                       foregroundColor: colorScheme.onPrimary,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       elevation: 2,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ],
@@ -289,44 +287,90 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
     );
   }
 
-  /// ✅ UPDATED: "Read Again" now ADDS NEW ENTRY to history + navigates back
+  // ✅ FIXED: ...article पहिला — नंतर fixed values overwrite करतात
+  Map<String, dynamic> _buildCompleteArticle(Map<String, dynamic> article) {
+    return {
+      // Original fields पहिले (null असतील)
+      ...article,
+
+      // Fixed/validated values — वरचे null overwrite होतात
+      'id': article['id'] ?? article['article_id'],
+      'title': article['title'] ?? 'No Title',
+      'content': article['content'] ??
+          article['rewritten_summary'] ??
+          article['summary'] ??
+          article['description'] ??
+          '',
+      'summary': article['summary'] ??
+          article['rewritten_summary'] ??
+          article['content'] ??
+          '',
+      'rewritten_summary': article['rewritten_summary'] ??
+          article['summary'] ??
+          article['content'] ??
+          '',
+      'image_url': _findValidUrl(article, [
+        'image_url', 'image', 'thumbnail_url', 'thumbnail',
+        'featured_image', 'photo_url', 'cover_image',
+      ]),
+      'source_url': _findValidUrl(article, [
+        'source_url', 'url', 'link', 'article_url',
+        'original_url', 'web_url', 'canonical_url',
+      ]),
+      'category': article['category'] ?? article['category_name'] ?? 'General',
+      'author': article['author'] ??
+          article['author_name'] ??
+          article['source'] ??
+          '',
+      'created_at': article['created_at'] ??
+          article['published_at'] ??
+          article['date'],
+      'is_ai_rewritten': article['is_ai_rewritten'] ?? false,
+    };
+  }
+
+  // Valid URL शोधतो — null/empty/invalid skip करतो
+  String? _findValidUrl(Map<String, dynamic> article, List<String> keys) {
+    for (final key in keys) {
+      final val = article[key]?.toString().trim();
+      if (val != null &&
+          val.isNotEmpty &&
+          val != 'null' &&
+          val != 'NULL' &&
+          val != 'undefined' &&
+          (val.startsWith('http://') || val.startsWith('https://'))) {
+        return val;
+      }
+    }
+    return null;
+  }
+
   void _readAgain(Map<String, dynamic> article) async {
-    debugPrint('📖 HISTORY: Read Again clicked for article ${article['id']}');
-
     try {
-      final articleId = article['id'] as int?;
-      if (articleId == null) {
-        throw Exception('Article ID missing');
-      }
+      final articleId = article['id'] as int? ??
+          int.tryParse(article['id']?.toString() ?? '') ??
+          int.tryParse(article['article_id']?.toString() ?? '');
 
-      // ✅ STEP 1: History मध्ये add करा
-      debugPrint('✅ Adding NEW history entry for article $articleId...');
-      final newEntryId = await UserService.addToHistoryWithNewEntry(articleId);
+      if (articleId == null) throw Exception('Article ID missing');
 
-      if (newEntryId != null) {
-        debugPrint('✅ SUCCESS: New history entry created (ID: $newEntryId)');
-        // ✅ Local history refresh करा (background मध्ये)
-        _loadHistory();
-      } else {
-        debugPrint('⚠️ WARNING: History entry may not have been created');
-      }
+      // History entry add करा (background)
+      UserService.addToHistoryWithNewEntry(articleId).then((id) {
+        if (id != null) _loadHistory();
+      });
 
-      // ✅ STEP 2: Article Detail Screen उघडा
+      // Complete article object बनवतो
+      final completeArticle = _buildCompleteArticle(article);
+
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => ArticleDetailScreen(article: article),
+          builder: (context) => ArticleDetailScreen(article: completeArticle),
         ),
       );
-
-      // ✅ STEP 3: Back आल्यावर येथे येईल (automatic!)
-      debugPrint('📖 User came back from Article Detail Screen');
-
     } catch (e) {
-      debugPrint('❌ ERROR in readAgain: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not open article'),
+            content: const Text('Could not open article'),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 2),
           ),
@@ -335,25 +379,16 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {  // ✅ F
     }
   }
 
-
   String _formatDate(String? dateStr) {
     if (dateStr == null) return 'Recently';
     try {
       final date = DateTime.parse(dateStr);
-      final now = DateTime.now();
-      final diff = now.difference(date);
-
-      if (diff.inDays > 7) {
-        return '${date.day}/${date.month}/${date.year}';
-      } else if (diff.inDays > 0) {
-        return '${diff.inDays}d ago';
-      } else if (diff.inHours > 0) {
-        return '${diff.inHours}h ago';
-      } else if (diff.inMinutes > 0) {
-        return '${diff.inMinutes}m ago';
-      } else {
-        return 'Just now';
-      }
+      final diff = DateTime.now().difference(date);
+      if (diff.inDays > 7) return '${date.day}/${date.month}/${date.year}';
+      if (diff.inDays > 0) return '${diff.inDays}d ago';
+      if (diff.inHours > 0) return '${diff.inHours}h ago';
+      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+      return 'Just now';
     } catch (_) {
       return 'Recently';
     }

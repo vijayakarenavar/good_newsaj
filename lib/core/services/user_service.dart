@@ -7,18 +7,13 @@ class UserService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
-
-      //'🔍 Fetching user profile...');
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
         method: 'GET',
         token: token,
       );
-
-      //'✅ Profile response: $response');
       return Map<String, dynamic>.from(response);
     } catch (e) {
-      //'❌ Error loading user profile: $e');
       throw Exception('Failed to load user profile: $e');
     }
   }
@@ -29,56 +24,31 @@ class UserService {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      //'📊 Fetching user stats from API...');
-
       try {
         final response = await ApiService.authenticatedRequest(
           '/user/stats',
           method: 'GET',
           token: token,
         );
-
-        //'✅ Stats from API: $response');
-
         if (response is Map) {
-          //'✅ Processing API stats with correct field mapping...');
-
-          // Map API fields to expected keys (removed favorites_count)
-          final stats = {
+          return {
             'articles_read': response['read_articles'] ?? 0,
             'posts': response['posts_count'] ?? 0,
             'likes': response['likes_received'] ?? 0,
             'comments': response['comments_received'] ?? 0,
           };
-
-          //'✅ Final stats: $stats');
-          return stats;
         }
-      } catch (e) {
-        //'⚠️ /user/stats endpoint failed: $e');
-      }
+      } catch (e) {}
 
-      // Full fallback: calculate everything manually
-      //'📊 Calculating all stats manually...');
       final history = await getHistory();
-
-      final stats = {
+      return {
         'articles_read': history.length,
         'posts': 0,
         'likes': 0,
         'comments': 0,
       };
-
-      //'✅ Manual stats: $stats');
-      return stats;
     } catch (e) {
-      //'❌ Error loading user stats: $e');
-      return {
-        'articles_read': 0,
-        'posts': 0,
-        'likes': 0,
-        'comments': 0,
-      };
+      return {'articles_read': 0, 'posts': 0, 'likes': 0, 'comments': 0};
     }
   }
 
@@ -87,23 +57,16 @@ class UserService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
-
-      //'📝 Updating profile with data: $data');
-
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
         method: 'PUT',
         token: token,
         data: data,
       );
-
-      //'✅ Update profile response: $response');
-
       return response['message'] == 'Profile updated successfully' ||
           response['status'] == 'success' ||
           response['success'] == true;
     } catch (e) {
-      //'❌ Error updating profile: $e');
       return false;
     }
   }
@@ -111,12 +74,7 @@ class UserService {
   static Future<void> refreshUserProfile() async {
     try {
       final token = await PreferencesService.getToken();
-      if (token == null) {
-        //'❌ No token found, cannot refresh profile');
-        return;
-      }
-
-      //'🔄 Refreshing user profile data...');
+      if (token == null) return;
 
       final response = await ApiService.authenticatedRequest(
         '/user/profile',
@@ -130,32 +88,18 @@ class UserService {
         final userId = response['id'];
 
         if (displayName != null && email != null && userId != null) {
-          //'✅ Got profile data:');
-          //'   Display Name: $displayName');
-          //'   Email: $email');
-          //'   User ID: $userId');
-
-          // ✅ Update stored user data with correct display_name
           final currentToken = await PreferencesService.getToken();
           if (currentToken != null) {
             await PreferencesService.saveUserData(
               token: currentToken,
               userId: userId,
-              name: displayName, // ✅ Save display_name
+              name: displayName,
               email: email,
             );
-
-            //'💾 Updated display name in preferences: $displayName');
-
-            // ✅ Verify it was saved
-            final savedName = await PreferencesService.getUserDisplayName();
-            //'✅ Verified: Display name is now "$savedName"');
           }
         }
       }
-    } catch (e) {
-      //'❌ Failed to refresh user profile: $e');
-    }
+    } catch (e) {}
   }
 
   // ==================== READING HISTORY ====================
@@ -165,36 +109,25 @@ class UserService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
-
-      //'📝 Adding article $articleId to history...');
-
       final response = await ApiService.authenticatedRequest(
         '/user/history',
         method: 'POST',
         token: token,
         data: {'article_id': articleId},
       );
-
-      //'✅ Add to history response: $response');
-
       return response['message'] == 'Added to history successfully' ||
           response['status'] == 'success';
     } catch (e) {
-      //'❌ Error adding to history: $e');
       return false;
     }
   }
 
-  /// ✅ NEW: Add article to reading history with NEW entry (for "Read Again" functionality)
-  /// Returns the new history entry ID if successful
+  /// Add article to reading history with NEW entry (for "Read Again")
   static Future<int?> addToHistoryWithNewEntry(int articleId) async {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
 
-      //'📝 Adding article $articleId to history with NEW entry...');
-
-      // ✅ CRITICAL: Use POST to /user/history to create NEW entry (not update existing)
       final response = await ApiService.authenticatedRequest(
         '/user/history',
         method: 'POST',
@@ -202,45 +135,31 @@ class UserService {
         data: {'article_id': articleId},
       );
 
-      //'✅ New history entry response: $response');
-
-      // Extract new entry ID from response (backend should return it)
       if (response is Map) {
-        // Try common response patterns
         final newEntryId = response['history_id'] ??
             response['id'] ??
             response['entry_id'] ??
             response['data']?['id'];
-
-        if (newEntryId != null && newEntryId is int) {
-          //'✅ Created new history entry with ID: $newEntryId');
-          return newEntryId;
-        }
+        if (newEntryId != null && newEntryId is int) return newEntryId;
       }
 
-      // Fallback: Assume success if status is good
       if (response['message']?.contains('success') == true ||
           response['status'] == 'success' ||
           response['success'] == true) {
-        //'✅ History entry created (ID not returned by backend)');
-        return -1; // Success indicator
+        return -1;
       }
 
       return null;
     } catch (e) {
-      //'❌ Error adding new history entry: $e');
       return null;
     }
   }
 
   /// Get reading history (GET /user/history)
-  /// ✅ FIXED: Now properly extracts and includes summaries
   static Future<List<Map<String, dynamic>>> getHistory() async {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('No auth token');
-
-      //'📖 Fetching reading history...');
 
       final response = await ApiService.authenticatedRequest(
         '/user/history',
@@ -248,78 +167,98 @@ class UserService {
         token: token,
       );
 
-      //'📦 History response type: ${response.runtimeType}');
-      //'📦 History response: $response');
-
       List<dynamic> historyList = [];
 
       if (response is List) {
         historyList = response as List;
-        //'✅ History is List: ${historyList.length} items');
       } else if (response is Map && response.containsKey('data')) {
         final data = response['data'];
-        if (data is List) {
-          historyList = data;
-          //'✅ History from data field: ${historyList.length} items');
-        }
+        if (data is List) historyList = data;
       } else if (response is Map && response.containsKey('history')) {
         final history = response['history'];
-        if (history is List) {
-          historyList = history;
-          //'✅ History from history field: ${historyList.length} items');
-        }
+        if (history is List) historyList = history;
       }
 
-      // ✅ ENHANCED: Process each history item to ensure all fields are present
-      final result = historyList.map((item) {
-        final article = Map<String, dynamic>.from(item as Map);
+      // ✅ FIXED: सगळे fields properly map होतात
+      return historyList.map((item) {
+        final a = Map<String, dynamic>.from(item as Map);
 
-        // ✅ Extract summary fields with priority
-        final summary = article['rewritten_summary'] ??
-            article['summary'] ??
-            'Tap to read this article and discover positive news.';
+        // --- Content fallback chain ---
+        final content = a['rewritten_summary'] ??
+            a['summary'] ??
+            a['content'] ??
+            a['description'] ??
+            a['rewritten_content'] ??
+            '';
 
-        // ✅ Extract title fields with priority
-        final title = article['rewritten_headline'] ??
-            article['title'] ??
-            'News Article';
+        // --- Title fallback ---
+        final title = a['rewritten_headline'] ?? a['title'] ?? 'News Article';
 
-        // ✅ Create normalized article object with all necessary fields
-        final processedArticle = {
-          'id': article['id'] ?? article['article_id'],
+        // --- Image URL: valid असेल तरच घेतो ---
+        String? imageUrl;
+        for (final key in [
+          'image_url', 'image', 'thumbnail_url', 'thumbnail',
+          'featured_image', 'photo_url', 'cover_image'
+        ]) {
+          final val = a[key]?.toString().trim();
+          if (val != null &&
+              val.isNotEmpty &&
+              val != 'null' &&
+              val != 'NULL' &&
+              val != 'undefined' &&
+              (val.startsWith('http://') || val.startsWith('https://'))) {
+            imageUrl = val;
+            break;
+          }
+        }
+
+        // --- Source URL: valid असेल तरच घेतो ---
+        String? sourceUrl;
+        for (final key in [
+          'source_url', 'url', 'link', 'article_url',
+          'original_url', 'web_url', 'canonical_url'
+        ]) {
+          final val = a[key]?.toString().trim();
+          if (val != null &&
+              val.isNotEmpty &&
+              val != 'null' &&
+              val != 'NULL' &&
+              val != 'undefined' &&
+              (val.startsWith('http://') || val.startsWith('https://'))) {
+            sourceUrl = val;
+            break;
+          }
+        }
+
+        return {
+          // Core
+          'id': a['id'] ?? a['article_id'],
           'title': title,
-          'summary': summary,
-          'rewritten_summary': article['rewritten_summary'],
-          'rewritten_headline': article['rewritten_headline'],
-          'category': article['category_name'] ?? article['category'] ?? 'General',
-          'category_id': article['category_id'],
-          'read_at': article['read_at'] ?? article['created_at'] ?? DateTime.now().toIso8601String(),
-          'source_url': article['source_url'] ?? '',
-          'sentiment': article['sentiment'] ?? 'POSITIVE',
-          'image_url': article['image_url'],
+
+          // Content — ArticleDetailScreen ला सगळे keys लागतात
+          'content': content,
+          'summary': a['summary'] ?? content,
+          'rewritten_summary': a['rewritten_summary'] ?? content,
+          'rewritten_headline': a['rewritten_headline'],
+          'description': a['description'],
+
+          // Image & Source — validated URLs only
+          'image_url': imageUrl,
+          'source_url': sourceUrl,
+
+          // Meta
+          'category': a['category_name'] ?? a['category'] ?? 'General',
+          'category_id': a['category_id'],
+          'author': a['author'] ?? a['author_name'] ?? a['source'],
+          'created_at': a['created_at'] ?? a['published_at'],
+          'read_at': a['read_at'] ??
+              a['created_at'] ??
+              DateTime.now().toIso8601String(),
+          'sentiment': a['sentiment'] ?? 'POSITIVE',
+          'is_ai_rewritten': a['is_ai_rewritten'] ?? false,
         };
-
-        //'📖 History article ${processedArticle['id']}: "${processedArticle['title']}"');
-        //'   Summary: ${summary.substring(0, summary.length > 50 ? 50 : summary.length)}...');
-        //'   Category: ${processedArticle['category']}');
-
-        return processedArticle;
       }).toList();
-
-      //'✅ Returning ${result.length} processed history items with summaries');
-
-      // Print summary stats
-      final withSummary = result.where((a) =>
-      a['summary'] != null &&
-          a['summary'].toString().isNotEmpty &&
-          a['summary'] != 'Tap to read this article and discover positive news.'
-      ).length;
-
-      //'📊 Articles with valid summaries: $withSummary/${result.length}');
-
-      return result;
     } catch (e) {
-      //'❌ Error fetching history: $e');
       return [];
     }
   }

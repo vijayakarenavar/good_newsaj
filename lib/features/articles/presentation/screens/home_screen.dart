@@ -14,7 +14,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 import 'package:visibility_detector/visibility_detector.dart';
-
+import 'package:good_news/core/services/app_info_service.dart';
 import '../../../../widgets/speed_dial_fab.dart';
 import '../widgets/video_reel_widget.dart';
 
@@ -917,24 +917,45 @@ class _HomeScreenState extends State<HomeScreen>
     if (result == true && mounted) await _loadProfileData();
   }
 
-  void _showAboutDialog(BuildContext context) {
-    showAboutDialog(
-        context: context,
-        applicationName: 'Joy Scroll App',
-        applicationVersion: '1.0.0',
-        applicationIcon: Container(
-            width: 56,
-            height: 56,
-            decoration: const BoxDecoration(
-                color: Color(0xFF68BB59), shape: BoxShape.circle),
-            child: const Icon(Icons.check, color: Colors.white, size: 32)),
-        children: const [
-          Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Text(
-                  'Bringing you positive, AI-powered news stories that brighten your day.',
-                  textAlign: TextAlign.center))
-        ]);
+  // नवीन code — हा टाका:
+  void _showAboutDialog(BuildContext context) async {
+    final version = await AppInfoService.getAppVersion();
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56, height: 56,
+              decoration: const BoxDecoration(
+                  color: Color(0xFF68BB59), shape: BoxShape.circle),
+              child: const Icon(Icons.check, color: Colors.white, size: 32),
+            ),
+            const SizedBox(height: 16),
+            const Text('Joy Scroll',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Version $version',   // ✅ automatic version
+                style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+            const SizedBox(height: 16),
+            const Text(
+              'Bringing you positive, AI-powered news stories that brighten your day.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildArticlesReadCard() {
@@ -1093,8 +1114,17 @@ class _HomeScreenState extends State<HomeScreen>
         _buildMenuItem(context,
             title: 'Settings',
             icon: Icons.settings_outlined,
-            onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (c) => const SettingsScreen()))),
+            onTap: () async {
+              await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (c) => const SettingsScreen()));
+              // Settings मधून परत आल्यावर categories reload होतील
+              if (mounted) {
+                _selectedCategoryIds = await PreferencesService.getSelectedCategories();
+                _allArticles.clear();
+                await _loadArticles(isInitial: true);
+                _updateDisplayedItems();
+              }
+            },),
         _buildDivider(isDark),
         _buildMenuItem(context,
             title: 'About',

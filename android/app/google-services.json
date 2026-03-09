@@ -7,6 +7,43 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:293043554696:android:207a061963e1df35eb523d",
+        "android_client_info": {
+          "package_name": "com.joyscroll.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "293043554696-1tbficbd2il3adr9hb64ikbko6duc5gh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.joyscroll.app",
+            "certificate_hash": "2619c9ab32c339d258b3c4d64fb550930602a274"
+          }
+        },
+        {
+          "client_id": "293043554696-41f65f90a0opo0jq15ves6d2fhb1v2qe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDqf0r3ws2ZvKqrUzN6Ylh8qfqK0laNnR0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "293043554696-41f65f90a0opo0jq15ves6d2fhb1v2qe.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:293043554696:android:ec8b06bc6e984876eb523d",
         "android_client_info": {
           "package_name": "com.joyscroll.app.debug"

@@ -1,12 +1,10 @@
 // lib/features/articles/presentation/screens/article_detail_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_html/flutter_html.dart';
-import 'package:flutter/foundation.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
   final Map<String, dynamic> article;
@@ -40,11 +38,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   }
 
   String _getCleanContent() {
-    debugPrint('📰 ARTICLE DETAIL: Keys available: ${widget.article.keys.toList()}');
-    debugPrint('📰 ARTICLE DETAIL: content = ${widget.article['content']}');
-    debugPrint('📰 ARTICLE DETAIL: summary = ${widget.article['summary']}');
-    debugPrint('📰 ARTICLE DETAIL: rewritten_summary = ${widget.article['rewritten_summary']}');
-
     final rawContent = widget.article['rewritten_summary'] ??
         widget.article['summary'] ??
         widget.article['content'] ??
@@ -59,7 +52,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         <p>The full article content is not available in the app.</p>
         <p><strong>Please tap "Visit Official Source" button below to read the complete article.</strong></p>
       </div>
-    ''';
+      ''';
     }
 
     return _removeAiText(rawContent);
@@ -67,31 +60,29 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   // ================= DOMAIN =================
   String _getDomainFromUrl(String? url) {
-    if (url == null || url.isEmpty) return "Source";
+    if (url == null || url.isEmpty) return '';
     try {
       final uri = Uri.parse(url);
-      var host = uri.host.replaceFirst("www.", "");
-      return host.split(".").take(2).join(".");
+      var host = uri.host.replaceFirst('www.', '');
+      return host.split('.').take(2).join('.');
     } catch (_) {
-      return "Source";
+      return '';
     }
   }
 
   // ================= DATE FORMAT =================
   String _formatDateTime(dynamic dateStr) {
-    if (dateStr == null) return "Unknown";
+    if (dateStr == null) return '';
     try {
       final date = DateTime.parse(dateStr.toString());
       final diff = DateTime.now().difference(date);
-
-      if (diff.inMinutes < 1) return "Just now";
-      if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
-      if (diff.inHours < 24) return "${diff.inHours}h ago";
-      if (diff.inDays < 7) return "${diff.inDays}d ago";
-
-      return "${date.day}/${date.month}/${date.year}";
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return '${date.day}/${date.month}/${date.year}';
     } catch (_) {
-      return "Recent";
+      return '';
     }
   }
 
@@ -99,23 +90,38 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   Future<void> _openSourceUrl() async {
     setState(() => _isLoading = true);
 
-    String url = widget.article['source_url']?.toString() ?? "";
-    if (url.isEmpty || url == "null") {
-      _showSnack("No source link");
+    // सगळे possible URL fields try करतो
+    String? rawUrl;
+    for (final key in ['source_url', 'url', 'link', 'article_url', 'original_url']) {
+      final val = widget.article[key]?.toString().trim();
+      if (val != null && val.isNotEmpty && val != 'null') {
+        rawUrl = val;
+        break;
+      }
+    }
+
+    if (rawUrl == null || rawUrl.isEmpty) {
+      _showSnack('No source link available');
       setState(() => _isLoading = false);
       return;
     }
 
-    if (!url.startsWith("http")) url = "https://$url";
+    String url = rawUrl;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://$url';
+    }
 
     try {
       final uri = Uri.parse(url);
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {
-      _showSnack("Cannot open link");
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched) {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      }
+    } catch (e) {
+      _showSnack('Cannot open link. Please try again.');
     }
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _showSnack(String msg) {
@@ -123,76 +129,66 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ================= ARTICLE IMAGE - FIXED VERSION =================
+  // ================= IMAGE URL VALIDATION =================
+  bool _isValidImageUrl(dynamic imageUrl) {
+    if (imageUrl == null) return false;
+    final s = imageUrl.toString().trim();
+    if (s.isEmpty || s == 'null' || s == 'NULL' || s == 'undefined') return false;
+    if (!s.startsWith('http://') && !s.startsWith('https://')) return false;
+    return true;
+  }
+
+  // ================= ARTICLE IMAGE =================
   Widget _buildArticleImage(Color primaryColor) {
-    final imageUrl = widget.article['image_url'];
+    // सगळे possible image fields try करतो
+    dynamic imageUrl;
+    for (final key in ['image_url', 'image', 'thumbnail_url', 'thumbnail', 'featured_image']) {
+      if (_isValidImageUrl(widget.article[key])) {
+        imageUrl = widget.article[key];
+        break;
+      }
+    }
+
     final width = MediaQuery.of(context).size.width;
-    final height = width > 800 ? 450.0 : 300.0;
+    final height = width > 800 ? 450.0 : 280.0;
 
-    debugPrint('🖼️ IMAGE DEBUG: imageUrl = $imageUrl');
-    debugPrint('🖼️ IMAGE DEBUG: imageUrl type = ${imageUrl.runtimeType}');
-    debugPrint('🖼️ IMAGE DEBUG: imageUrl isEmpty = ${imageUrl?.toString().isEmpty}');
-
-    // ✅ IMPROVED IMAGE VALIDATION
-    if (imageUrl != null &&
-        imageUrl.toString().isNotEmpty &&
-        imageUrl != "null" &&
-        imageUrl != "NULL") {
-
-      final imageUrlString = imageUrl.toString();
-
+    if (imageUrl != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: CachedNetworkImage(
-          imageUrl: imageUrlString,
+          imageUrl: imageUrl.toString().trim(),
           height: height,
           width: double.infinity,
           fit: BoxFit.cover,
-          // ✅ ADDED: Memory cache settings for better performance
           memCacheWidth: 800,
           memCacheHeight: 600,
           fadeInDuration: const Duration(milliseconds: 200),
           placeholder: (_, __) => Container(
-            color: primaryColor.withOpacity(0.1),
+            height: height,
+            decoration: BoxDecoration(
+              color: primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Loading image...',
-                    style: GoogleFonts.inter(
-                      fontSize: 12,
-                      color: primaryColor,
-                    ),
-                  ),
-                ],
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
               ),
             ),
           ),
-          errorWidget: (context, url, error) {
-            debugPrint('❌ IMAGE LOAD ERROR: $error');
-            debugPrint('❌ FAILED URL: $url');
-            return _buildDefaultArticleImage(primaryColor);
-          },
+          errorWidget: (_, __, ___) => _buildDefaultArticleImage(primaryColor),
         ),
       );
     }
 
-    debugPrint('⚠️ NO VALID IMAGE URL - Showing default');
     return _buildDefaultArticleImage(primaryColor);
   }
 
-  // ✅ NEW: Default image widget matching ArticleCardWidget style
   Widget _buildDefaultArticleImage(Color primaryColor) {
     final title = widget.article['title'] ?? 'No Title';
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final width = MediaQuery.of(context).size.width;
-    final height = width > 800 ? 450.0 : 300.0;
+    final height = width > 800 ? 450.0 : 280.0;
 
     return Container(
       height: height,
@@ -208,16 +204,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             _getShortTitle(title),
             textAlign: TextAlign.center,
             style: GoogleFonts.cinzel(
-              fontSize: 24,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: isDark ? Colors.white : primaryColor,
               height: 1.3,
               shadows: const [
-                Shadow(
-                  color: Colors.black26,
-                  offset: Offset(0, 2),
-                  blurRadius: 4,
-                ),
+                Shadow(color: Colors.black26, offset: Offset(0, 2), blurRadius: 4),
               ],
             ),
             maxLines: 5,
@@ -228,31 +220,33 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
   }
 
-  // ✅ NEW: Helper to get short title
   String _getShortTitle(String fullTitle) {
     final words = fullTitle.trim().split(' ');
     if (words.length <= 6) return fullTitle;
-    return words.take(6).join(' ') + '...';
+    return '${words.take(6).join(' ')}...';
   }
 
   String _formatHtmlContent(String content) {
     if (content.isEmpty) {
-      return '''
-      <div style="padding: 20px; text-align: center;">
-        <p style="color: #666;">No content available</p>
-      </div>
-    ''';
+      return '<div style="padding: 20px; text-align: center;"><p style="color: #666;">No content available</p></div>';
     }
-
-    content = content.replaceAll(RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false), '');
-    content = content.replaceAll(RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false), '');
-
+    content = content.replaceAll(
+        RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false, dotAll: true), '');
+    content = content.replaceAll(
+        RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false, dotAll: true), '');
     if (!content.contains('<') && !content.contains('>')) {
       final paragraphs = content.split('\n\n');
       content = paragraphs.map((p) => '<p>${p.trim()}</p>').join('\n');
     }
-
     return content;
+  }
+
+  bool _hasValidSourceUrl() {
+    for (final key in ['source_url', 'url', 'link', 'article_url', 'original_url']) {
+      final val = widget.article[key]?.toString().trim() ?? '';
+      if (val.isNotEmpty && val != 'null') return true;
+    }
+    return false;
   }
 
   // ================= BUILD =================
@@ -263,115 +257,122 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     final primaryColor = theme.colorScheme.primary;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    final title = widget.article['title'] ?? "Untitled";
-    final author = widget.article['author']?.toString() ?? "Unknown";
-    final domain = _getDomainFromUrl(widget.article['source_url']);
-    final time = _formatDateTime(widget.article['created_at']);
+    final title = widget.article['title'] ?? 'Untitled';
+    final domain = _getDomainFromUrl(
+        widget.article['source_url'] ?? widget.article['url'] ?? '');
+    final time = _formatDateTime(
+        widget.article['created_at'] ?? widget.article['published_at']);
     final content = _getCleanContent();
+    final hasSourceUrl = _hasValidSourceUrl();
 
-    // ✅ RESPONSIVE FONT SIZES - SMALLER
     final titleFontSize = screenWidth > 600 ? 22.0 : 20.0;
-    final contentFontSize = screenWidth > 600 ? 14.0 : 13.0; // ✅ REDUCED from 17 to 14/13
+    final contentFontSize = screenWidth > 600 ? 14.0 : 13.0;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Article Details"),
+        title: const Text('Article'),
+        actions: [
+          if (hasSourceUrl)
+            IconButton(
+              icon: const Icon(Icons.open_in_browser),
+              tooltip: 'Open in browser',
+              onPressed: _isLoading ? null : _openSourceUrl,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ FIXED IMAGE WIDGET
+            // Image
             _buildArticleImage(primaryColor),
             const SizedBox(height: 16),
 
-            // TITLE - SMALLER FONT
+            // Title
             Text(
               title,
               style: GoogleFonts.merriweather(
-                  fontSize: titleFontSize,
-                  fontWeight: FontWeight.bold
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 10),
 
-            // META
-            Wrap(
-              spacing: 12,
-              children: [
-                Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.language, size: 16),
-                      SizedBox(width: 4),
-                      Text(domain)
-                    ]
-                ),
-                Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.access_time, size: 16),
-                      SizedBox(width: 4),
-                      Text(time)
-                    ]
-                ),
-              ],
-            ),
+            // Meta — फक्त valid data असेल तेव्हाच दाखवतो
+            if (domain.isNotEmpty || time.isNotEmpty)
+              Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  if (domain.isNotEmpty)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.language, size: 15, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(domain,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ]),
+                  if (time.isNotEmpty)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.access_time, size: 15, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text(time,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                    ]),
+                ],
+              ),
 
             const SizedBox(height: 20),
 
-            // HTML CONTENT - SMALLER FONT SIZE
+            // HTML Content
             Html(
               data: _formatHtmlContent(content),
               style: {
-                "body": Style(
-                  fontSize: FontSize(contentFontSize), // ✅ REDUCED FONT SIZE
+                'body': Style(
+                  fontSize: FontSize(contentFontSize),
                   lineHeight: LineHeight(1.6),
                   color: isDark ? Colors.white : Colors.black87,
                 ),
-                "p": Style(
-                  fontSize: FontSize(contentFontSize), // ✅ PARAGRAPH FONT
+                'p': Style(
+                  fontSize: FontSize(contentFontSize),
                   lineHeight: LineHeight(1.6),
                   margin: Margins.only(bottom: 12),
                 ),
-                "h1": Style(
-                  fontSize: FontSize(contentFontSize + 6), // ✅ HEADING 1
+                'h1': Style(
+                  fontSize: FontSize(contentFontSize + 6),
                   fontWeight: FontWeight.bold,
                   margin: Margins.only(top: 16, bottom: 12),
                 ),
-                "h2": Style(
-                  fontSize: FontSize(contentFontSize + 4), // ✅ HEADING 2
+                'h2': Style(
+                  fontSize: FontSize(contentFontSize + 4),
                   fontWeight: FontWeight.bold,
                   margin: Margins.only(top: 14, bottom: 10),
                 ),
-                "h3": Style(
-                  fontSize: FontSize(contentFontSize + 2), // ✅ HEADING 3
+                'h3': Style(
+                  fontSize: FontSize(contentFontSize + 2),
                   fontWeight: FontWeight.bold,
                   margin: Margins.only(top: 12, bottom: 8),
                 ),
-                "img": Style(
+                'img': Style(
                   width: Width(100, Unit.percent),
                   height: Height.auto(),
                   margin: Margins.symmetric(vertical: 12),
                 ),
-                "blockquote": Style(
+                'blockquote': Style(
                   backgroundColor: primaryColor.withOpacity(0.1),
                   padding: HtmlPaddings.all(12),
-                  border: Border(
-                    left: BorderSide(color: primaryColor, width: 4),
-                  ),
+                  border: Border(left: BorderSide(color: primaryColor, width: 4)),
                   margin: Margins.symmetric(vertical: 12),
                 ),
-                "ul": Style(
+                'ul': Style(
                   fontSize: FontSize(contentFontSize),
                   margin: Margins.only(left: 16, bottom: 12),
                 ),
-                "ol": Style(
+                'ol': Style(
                   fontSize: FontSize(contentFontSize),
                   margin: Margins.only(left: 16, bottom: 12),
                 ),
-                "li": Style(
+                'li': Style(
                   fontSize: FontSize(contentFontSize),
                   margin: Margins.only(bottom: 6),
                 ),
@@ -386,28 +387,31 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
             const SizedBox(height: 30),
 
-            // VISIT SOURCE BUTTON
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _openSourceUrl,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            // Visit Source Button — valid URL असेल तरच दाखवतो
+            if (hasSourceUrl)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _openSourceUrl,
+                  icon: _isLoading
+                      ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.open_in_new),
+                  label: const Text('Visit Official Source'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-                child: _isLoading
-                    ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(color: Colors.white)
-                )
-                    : const Text("Visit Official Source"),
               ),
-            ),
+
+            const SizedBox(height: 16),
           ],
         ),
       ),
