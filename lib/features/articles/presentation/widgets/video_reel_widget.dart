@@ -1,6 +1,7 @@
 // lib/features/videos/presentation/widgets/video_reel_widget.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
@@ -37,6 +38,11 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
   @override
   void initState() {
     super.initState();
+    // ✅ Video section portrait lock
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _preloadControllers(0);
     });
@@ -85,6 +91,13 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
 
   @override
   void dispose() {
+    // ✅ Video section सोडल्यावर orientation unlock
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _pageController.dispose();
     for (final c in _controllerCache.values) {
       c.dispose();
@@ -369,7 +382,9 @@ class _VideoReelItemState extends State<_VideoReelItem> {
 
           // 3. TOP GRADIENT
           Positioned(
-            top: 0, left: 0, right: 0,
+            top: 0,
+            left: 0,
+            right: 0,
             child: IgnorePointer(
               child: Container(
                 height: 140,
@@ -386,7 +401,9 @@ class _VideoReelItemState extends State<_VideoReelItem> {
 
           // 4. BOTTOM GRADIENT
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             child: IgnorePointer(
               child: Container(
                 height: 280,
@@ -405,20 +422,20 @@ class _VideoReelItemState extends State<_VideoReelItem> {
             ),
           ),
 
-          // 5. ✅ PLAY/PAUSE — फक्त action buttons सोडून बाकी area
+          // 5. PLAY/PAUSE GESTURE
           Positioned.fill(
             child: GestureDetector(
               onTap: widget.isActive ? _togglePlayPause : null,
-              // ✅ KEY FIX: opaque नाही — children ला tap जाऊ देतो
               behavior: HitTestBehavior.translucent,
               child: const SizedBox.expand(),
             ),
           ),
 
-          // 6. ✅ VIDEO INFO + ACTION BUTTONS — सर्वात वर (layer 6)
-          // play/pause GestureDetector नंतर ठेवलं — त्यामुळे buttons clickable
+          // 6. VIDEO INFO + ACTION BUTTONS
           Positioned(
-            bottom: 24, left: 16, right: 16,
+            bottom: 24,
+            left: 16,
+            right: 16,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -460,7 +477,8 @@ class _VideoReelItemState extends State<_VideoReelItem> {
       children: [
         Row(children: [
           Container(
-            width: 36, height: 36,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 2),
@@ -527,7 +545,8 @@ class _VideoReelItemState extends State<_VideoReelItem> {
           if (category.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.white12,
                 borderRadius: BorderRadius.circular(20),
@@ -535,7 +554,8 @@ class _VideoReelItemState extends State<_VideoReelItem> {
               ),
               child: Text(
                 category,
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
+                style:
+                const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ),
           ],
@@ -561,10 +581,9 @@ class _VideoReelItemState extends State<_VideoReelItem> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    // ✅ AbsorbPointer नाही — tap directly जातो
     return GestureDetector(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque, // ✅ opaque — tap confirm होतो
+      behavior: HitTestBehavior.opaque,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -591,16 +610,28 @@ class _VideoReelItemState extends State<_VideoReelItem> {
   }
 
   String _formatTimestamp(String? timestamp) {
-    if (timestamp == null) return 'Just now';
+    if (timestamp == null || timestamp.isEmpty) return 'Recently';
     try {
-      final diff = DateTime.now().difference(DateTime.parse(timestamp));
-      if (diff.inMinutes < 1) return 'Just now';
+      DateTime? date = DateTime.tryParse(timestamp);
+      if (date == null) {
+        final ms = int.tryParse(timestamp);
+        if (ms != null) {
+          date = ms > 1e12
+              ? DateTime.fromMillisecondsSinceEpoch(ms)
+              : DateTime.fromMillisecondsSinceEpoch(ms * 1000);
+        }
+      }
+      if (date == null) return 'Recently';
+      final diff = DateTime.now().difference(date);
+      if (diff.inSeconds < 60) return 'Just now';
       if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
       if (diff.inHours < 24) return '${diff.inHours}h ago';
       if (diff.inDays < 7) return '${diff.inDays}d ago';
-      return '${(diff.inDays / 7).floor()}w ago';
-    } catch (_) {
-      return 'Just now';
+      if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+      if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+      return '${(diff.inDays / 365).floor()}y ago';
+    } catch (e) {
+      return 'Recently';
     }
   }
 }

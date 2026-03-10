@@ -31,7 +31,8 @@ class ApiService {
       },
     ));
 
-  static Future<T> _retryRequest<T>(Future<T> Function() request, {int maxRetries = 3}) async {
+  static Future<T> _retryRequest<T>(Future<T> Function() request,
+      {int maxRetries = 3}) async {
     int attempts = 0;
     while (attempts < maxRetries) {
       try {
@@ -73,7 +74,8 @@ class ApiService {
         final data = response.data as Map<String, dynamic>;
         final items = (data['items'] as List?)
             ?.map((item) => _formatFeedItem(item as Map<String, dynamic>))
-            .toList() ?? [];
+            .toList() ??
+            [];
 
         return {
           'status': 'success',
@@ -198,10 +200,12 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> saveUserPreferencesAuth(List<int> categoryIds, String token) async {
+  static Future<Map<String, dynamic>> saveUserPreferencesAuth(
+      List<int> categoryIds, String token) async {
     try {
       final response = await _retryRequest(() async {
-        return await _dio.post('/user/preferences', data: {'category_ids': categoryIds},
+        return await _dio.post('/user/preferences',
+            data: {'category_ids': categoryIds},
             options: Options(headers: {'Authorization': 'Bearer $token'}));
       });
       if (response.data is Map<String, dynamic>) return response.data as Map<String, dynamic>;
@@ -224,8 +228,10 @@ class ApiService {
   static Future<Map<String, dynamic>> searchFriends(String query) async {
     try {
       final token = await PreferencesService.getToken();
-      final response = await _dio.get('/users/search', queryParameters: {'q': query},
-          options: Options(headers: {if (token != null) 'Authorization': 'Bearer $token'}));
+      final response = await _dio.get('/users/search',
+          queryParameters: {'q': query},
+          options: Options(
+              headers: {if (token != null) 'Authorization': 'Bearer $token'}));
       if (response.statusCode == 200 && response.data is List) {
         return {'status': 'success', 'data': response.data};
       }
@@ -235,13 +241,19 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> postContactsSuggest(List<String> hashedContacts) async {
+  static Future<Map<String, dynamic>> postContactsSuggest(
+      List<String> hashedContacts) async {
     try {
-      final response = await _retryRequest(() async =>
-      await _dio.post('/contacts/suggest', data: {'hashed_contacts': hashedContacts}));
+      final response = await _retryRequest(() async => await _dio.post(
+          '/contacts/suggest',
+          data: {'hashed_contacts': hashedContacts}));
       return response.data ?? {'status': 'error'};
     } catch (e) {
-      return {'status': 'error', 'error': 'Failed to get contact suggestions: $e', 'suggestions': []};
+      return {
+        'status': 'error',
+        'error': 'Failed to get contact suggestions: $e',
+        'suggestions': []
+      };
     }
   }
 
@@ -293,7 +305,8 @@ class ApiService {
             'Content-Type': 'application/json',
           }),
         );
-        if (fallbackResponse.statusCode == 200 || fallbackResponse.statusCode == 204) {
+        if (fallbackResponse.statusCode == 200 ||
+            fallbackResponse.statusCode == 204) {
           return {'status': 'success', 'message': 'Friend request cancelled'};
         }
       }
@@ -314,9 +327,11 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> login(String email, String password) async {
+  static Future<Map<String, dynamic>> login(
+      String email, String password) async {
     try {
-      final response = await _retryRequest(() async => await _dio.post('/login', data: {
+      final response =
+      await _retryRequest(() async => await _dio.post('/login', data: {
         'email': email.trim(),
         'password': password.trim(),
       }));
@@ -336,10 +351,11 @@ class ApiService {
     }
   }
 
-  static Future<Map<String, dynamic>> register(
-      String displayName, String email, String password, String phoneNumber) async {
+  static Future<Map<String, dynamic>> register(String displayName, String email,
+      String password, String phoneNumber) async {
     try {
-      final response = await _retryRequest(() async => await _dio.post('/register', data: {
+      final response =
+      await _retryRequest(() async => await _dio.post('/register', data: {
         'email': email.trim(),
         'password': password.trim(),
         'display_name': displayName.trim(),
@@ -371,16 +387,20 @@ class ApiService {
       Response response;
       switch (method.toUpperCase()) {
         case 'GET':
-          response = await _dio.get(endpoint, queryParameters: queryParameters, options: options);
+          response = await _dio.get(endpoint,
+              queryParameters: queryParameters, options: options);
           break;
         case 'POST':
-          response = await _dio.post(endpoint, data: data, queryParameters: queryParameters, options: options);
+          response = await _dio.post(endpoint,
+              data: data, queryParameters: queryParameters, options: options);
           break;
         case 'PUT':
-          response = await _dio.put(endpoint, data: data, queryParameters: queryParameters, options: options);
+          response = await _dio.put(endpoint,
+              data: data, queryParameters: queryParameters, options: options);
           break;
         case 'DELETE':
-          response = await _dio.delete(endpoint, queryParameters: queryParameters, options: options);
+          response = await _dio.delete(endpoint,
+              queryParameters: queryParameters, options: options);
           break;
         default:
           throw Exception('Unsupported HTTP method: $method');
@@ -397,7 +417,11 @@ class ApiService {
       if (response.statusCode == 401) {
         return {'status': 'error', 'error': 'Authentication failed', 'statusCode': 401};
       }
-      return {'status': 'error', 'error': 'Server error: ${response.statusCode}', 'statusCode': response.statusCode};
+      return {
+        'status': 'error',
+        'error': 'Server error: ${response.statusCode}',
+        'statusCode': response.statusCode
+      };
     } catch (e) {
       if (e is DioException && e.type == DioExceptionType.connectionTimeout) {
         return {'status': 'error', 'error': 'Connection timeout'};
@@ -410,8 +434,13 @@ class ApiService {
     try {
       final token = await PreferencesService.getToken();
       if (token == null) throw Exception('Not authenticated');
-      return await authenticatedRequest('/user/fcm-token', method: 'POST', token: token,
-          data: {'fcm_token': fcmToken, 'platform': Platform.isAndroid ? 'android' : 'ios'});
+      return await authenticatedRequest('/user/fcm-token',
+          method: 'POST',
+          token: token,
+          data: {
+            'fcm_token': fcmToken,
+            'platform': Platform.isAndroid ? 'android' : 'ios'
+          });
     } catch (e) {
       return {'status': 'error', 'error': e.toString()};
     }
@@ -449,14 +478,20 @@ class ApiService {
           debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         }
 
+        // ✅ FIXED: 'total' field वापरून has_more calculate करतो
+        // API 'has_more' नाही पाठवत — 'total' वरून calculate करतो
+        final total = data['total'] as int? ?? 0;
         final hasMore = data['has_more'] as bool?
             ?? data['hasMore'] as bool?
-            ?? (rawVideos.length >= limit);
+            ?? (total > 0
+                ? (offset + rawVideos.length) < total
+                : rawVideos.length >= limit);
 
         return {
           'status': 'success',
           'videos': rawVideos,
           'has_more': hasMore,
+          'total': total,
         };
       }
 
@@ -467,7 +502,8 @@ class ApiService {
   }
 
   // ✅ Video Watch Track
-  static Future<void> trackVideoWatch(int videoId, int watchDuration, bool completed) async {
+  static Future<void> trackVideoWatch(
+      int videoId, int watchDuration, bool completed) async {
     try {
       final token = await PreferencesService.getToken();
       await _dio.post(
@@ -531,7 +567,10 @@ class ApiService {
       };
     } catch (e) {
       if (e is DioException && e.type == DioExceptionType.connectionTimeout) {
-        return {'status': 'error', 'error': 'Connection timeout. Please check your internet.'};
+        return {
+          'status': 'error',
+          'error': 'Connection timeout. Please check your internet.'
+        };
       }
       return {'status': 'error', 'error': e.toString()};
     }

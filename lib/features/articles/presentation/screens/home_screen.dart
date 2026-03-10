@@ -68,19 +68,23 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
 
-  // ─── Video Pagination ───────────────────────────────────────────────────
+  // ─── Video Pagination ──────────────────────────────────────────────────
   static const int _kVideoPageSize = 100;
   int _videoOffset = 0;
   bool _videoHasMore = true;
   bool _videoLoadingMore = false;
   bool _videoAllLoaded = false;
-  // ────────────────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
   bool _isProfileLoading = true;
   int _articlesReadCount = 0;
   bool _isStatsLoading = true;
+
+  // ✅ Locally tracked unique article IDs — duplicate count टाळण्यासाठी
+  final Set<dynamic> _readArticleIds = {};
+
   List<Map<String, dynamic>> _friends = [];
   bool _isFriendsLoading = true;
   int _friendRequestsCount = 0;
@@ -216,32 +220,25 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {}
   }
 
+  /// ✅ FIXED: Unique articles count — server वरून history घेतो, unique IDs count
   Future<void> _loadUserStats() async {
     setState(() => _isStatsLoading = true);
     try {
-      try {
-        final stats = await UserService.getUserStats();
-        if (stats != null && mounted) {
-          setState(() {
-            _articlesReadCount = stats['articles_read'] ?? 0;
-            _userStats = stats;
-            _isStatsLoading = false;
-          });
-          return;
-        }
-      } catch (e) {}
+      // ✅ FIXED: Reading History मधून count — दोन्ही ठिकाणी same
       final history = await UserService.getHistory();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _articlesReadCount = history.length;
           _isStatsLoading = false;
         });
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _articlesReadCount = 0;
           _isStatsLoading = false;
         });
+      }
     }
   }
 
@@ -373,8 +370,9 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Map<String, dynamic> _mapVideo(Map<String, dynamic> v) {
-    final rawAuthor = v['uploaded_by_name'] ??
-        v['channel_name'] ??
+    // ✅ FIXED: channel_name आधी check — API मध्ये हाच field आहे
+    final rawAuthor = v['channel_name'] ??
+        v['uploaded_by_name'] ??
         v['display_name'] ??
         v['user_display_name'] ??
         v['user_name'] ??
@@ -404,7 +402,14 @@ class _HomeScreenState extends State<HomeScreen>
       'user_id': userId,
       'title': v['title'] ?? '',
       'content': v['description'] ?? '',
-      'created_at': v['created_at'],
+      // ✅ FIXED: सगळे possible date field names try करतो
+      'created_at': v['created_at']
+          ?? v['published_at']
+          ?? v['publishedAt']
+          ?? v['upload_date']
+          ?? v['uploaded_at']
+          ?? v['date']
+          ?? v['publish_date'],
       'likes': v['like_count'] ?? 0,
       'isLiked': false,
       'video_id': v['video_id'],
@@ -434,97 +439,93 @@ class _HomeScreenState extends State<HomeScreen>
             await Future.delayed(Duration(seconds: retryCount + 1));
             return _loadVideoPosts(retryCount: retryCount + 1);
           }
-          if (mounted) setState(() {
-            _videoPosts = [];
-            _isVideoLoading = false;
-            _videoAllLoaded = true;
-          });
+          if (mounted)
+            setState(() {
+              _videoPosts = [];
+              _isVideoLoading = false;
+              _videoAllLoaded = true;
+            });
           return;
         }
-        final mapped = raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
+        final mapped =
+        raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
         _videoOffset += mapped.length;
-        _videoHasMore = response['has_more'] == true || mapped.length >= _kVideoPageSize;
-        if (mounted) setState(() {
-          _videoPosts = mapped;
-          _isVideoLoading = false;
-        });
-        // ✅ More videos असतील तर background मध्ये सगळे load कर
-        if (_videoHasMore) _loadAllRemainingVideos();
-        else setState(() => _videoAllLoaded = true);
+        _videoHasMore =
+            response['has_more'] == true || mapped.length >= _kVideoPageSize;
+        if (mounted)
+          setState(() {
+            _videoPosts = mapped;
+            _isVideoLoading = false;
+          });
+        if (_videoHasMore)
+          _loadAllRemainingVideos();
+        else
+          setState(() => _videoAllLoaded = true);
       } else {
         if (retryCount < 3) {
           await Future.delayed(Duration(seconds: retryCount + 1));
           return _loadVideoPosts(retryCount: retryCount + 1);
         }
-        if (mounted) setState(() {
-          _videoPosts = [];
-          _isVideoLoading = false;
-          _videoAllLoaded = true;
-        });
+        if (mounted)
+          setState(() {
+            _videoPosts = [];
+            _isVideoLoading = false;
+            _videoAllLoaded = true;
+          });
       }
     } catch (e) {
       if (retryCount < 3 && mounted) {
         await Future.delayed(Duration(seconds: (retryCount + 1) * 2));
         return _loadVideoPosts(retryCount: retryCount + 1);
       }
-      if (mounted) setState(() {
-        _videoPosts = [];
-        _isVideoLoading = false;
-        _videoAllLoaded = true;
-      });
+      if (mounted)
+        setState(() {
+          _videoPosts = [];
+          _isVideoLoading = false;
+          _videoAllLoaded = true;
+        });
     }
   }
 
   Future<void> _loadAllRemainingVideos() async {
     if (!mounted || _videoAllLoaded || _videoLoadingMore) return;
     _videoLoadingMore = true;
-
     try {
       while (_videoHasMore && mounted) {
         final response = await ApiService.getVideoFeed(
           limit: _kVideoPageSize,
           offset: _videoOffset,
         );
-
         if (!mounted) break;
-
         if (response['status'] != 'success') break;
-
         final raw = response['videos'] as List? ?? [];
         if (raw.isEmpty) {
           _videoHasMore = false;
           break;
         }
-
-        final mapped = raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
-
-        // ✅ Duplicate filter
+        final mapped =
+        raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
         final existingIds = _videoPosts.map((p) => p['id']).toSet();
-        final fresh = mapped.where((v) => !existingIds.contains(v['id'])).toList();
-
+        final fresh =
+        mapped.where((v) => !existingIds.contains(v['id'])).toList();
         _videoOffset += mapped.length;
-        // ✅ has_more check — both API response आणि count वरून
-        _videoHasMore = response['has_more'] == true || mapped.length >= _kVideoPageSize;
-
+        _videoHasMore =
+            response['has_more'] == true || mapped.length >= _kVideoPageSize;
         if (fresh.isNotEmpty && mounted) {
           setState(() => _videoPosts = [..._videoPosts, ...fresh]);
-          debugPrint('🎬 Videos loaded: ${_videoPosts.length} total');
         }
-
         if (!_videoHasMore) break;
-
-        // ✅ Server वर load कमी करायला थोडा delay
         await Future.delayed(const Duration(milliseconds: 300));
       }
     } catch (e) {
       debugPrint('❌ Video load error: $e');
     } finally {
       _videoLoadingMore = false;
-      if (mounted) setState(() {
-        _videoAllLoaded = true;
-        _videoHasMore = false;
-      });
-      debugPrint('✅ Total videos in feed: ${_videoPosts.length}');
+      if (mounted)
+        setState(() {
+          _videoAllLoaded = true;
+          _videoHasMore = false;
+        });
     }
   }
 
@@ -610,7 +611,8 @@ class _HomeScreenState extends State<HomeScreen>
   void _onHorizontalDragEnd(DragEndDetails details) {
     final v = details.primaryVelocity ?? 0;
     if (v.abs() < 250) return;
-    if (v < -250) _switchToNextCategory();
+    if (v < -250)
+      _switchToNextCategory();
     else if (v > 250) _switchToPreviousCategory();
   }
 
@@ -618,7 +620,8 @@ class _HomeScreenState extends State<HomeScreen>
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
     int ci = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (ci != -1 && ci == categoryList.length - 1) _onTabChanged(3);
+    if (ci != -1 && ci == categoryList.length - 1)
+      _onTabChanged(3);
     else if (ci != -1 && ci < categoryList.length - 1)
       _selectCategory(categoryList[ci + 1]['id']);
   }
@@ -627,7 +630,8 @@ class _HomeScreenState extends State<HomeScreen>
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
     int ci = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (ci == 0) _onTabChanged(0);
+    if (ci == 0)
+      _onTabChanged(0);
     else if (ci > 0) _selectCategory(categoryList[ci - 1]['id']);
   }
 
@@ -667,12 +671,10 @@ class _HomeScreenState extends State<HomeScreen>
       if (tabIndex == 0) {
         await _loadVideoPosts();
         if (mounted)
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-                content: Text('✨ Videos refreshed!'),
-                duration: Duration(seconds: 1),
-                backgroundColor: Colors.green),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('✨ Videos refreshed!'),
+              duration: Duration(seconds: 1),
+              backgroundColor: Colors.green));
       } else if (tabIndex == 1) {
         _preloadedImages.clear();
         _allArticles.clear();
@@ -739,8 +741,7 @@ class _HomeScreenState extends State<HomeScreen>
         final prevCatIdx = previousPage >= 1 && previousPage <= totalNewsPages
             ? previousPage - 1
             : null;
-        if (prevCatIdx != categoryIndex)
-          categoryIndexToScroll = categoryIndex;
+        if (prevCatIdx != categoryIndex) categoryIndexToScroll = categoryIndex;
       }
     } else if (pageIndex == profilePageIndex) {
       newTabIndex = 3;
@@ -882,14 +883,22 @@ class _HomeScreenState extends State<HomeScreen>
     if (index != -1) setState(() => _currentIndex = index);
   }
 
+  /// ✅ FIXED: Duplicate count नाही — same article परत read केला तर count वाढत नाही
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
     try {
       final articleId = article['id'];
       if (articleId == null) return;
-      try {
-        await UserService.addToHistoryWithNewEntry(articleId);
-      } catch (e) {}
-      if (mounted) setState(() => _articlesReadCount++);
+
+      // ✅ Locally duplicate track नाही
+      if (_readArticleIds.contains(articleId)) return;
+      _readArticleIds.add(articleId);
+
+      // ✅ Server ला save करतो
+      await UserService.addToHistoryWithNewEntry(articleId);
+
+      // ✅ FIXED: Count server वरून refresh — Reading History शी sync
+      final history = await UserService.getHistory();
+      if (mounted) setState(() => _articlesReadCount = history.length);
     } catch (e) {}
   }
 
@@ -917,7 +926,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (result == true && mounted) await _loadProfileData();
   }
 
-  // नवीन code — हा टाका:
   void _showAboutDialog(BuildContext context) async {
     final version = await AppInfoService.getAppVersion();
     if (!mounted) return;
@@ -929,7 +937,8 @@ class _HomeScreenState extends State<HomeScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56, height: 56,
+              width: 56,
+              height: 56,
               decoration: const BoxDecoration(
                   color: Color(0xFF68BB59), shape: BoxShape.circle),
               child: const Icon(Icons.check, color: Colors.white, size: 32),
@@ -938,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen>
             const Text('Joy Scroll',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('Version $version',   // ✅ automatic version
+            Text('Version $version',
                 style: TextStyle(color: Colors.grey[600], fontSize: 14)),
             const SizedBox(height: 16),
             const Text(
@@ -966,31 +975,9 @@ class _HomeScreenState extends State<HomeScreen>
     final isSmallScreen = screenWidth < 600;
     return GestureDetector(
       onTap: () async {
-        try {
-          final result = await Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (c) => const ReadingHistoryScreen()));
-          if (result != null &&
-              result is Map &&
-              result['action'] == 'read_article' &&
-              mounted) {
-            _horizontalPageController.animateToPage(1,
-                duration: Duration(milliseconds: 300),
-                curve: Curves.easeInOut);
-            setState(() {
-              _selectedTabIndex = 1;
-              _selectedCategoryId = null;
-            });
-            Future.delayed(Duration(milliseconds: 400), () {
-              if (mounted) _navigateToArticle(result['article_id']);
-            });
-          }
-        } catch (e) {
-          if (mounted)
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Could not open Reading History'),
-                backgroundColor: Colors.red));
-        }
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (c) => const ReadingHistoryScreen()));
+        // ✅ Back आल्यावर काहीही refresh नाही
       },
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 24),
@@ -1035,9 +1022,7 @@ class _HomeScreenState extends State<HomeScreen>
                   children: [
                     Text('Articles Read',
                         style: theme.textTheme.bodyLarge?.copyWith(
-                            color: (isDark
-                                ? Colors.white
-                                : theme.colorScheme.onSurface)
+                            color: (isDark ? Colors.white : theme.colorScheme.onSurface)
                                 .withOpacity(0.85),
                             fontWeight: FontWeight.w500,
                             fontSize: isSmallScreen ? 14 : 16)),
@@ -1084,31 +1069,10 @@ class _HomeScreenState extends State<HomeScreen>
             icon: Icons.history,
             isFirst: true,
             onTap: () async {
-              try {
-                final result = await Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (c) => const ReadingHistoryScreen()));
-                if (result != null &&
-                    result is Map &&
-                    result['action'] == 'read_article' &&
-                    mounted) {
-                  _horizontalPageController.animateToPage(1,
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeInOut);
-                  setState(() {
-                    _selectedTabIndex = 1;
-                    _selectedCategoryId = null;
-                  });
-                  Future.delayed(Duration(milliseconds: 400), () {
-                    if (mounted) _navigateToArticle(result['article_id']);
-                  });
-                }
-              } catch (e) {
-                if (mounted)
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Could not open Reading History'),
-                      backgroundColor: Colors.red));
-              }
+              // ✅ FIXED: Back आल्यावर काहीही refresh नाही
+              await Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (c) => const ReadingHistoryScreen()));
             }),
         _buildDivider(isDark),
         _buildMenuItem(context,
@@ -1117,14 +1081,14 @@ class _HomeScreenState extends State<HomeScreen>
             onTap: () async {
               await Navigator.of(context).push(
                   MaterialPageRoute(builder: (c) => const SettingsScreen()));
-              // Settings मधून परत आल्यावर categories reload होतील
               if (mounted) {
-                _selectedCategoryIds = await PreferencesService.getSelectedCategories();
+                _selectedCategoryIds =
+                await PreferencesService.getSelectedCategories();
                 _allArticles.clear();
                 await _loadArticles(isInitial: true);
                 _updateDisplayedItems();
               }
-            },),
+            }),
         _buildDivider(isDark),
         _buildMenuItem(context,
             title: 'About',
@@ -1184,7 +1148,8 @@ class _HomeScreenState extends State<HomeScreen>
     final isSmallScreen = MediaQuery.of(context).size.width < 600;
     if (_isProfileLoading) {
       return Center(
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          child:
+          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             CircularProgressIndicator(color: primaryColor),
             const SizedBox(height: 16),
             Text('Loading profile...',
@@ -1202,7 +1167,8 @@ class _HomeScreenState extends State<HomeScreen>
                   constraints: const BoxConstraints(maxWidth: 600),
                   child: Padding(
                       padding: EdgeInsets.all(isSmallScreen ? 20 : 24),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      child:
+                      Column(mainAxisSize: MainAxisSize.min, children: [
                         Stack(alignment: Alignment.bottomRight, children: [
                           CircleAvatar(
                               radius: isSmallScreen ? 50 : 60,
@@ -1375,7 +1341,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ✅ FIXED: Left swipe video tab वर outer level — video scrolling affect नाही
   Widget _buildMainContent(List<Map<String, dynamic>> categoryList) {
     return RefreshIndicator(
       onRefresh: () async => _handleTabSpecificRefresh(_selectedTabIndex),
@@ -1431,21 +1396,17 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // ✅ VIDEO TAB: Articles सारखाच PageView — YouTube WebView नाही इथे
-  // WebView फक्त _FullscreenVideoPlayer मध्ये — tap केल्यावरच open होतो
   Widget _buildVideoTabContent() {
     if (_isVideoLoading) {
       return Container(
         color: Colors.black,
         child: const Center(
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+          child:
+          CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
         ),
       );
     }
     if (_videoPosts.isEmpty) return _buildEmptyStateForTab('Video');
-
-    // ✅ Reels style — current page: YouTube player, बाकी: thumbnail only
-    // Scroll करताना WebView नसल्याने smooth, visible झाल्यावर auto play
     return VideoReelFeed(
       videos: _videoPosts,
       onToggleLike: _toggleLike,
@@ -1535,7 +1496,8 @@ class _HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: 16),
                       Text('Loading articles...',
                           style: TextStyle(
-                              color: Theme.of(context).brightness == Brightness.dark
+                              color: Theme.of(context).brightness ==
+                                  Brightness.dark
                                   ? Colors.white60
                                   : Colors.grey[600],
                               fontSize: 14)),
@@ -1543,7 +1505,8 @@ class _HomeScreenState extends State<HomeScreen>
                 : PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
-              itemCount: items.isEmpty && showEmptyState ? 1 : items.length,
+              itemCount:
+              items.isEmpty && showEmptyState ? 1 : items.length,
               itemBuilder: (context, index) {
                 if (items.isEmpty && showEmptyState)
                   return _buildEmptyStateForTab(categoryName);
@@ -1588,7 +1551,8 @@ class _HomeScreenState extends State<HomeScreen>
     return Center(
       child: Padding(
           padding: const EdgeInsets.all(32),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          child:
+          Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(icon,
                 size: 64,
                 color: isDark ? Colors.white38 : Colors.grey[400]),

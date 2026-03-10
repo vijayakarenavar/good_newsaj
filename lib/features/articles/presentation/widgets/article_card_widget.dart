@@ -1,7 +1,6 @@
 // lib/features/articles/presentation/widgets/article_card_widget.dart
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -95,9 +94,9 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     return 800;
   }
 
-  // ✅ DYNAMIC MAX LINES BASED ON AVAILABLE CARD SPACE
-  int _getSummaryMaxLines(double screenWidth, double screenHeight) {
-    // Calculate based on screen height for better content fitting
+  int _getSummaryMaxLines(double screenWidth, double screenHeight, bool isLandscape) {
+    // ✅ Landscape मध्ये कमी lines
+    if (isLandscape) return screenWidth > 600 ? 4 : 3;
     if (screenHeight > 900) return screenWidth > 600 ? 28 : 24;
     if (screenHeight > 800) return screenWidth > 600 ? 25 : 20;
     if (screenHeight > 700) return screenWidth > 600 ? 22 : 18;
@@ -108,7 +107,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   String _getSummaryText(BuildContext context, int maxLines) {
     final screenWidth = MediaQuery.of(context).size.width;
     final charLimit = _getSummaryCharLimit(screenWidth);
-    final cleanContent = _removeAiText(widget.article['content'] ?? 'No content available');
+    final cleanContent =
+    _removeAiText(widget.article['content'] ?? 'No content available');
 
     if (cleanContent.length <= charLimit) return cleanContent;
 
@@ -151,8 +151,12 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     if (dateStr == null) return 'Recent';
     try {
       DateTime date = dateStr is String
-          ? (dateStr.contains('GMT') ? _parseGMTDate(dateStr) : DateTime.parse(dateStr))
-          : dateStr is DateTime ? dateStr : DateTime.now();
+          ? (dateStr.contains('GMT')
+          ? _parseGMTDate(dateStr)
+          : DateTime.parse(dateStr))
+          : dateStr is DateTime
+          ? dateStr
+          : DateTime.now();
       final now = DateTime.now();
       final diff = now.difference(date);
       if (diff.inSeconds < 60) return 'Just now';
@@ -172,11 +176,15 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final month = _monthToNumber(parts[2]);
     final year = int.parse(parts[3]);
     final timeParts = parts[4].split(':');
-    return DateTime.utc(year, month, day, int.parse(timeParts[0]), int.parse(timeParts[1]), int.parse(timeParts[2]));
+    return DateTime.utc(year, month, day, int.parse(timeParts[0]),
+        int.parse(timeParts[1]), int.parse(timeParts[2]));
   }
 
   int _monthToNumber(String month) {
-    const months = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12};
+    const months = {
+      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
+      'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12
+    };
     return months[month] ?? 1;
   }
 
@@ -184,9 +192,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     if (!_hasTrackedRead) {
       setState(() => _hasTrackedRead = true);
       widget.onTrackRead(widget.article);
-      debugPrint('✅ Article ${widget.article['id']} tracked as read (via tap)');
     }
-
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -195,27 +201,13 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     );
   }
 
-  void _showErrorSnackBar(BuildContext context, String message) {
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   void _onVisibilityChanged(VisibilityInfo info) {
     if (_hasTrackedRead || info.visibleFraction < 0.7) return;
-
     _visibilityTimer?.cancel();
     _visibilityTimer = Timer(const Duration(seconds: 2), () {
       if (mounted && !_hasTrackedRead) {
         setState(() => _hasTrackedRead = true);
         widget.onTrackRead(widget.article);
-        debugPrint('✅ Article ${widget.article['id']} tracked as read');
       }
     });
   }
@@ -224,37 +216,54 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
     final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
+
+    // ✅ Landscape detection
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
     final isAiRewritten = widget.article['is_ai_rewritten'] == 1 ||
         widget.article['is_ai_rewritten'] == true ||
         widget.article['is_ai_rewritten'] == '1';
     final hasAiTag = _hasAiRewritingTag();
     final showAiTag = isAiRewritten && hasAiTag;
+
     final sourceDomain = _getDomainFromUrl(widget.article['source_url']);
     final timeText = _formatRelativeTime(widget.article['created_at']);
     final title = widget.article['title'] ?? 'No Title';
-    final summaryMaxLines = _getSummaryMaxLines(screenWidth, screenHeight);
+    final summaryMaxLines =
+    _getSummaryMaxLines(screenWidth, screenHeight, isLandscape);
     final summary = _getSummaryText(context, summaryMaxLines);
 
-    // ✅ RESPONSIVE IMAGE HEIGHT
-    final imageHeight = screenWidth > 600 ? 280.0 : screenWidth > 450 ? 260.0 : 230.0;
-    final contentPadding = screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
-
-    // ✅ CALCULATE CARD HEIGHT BASED ON SCREEN SIZE
-    final availableHeight = screenHeight - 100; // Subtract margins/padding
-    final cardHeight = screenWidth > 600
-        ? availableHeight * 0.75  // Tablet: 75% of available height
+    // ✅ FIXED: Landscape मध्ये image height कमी — overflow नाही
+    final imageHeight = isLandscape
+        ? screenHeight * 0.40
+        : screenWidth > 600
+        ? 280.0
         : screenWidth > 450
-        ? availableHeight * 0.70  // Medium phones: 70%
-        : availableHeight * 0.68;  // Small phones: 68%
+        ? 260.0
+        : 230.0;
+
+    final contentPadding =
+    screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
+
+    // ✅ FIXED: Landscape मध्ये cardHeight screen fit होईल
+    final availableHeight = screenHeight - 100;
+    final cardHeight = isLandscape
+        ? screenHeight * 0.88
+        : screenWidth > 600
+        ? availableHeight * 0.75
+        : screenWidth > 450
+        ? availableHeight * 0.70
+        : availableHeight * 0.68;
 
     final primaryColor = colorScheme.primary;
-
     final buttonMetrics = _getButtonMetrics(screenWidth);
     final readButtonText = _getButtonText(screenWidth);
+
+    final heroTag = 'feed_article_${widget.article['id']}';
 
     Widget buildImageWidget() {
       final imageUrl = widget.article['image_url'] as String?;
@@ -274,93 +283,91 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
               ),
             ),
           ),
-          errorWidget: (context, url, error) => _buildDefaultArticleImage(primaryColor, isDark),
+          errorWidget: (context, url, error) =>
+              _buildDefaultArticleImage(primaryColor, isDark),
         );
       } else {
         return _buildDefaultArticleImage(primaryColor, isDark);
       }
     }
 
-    return VisibilityDetector(
-      key: Key('article_${widget.article['id']}'),
-      onVisibilityChanged: _onVisibilityChanged,
-      child: Container(
-        margin: EdgeInsets.symmetric(
-          horizontal: screenWidth > 600 ? 24.0 : screenWidth > 450 ? 18.0 : 12.0,
-          vertical: screenHeight > 800 ? 14.0 : 10.0,
-        ),
-        constraints: screenWidth > 600 ? const BoxConstraints(maxWidth: 480) : null,
-        // ✅ FIXED CARD HEIGHT BASED ON SCREEN SIZE
-        height: cardHeight,
-        child: Card(
-          elevation: 8,
-          margin: EdgeInsets.zero,
-          shadowColor: isDark ? primaryColor.withOpacity(0.3) : Colors.black.withOpacity(0.15),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          color: theme.cardTheme.color ?? (isDark ? const Color(0xFF121212) : Colors.white),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: Column(
-              children: [
-                // IMAGE SECTION
-                SizedBox(
-                  height: imageHeight,
-                  width: double.infinity,
-                  child: Hero(
-                    tag: 'article_${widget.article['id']}',
-                    child: buildImageWidget(),
-                  ),
-                ),
-
-                // ✅ CONTENT SECTION - WITH SPACER TO PUSH BUTTONS TO BOTTOM
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: contentPadding,
-                      right: contentPadding,
-                      top: 12,
-                      bottom: contentPadding,
+    // ✅ Landscape layout — side by side (image | content)
+    if (isLandscape) {
+      return VisibilityDetector(
+        key: Key('article_${widget.article['id']}'),
+        onVisibilityChanged: _onVisibilityChanged,
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          height: cardHeight,
+          child: Card(
+            elevation: 8,
+            margin: EdgeInsets.zero,
+            shadowColor: isDark
+                ? primaryColor.withOpacity(0.3)
+                : Colors.black.withOpacity(0.15),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            color: theme.cardTheme.color ??
+                (isDark ? const Color(0xFF121212) : Colors.white),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Row(
+                children: [
+                  // ✅ LEFT: Image
+                  SizedBox(
+                    width: screenWidth * 0.40,
+                    child: Hero(
+                      tag: heroTag,
+                      child: buildImageWidget(),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // TIMESTAMP
-                        Row(
-                          children: [
-                            Icon(Icons.access_time_rounded, size: 12, color: isDark ? Colors.white60 : Colors.black45),
+                  ),
+
+                  // ✅ RIGHT: Content
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // TIMESTAMP
+                          Row(children: [
+                            Icon(Icons.access_time_rounded,
+                                size: 12,
+                                color:
+                                isDark ? Colors.white60 : Colors.black45),
                             const SizedBox(width: 4),
                             Text(
                               timeText,
                               style: GoogleFonts.inter(
-                                color: isDark ? Colors.white60 : Colors.black45,
+                                color:
+                                isDark ? Colors.white60 : Colors.black45,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
+                          ]),
+                          const SizedBox(height: 6),
 
-                        // TITLE
-                        Text(
-                          title,
-                          style: GoogleFonts.merriweather(
-                            fontSize: screenWidth > 600 ? 19 : screenWidth > 450 ? 17.5 : 16,
-                            fontWeight: FontWeight.w900,
-                            height: 1.2,
-                            color: isDark ? Colors.white : Colors.black,
-                            letterSpacing: -0.2,
+                          // TITLE
+                          Text(
+                            title,
+                            style: GoogleFonts.merriweather(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              height: 1.2,
+                              color: isDark ? Colors.white : Colors.black,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
+                          const SizedBox(height: 6),
 
-                        // SOURCE + AI TAG
-                        Row(
-                          children: [
+                          // SOURCE + AI TAG
+                          Row(children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: isDark
                                     ? Colors.white.withOpacity(0.1)
@@ -376,14 +383,20 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.language_rounded, size: 11, color: isDark ? Colors.white70 : Colors.black87),
+                                  Icon(Icons.language_rounded,
+                                      size: 11,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87),
                                   const SizedBox(width: 4),
                                   Text(
                                     sourceDomain,
                                     style: GoogleFonts.inter(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white70 : Colors.black87,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87,
                                       letterSpacing: 0.3,
                                     ),
                                   ),
@@ -394,7 +407,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                               Padding(
                                 padding: const EdgeInsets.only(left: 8),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: primaryColor.withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(10),
@@ -406,7 +420,215 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.auto_awesome, color: primaryColor, size: 11),
+                                      Icon(Icons.auto_awesome,
+                                          color: primaryColor, size: 11),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'AI Enhanced',
+                                        style: GoogleFonts.poppins(
+                                          color: primaryColor,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 8.5,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ]),
+                          const SizedBox(height: 8),
+
+                          // SUMMARY
+                          Expanded(
+                            child: Text(
+                              summary,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.5,
+                                height: 1.5,
+                                color: isDark ? Colors.white70 : Colors.black87,
+                                letterSpacing: 0.15,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: summaryMaxLines,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // BUTTONS
+                          _buildResponsiveActionButtons(
+                            context: context,
+                            buttonMetrics: buttonMetrics,
+                            primaryColor: primaryColor,
+                            readButtonText: readButtonText,
+                            isDark: isDark,
+                            screenWidth: screenWidth,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // ✅ Portrait layout — original
+    return VisibilityDetector(
+      key: Key('article_${widget.article['id']}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: Container(
+        margin: EdgeInsets.symmetric(
+          horizontal: screenWidth > 600
+              ? 24.0
+              : screenWidth > 450
+              ? 18.0
+              : 12.0,
+          vertical: screenHeight > 800 ? 14.0 : 10.0,
+        ),
+        constraints:
+        screenWidth > 600 ? const BoxConstraints(maxWidth: 480) : null,
+        height: cardHeight,
+        child: Card(
+          elevation: 8,
+          margin: EdgeInsets.zero,
+          shadowColor: isDark
+              ? primaryColor.withOpacity(0.3)
+              : Colors.black.withOpacity(0.15),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          color: theme.cardTheme.color ??
+              (isDark ? const Color(0xFF121212) : Colors.white),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Column(
+              children: [
+                // IMAGE SECTION
+                SizedBox(
+                  height: imageHeight,
+                  width: double.infinity,
+                  child: Hero(
+                    tag: heroTag,
+                    child: buildImageWidget(),
+                  ),
+                ),
+
+                // CONTENT SECTION
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      left: contentPadding,
+                      right: contentPadding,
+                      top: 12,
+                      bottom: contentPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // TIMESTAMP
+                        Row(
+                          children: [
+                            Icon(Icons.access_time_rounded,
+                                size: 12,
+                                color:
+                                isDark ? Colors.white60 : Colors.black45),
+                            const SizedBox(width: 4),
+                            Text(
+                              timeText,
+                              style: GoogleFonts.inter(
+                                color:
+                                isDark ? Colors.white60 : Colors.black45,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // TITLE
+                        Text(
+                          title,
+                          style: GoogleFonts.merriweather(
+                            fontSize: screenWidth > 600
+                                ? 19
+                                : screenWidth > 450
+                                ? 17.5
+                                : 16,
+                            fontWeight: FontWeight.w900,
+                            height: 1.2,
+                            color: isDark ? Colors.white : Colors.black,
+                            letterSpacing: -0.2,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+
+                        // SOURCE + AI TAG
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.black.withOpacity(0.06),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isDark
+                                      ? Colors.white.withOpacity(0.15)
+                                      : Colors.black.withOpacity(0.1),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.language_rounded,
+                                      size: 11,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    sourceDomain,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (showAiTag)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: primaryColor.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: primaryColor.withOpacity(0.3),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.auto_awesome,
+                                          color: primaryColor, size: 11),
                                       const SizedBox(width: 4),
                                       Text(
                                         'AI Enhanced',
@@ -425,16 +647,21 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 10),
 
-                        // ✅ SUMMARY - FILLS AVAILABLE SPACE
+                        // SUMMARY
                         Expanded(
                           child: SingleChildScrollView(
                             physics: const NeverScrollableScrollPhysics(),
                             child: Text(
                               summary,
                               style: GoogleFonts.inter(
-                                fontSize: screenWidth > 600 ? 14.5 : screenWidth > 450 ? 13.5 : 12.5,
+                                fontSize: screenWidth > 600
+                                    ? 14.5
+                                    : screenWidth > 450
+                                    ? 13.5
+                                    : 12.5,
                                 height: 1.55,
-                                color: isDark ? Colors.white70 : Colors.black87,
+                                color:
+                                isDark ? Colors.white70 : Colors.black87,
                                 letterSpacing: 0.15,
                                 fontWeight: FontWeight.w400,
                               ),
@@ -445,7 +672,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                         const SizedBox(height: 14),
 
-                        // ✅ BUTTONS - ALWAYS AT BOTTOM
+                        // BUTTONS
                         _buildResponsiveActionButtons(
                           context: context,
                           buttonMetrics: buttonMetrics,
@@ -470,56 +697,50 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     if (screenWidth < 320) return 'Read';
     if (screenWidth < 360) return 'Read Art';
     if (screenWidth < 400) return 'Read Article';
-    if (screenWidth < 600) return 'Read Full Article';
     return 'Read Full Article';
   }
 
   _ButtonMetrics _getButtonMetrics(double screenWidth) {
     if (screenWidth >= 600) {
       return _ButtonMetrics(
-        height: 48,
-        horizontalPadding: 16,
-        iconSize: 20,
-        textSize: 14,
-        spacing: 8,
-        borderRadius: 16,
-      );
+          height: 48,
+          horizontalPadding: 16,
+          iconSize: 20,
+          textSize: 14,
+          spacing: 8,
+          borderRadius: 16);
     } else if (screenWidth >= 400) {
       return _ButtonMetrics(
-        height: 46,
-        horizontalPadding: 14,
-        iconSize: 19,
-        textSize: 13.5,
-        spacing: 7,
-        borderRadius: 16,
-      );
+          height: 46,
+          horizontalPadding: 14,
+          iconSize: 19,
+          textSize: 13.5,
+          spacing: 7,
+          borderRadius: 16);
     } else if (screenWidth >= 360) {
       return _ButtonMetrics(
-        height: 44,
-        horizontalPadding: 12,
-        iconSize: 18,
-        textSize: 13,
-        spacing: 6,
-        borderRadius: 15,
-      );
+          height: 44,
+          horizontalPadding: 12,
+          iconSize: 18,
+          textSize: 13,
+          spacing: 6,
+          borderRadius: 15);
     } else if (screenWidth >= 320) {
       return _ButtonMetrics(
-        height: 42,
-        horizontalPadding: 10,
-        iconSize: 17,
-        textSize: 12.5,
-        spacing: 5,
-        borderRadius: 14,
-      );
+          height: 42,
+          horizontalPadding: 10,
+          iconSize: 17,
+          textSize: 12.5,
+          spacing: 5,
+          borderRadius: 14);
     } else {
       return _ButtonMetrics(
-        height: 40,
-        horizontalPadding: 8,
-        iconSize: 16,
-        textSize: 12,
-        spacing: 4,
-        borderRadius: 14,
-      );
+          height: 40,
+          horizontalPadding: 8,
+          iconSize: 16,
+          textSize: 12,
+          spacing: 4,
+          borderRadius: 14);
     }
   }
 
@@ -533,7 +754,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }) {
     return Row(
       children: [
-        // READ FULL ARTICLE BUTTON (70% width)
+        // READ FULL ARTICLE BUTTON
         Expanded(
           flex: 7,
           child: Material(
@@ -541,11 +762,14 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
             child: InkWell(
               onTap: () => _navigateToArticleDetail(context),
               borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
-              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
+              splashColor: isDark
+                  ? Colors.white.withOpacity(0.25)
+                  : Colors.black.withOpacity(0.15),
               child: Ink(
                 decoration: BoxDecoration(
                   color: primaryColor,
-                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+                  borderRadius:
+                  BorderRadius.circular(buttonMetrics.borderRadius),
                   boxShadow: [
                     BoxShadow(
                       color: primaryColor.withOpacity(0.4),
@@ -555,7 +779,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   ],
                 ),
                 child: Container(
-                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
+                  constraints: BoxConstraints(
+                      minHeight: buttonMetrics.height.toDouble()),
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(
                     horizontal: buttonMetrics.horizontalPadding,
@@ -565,11 +790,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.auto_stories_rounded,
-                        color: Colors.white,
-                        size: buttonMetrics.iconSize,
-                      ),
+                      Icon(Icons.auto_stories_rounded,
+                          color: Colors.white, size: buttonMetrics.iconSize),
                       SizedBox(width: buttonMetrics.spacing),
                       Flexible(
                         child: Text(
@@ -586,11 +808,9 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                         ),
                       ),
                       SizedBox(width: buttonMetrics.spacing * 0.6),
-                      Icon(
-                        Icons.arrow_forward_rounded,
-                        color: Colors.white,
-                        size: buttonMetrics.iconSize * 0.85,
-                      ),
+                      Icon(Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: buttonMetrics.iconSize * 0.85),
                     ],
                   ),
                 ),
@@ -600,7 +820,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
         ),
         const SizedBox(width: 10),
 
-        // SHARE BUTTON (30% width)
+        // SHARE BUTTON
         Expanded(
           flex: 3,
           child: Material(
@@ -608,11 +828,14 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
             child: InkWell(
               onTap: () => widget.onShare(widget.article),
               borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
-              splashColor: isDark ? Colors.white.withOpacity(0.25) : Colors.black.withOpacity(0.15),
+              splashColor: isDark
+                  ? Colors.white.withOpacity(0.25)
+                  : Colors.black.withOpacity(0.15),
               child: Ink(
                 decoration: BoxDecoration(
                   color: primaryColor,
-                  borderRadius: BorderRadius.circular(buttonMetrics.borderRadius),
+                  borderRadius:
+                  BorderRadius.circular(buttonMetrics.borderRadius),
                   boxShadow: [
                     BoxShadow(
                       color: primaryColor.withOpacity(0.3),
@@ -622,7 +845,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   ],
                 ),
                 child: Container(
-                  constraints: BoxConstraints(minHeight: buttonMetrics.height.toDouble()),
+                  constraints: BoxConstraints(
+                      minHeight: buttonMetrics.height.toDouble()),
                   width: double.infinity,
                   padding: EdgeInsets.symmetric(
                     horizontal: buttonMetrics.horizontalPadding * 0.8,
@@ -631,11 +855,9 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.share_rounded,
-                        color: Colors.white,
-                        size: buttonMetrics.iconSize * 0.95,
-                      ),
+                      Icon(Icons.share_rounded,
+                          color: Colors.white,
+                          size: buttonMetrics.iconSize * 0.95),
                       if (screenWidth >= 320) ...[
                         SizedBox(width: buttonMetrics.spacing * 0.7),
                         Text(
