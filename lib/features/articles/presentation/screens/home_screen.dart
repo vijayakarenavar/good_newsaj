@@ -68,8 +68,9 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
 
-  // ─── Video Pagination ──────────────────────────────────────────────────
-  static const int _kVideoPageSize = 100;
+  // ─── Video Pagination ───────────────────────────────────────────────────
+  // ✅ FIX 1: 100 → 20 (पहिले फक्त 20 videos load, UI लगेच दिसेल)
+  static const int _kVideoPageSize = 20; // ← WAS 100
   int _videoOffset = 0;
   bool _videoHasMore = true;
   bool _videoLoadingMore = false;
@@ -82,7 +83,6 @@ class _HomeScreenState extends State<HomeScreen>
   int _articlesReadCount = 0;
   bool _isStatsLoading = true;
 
-  // ✅ Locally tracked unique article IDs — duplicate count टाळण्यासाठी
   final Set<dynamic> _readArticleIds = {};
 
   List<Map<String, dynamic>> _friends = [];
@@ -220,11 +220,9 @@ class _HomeScreenState extends State<HomeScreen>
     } catch (e) {}
   }
 
-  /// ✅ FIXED: Unique articles count — server वरून history घेतो, unique IDs count
   Future<void> _loadUserStats() async {
     setState(() => _isStatsLoading = true);
     try {
-      // ✅ FIXED: Reading History मधून count — दोन्ही ठिकाणी same
       final history = await UserService.getHistory();
       if (mounted) {
         setState(() {
@@ -370,7 +368,6 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Map<String, dynamic> _mapVideo(Map<String, dynamic> v) {
-    // ✅ FIXED: channel_name आधी check — API मध्ये हाच field आहे
     final rawAuthor = v['channel_name'] ??
         v['uploaded_by_name'] ??
         v['display_name'] ??
@@ -402,14 +399,13 @@ class _HomeScreenState extends State<HomeScreen>
       'user_id': userId,
       'title': v['title'] ?? '',
       'content': v['description'] ?? '',
-      // ✅ FIXED: सगळे possible date field names try करतो
-      'created_at': v['created_at']
-          ?? v['published_at']
-          ?? v['publishedAt']
-          ?? v['upload_date']
-          ?? v['uploaded_at']
-          ?? v['date']
-          ?? v['publish_date'],
+      'created_at': v['created_at'] ??
+          v['published_at'] ??
+          v['publishedAt'] ??
+          v['upload_date'] ??
+          v['uploaded_at'] ??
+          v['date'] ??
+          v['publish_date'],
       'likes': v['like_count'] ?? 0,
       'isLiked': false,
       'video_id': v['video_id'],
@@ -426,17 +422,26 @@ class _HomeScreenState extends State<HomeScreen>
     _videoLoadingMore = false;
     _videoAllLoaded = false;
     setState(() => _isVideoLoading = true);
+
+    final stopwatch = Stopwatch()..start();
+
     try {
       final response = await ApiService.getVideoFeed(
-        limit: _kVideoPageSize,
+        limit: _kVideoPageSize, // ✅ 20
         offset: _videoOffset,
       );
+
+      stopwatch.stop();
+      debugPrint('⏱️ Video API time: ${stopwatch.elapsedMilliseconds}ms');
+
       if (!mounted) return;
+
       if (response['status'] == 'success') {
         final raw = response['videos'] as List? ?? [];
+
         if (raw.isEmpty) {
-          if (retryCount < 3) {
-            await Future.delayed(Duration(seconds: retryCount + 1));
+          if (retryCount < 2) {
+            await Future.delayed(const Duration(milliseconds: 500));
             return _loadVideoPosts(retryCount: retryCount + 1);
           }
           if (mounted)
@@ -447,23 +452,22 @@ class _HomeScreenState extends State<HomeScreen>
             });
           return;
         }
+
         final mapped =
         raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
         _videoOffset += mapped.length;
-        _videoHasMore =
-            response['has_more'] == true || mapped.length >= _kVideoPageSize;
+        _videoHasMore = response['has_more'] == true;
+
         if (mounted)
           setState(() {
             _videoPosts = mapped;
             _isVideoLoading = false;
           });
-        if (_videoHasMore)
-          _loadAllRemainingVideos();
-        else
-          setState(() => _videoAllLoaded = true);
+
+        // ✅ scroll-based onLoadMore handles pagination — no background loop needed
       } else {
-        if (retryCount < 3) {
-          await Future.delayed(Duration(seconds: retryCount + 1));
+        if (retryCount < 2) {
+          await Future.delayed(const Duration(milliseconds: 500));
           return _loadVideoPosts(retryCount: retryCount + 1);
         }
         if (mounted)
@@ -474,8 +478,10 @@ class _HomeScreenState extends State<HomeScreen>
           });
       }
     } catch (e) {
-      if (retryCount < 3 && mounted) {
-        await Future.delayed(Duration(seconds: (retryCount + 1) * 2));
+      stopwatch.stop();
+      debugPrint('❌ Video load error: $e (${stopwatch.elapsedMilliseconds}ms)');
+      if (retryCount < 2 && mounted) {
+        await Future.delayed(const Duration(milliseconds: 500));
         return _loadVideoPosts(retryCount: retryCount + 1);
       }
       if (mounted)
@@ -487,47 +493,69 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  Future<void> _loadAllRemainingVideos() async {
-    if (!mounted || _videoAllLoaded || _videoLoadingMore) return;
+
+  // ✅ FIXED: scroll trigger झाल्यावर पुढचे 20 videos fetch करतो
+  Future<List<Map<String, dynamic>>?> _onVideoLoadMore(int page) async {
+    // Guard: already loading or no more pages
+    if (!_videoHasMore || _videoLoadingMore || !mounted) {
+      debugPrint('⏭️ onLoadMore skipped: hasMore=$_videoHasMore loading=$_videoLoadingMore');
+      return null;
+    }
     _videoLoadingMore = true;
+    debugPrint('📥 Loading more videos: offset=$_videoOffset page=$page');
+
     try {
-      while (_videoHasMore && mounted) {
-        final response = await ApiService.getVideoFeed(
-          limit: _kVideoPageSize,
-          offset: _videoOffset,
-        );
-        if (!mounted) break;
-        if (response['status'] != 'success') break;
-        final raw = response['videos'] as List? ?? [];
-        if (raw.isEmpty) {
-          _videoHasMore = false;
-          break;
-        }
-        final mapped =
-        raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
-        final existingIds = _videoPosts.map((p) => p['id']).toSet();
-        final fresh =
-        mapped.where((v) => !existingIds.contains(v['id'])).toList();
-        _videoOffset += mapped.length;
-        _videoHasMore =
-            response['has_more'] == true || mapped.length >= _kVideoPageSize;
-        if (fresh.isNotEmpty && mounted) {
-          setState(() => _videoPosts = [..._videoPosts, ...fresh]);
-        }
-        if (!_videoHasMore) break;
-        await Future.delayed(const Duration(milliseconds: 300));
+      final response = await ApiService.getVideoFeed(
+        limit: _kVideoPageSize, // 20
+        offset: _videoOffset,
+      );
+
+      if (!mounted) return null;
+
+      if (response['status'] != 'success') {
+        debugPrint('❌ onVideoLoadMore: API error');
+        return null;
       }
+
+      final raw = response['videos'] as List? ?? [];
+      debugPrint('📦 Got ${raw.length} videos at offset $_videoOffset');
+
+      if (raw.isEmpty) {
+        _videoHasMore = false;
+        if (mounted) setState(() => _videoAllLoaded = true);
+        return null;
+      }
+
+      final mapped =
+      raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
+
+      // Duplicate filter — offset mismatch असेल तर safety net
+      final existingIds = _videoPosts.map((p) => p['id']).toSet();
+      final fresh =
+      mapped.where((v) => !existingIds.contains(v['id'])).toList();
+
+      _videoOffset += mapped.length;
+      _videoHasMore = response['has_more'] == true;
+
+      debugPrint('✅ Fresh: ${fresh.length}, hasMore: $_videoHasMore, newOffset: $_videoOffset');
+
+      if (fresh.isNotEmpty && mounted) {
+        setState(() => _videoPosts = [..._videoPosts, ...fresh]);
+      }
+
+      if (!_videoHasMore && mounted) {
+        setState(() => _videoAllLoaded = true);
+      }
+
+      return fresh.isNotEmpty ? fresh : null;
     } catch (e) {
-      debugPrint('❌ Video load error: $e');
+      debugPrint('❌ onVideoLoadMore error: $e');
+      return null;
     } finally {
       _videoLoadingMore = false;
-      if (mounted)
-        setState(() {
-          _videoAllLoaded = true;
-          _videoHasMore = false;
-        });
     }
   }
+
 
   void _updateDisplayedItems() {
     if (!mounted) return;
@@ -883,20 +911,13 @@ class _HomeScreenState extends State<HomeScreen>
     if (index != -1) setState(() => _currentIndex = index);
   }
 
-  /// ✅ FIXED: Duplicate count नाही — same article परत read केला तर count वाढत नाही
   Future<void> _trackArticleRead(Map<String, dynamic> article) async {
     try {
       final articleId = article['id'];
       if (articleId == null) return;
-
-      // ✅ Locally duplicate track नाही
       if (_readArticleIds.contains(articleId)) return;
       _readArticleIds.add(articleId);
-
-      // ✅ Server ला save करतो
       await UserService.addToHistoryWithNewEntry(articleId);
-
-      // ✅ FIXED: Count server वरून refresh — Reading History शी sync
       final history = await UserService.getHistory();
       if (mounted) setState(() => _articlesReadCount = history.length);
     } catch (e) {}
@@ -975,9 +996,8 @@ class _HomeScreenState extends State<HomeScreen>
     final isSmallScreen = screenWidth < 600;
     return GestureDetector(
       onTap: () async {
-        await Navigator.of(context)
-            .push(MaterialPageRoute(builder: (c) => const ReadingHistoryScreen()));
-        // ✅ Back आल्यावर काहीही refresh नाही
+        await Navigator.of(context).push(
+            MaterialPageRoute(builder: (c) => const ReadingHistoryScreen()));
       },
       child: Container(
         margin: EdgeInsets.symmetric(horizontal: isSmallScreen ? 16 : 24),
@@ -1022,7 +1042,9 @@ class _HomeScreenState extends State<HomeScreen>
                   children: [
                     Text('Articles Read',
                         style: theme.textTheme.bodyLarge?.copyWith(
-                            color: (isDark ? Colors.white : theme.colorScheme.onSurface)
+                            color: (isDark
+                                ? Colors.white
+                                : theme.colorScheme.onSurface)
                                 .withOpacity(0.85),
                             fontWeight: FontWeight.w500,
                             fontSize: isSmallScreen ? 14 : 16)),
@@ -1069,10 +1091,8 @@ class _HomeScreenState extends State<HomeScreen>
             icon: Icons.history,
             isFirst: true,
             onTap: () async {
-              // ✅ FIXED: Back आल्यावर काहीही refresh नाही
-              await Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (c) => const ReadingHistoryScreen()));
+              await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (c) => const ReadingHistoryScreen()));
             }),
         _buildDivider(isDark),
         _buildMenuItem(context,
@@ -1212,8 +1232,7 @@ class _HomeScreenState extends State<HomeScreen>
       SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
       SliverToBoxAdapter(
           child: _isStatsLoading
-              ? Center(
-              child: CircularProgressIndicator(color: primaryColor))
+              ? Center(child: CircularProgressIndicator(color: primaryColor))
               : _buildArticlesReadCard()),
       SliverToBoxAdapter(child: SizedBox(height: isSmallScreen ? 20 : 28)),
       SliverToBoxAdapter(child: _buildMenuList(context)),
@@ -1396,13 +1415,13 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // ✅ FIX: onLoadMore properly wired — widget स्वतः pagination trigger करेल
   Widget _buildVideoTabContent() {
     if (_isVideoLoading) {
       return Container(
         color: Colors.black,
         child: const Center(
-          child:
-          CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
         ),
       );
     }
@@ -1412,6 +1431,7 @@ class _HomeScreenState extends State<HomeScreen>
       onToggleLike: _toggleLike,
       onShare: _shareArticle,
       onRefresh: () => _loadVideoPosts(),
+      onLoadMore: _onVideoLoadMore, // ✅ was missing
     );
   }
 
@@ -1505,8 +1525,7 @@ class _HomeScreenState extends State<HomeScreen>
                 : PageView.builder(
               scrollDirection: Axis.vertical,
               physics: const ClampingScrollPhysics(),
-              itemCount:
-              items.isEmpty && showEmptyState ? 1 : items.length,
+              itemCount: items.isEmpty && showEmptyState ? 1 : items.length,
               itemBuilder: (context, index) {
                 if (items.isEmpty && showEmptyState)
                   return _buildEmptyStateForTab(categoryName);
@@ -1573,8 +1592,7 @@ class _HomeScreenState extends State<HomeScreen>
                   icon: Icon(buttonIcon),
                   label: Text(buttonText),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                      Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12))),

@@ -450,7 +450,7 @@ class ApiService {
   // VIDEO FEED API — pagination: limit + offset
   // ─────────────────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getVideoFeed({
-    int limit = 100,
+    int limit = 20,
     int offset = 0,
   }) async {
     try {
