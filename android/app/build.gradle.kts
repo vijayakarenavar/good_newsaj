@@ -15,65 +15,17 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.joyscroll.app"   // ✅ CHANGE
-    compileSdk = flutter.compileSdkVersion
+    namespace = "com.joyscroll.app"
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17   // ✅ Updated
-        targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"   // ✅ Updated
-    }
-
     defaultConfig {
-        applicationId = "com.joyscroll.app"   // ✅ CHANGE
+        applicationId = "com.joyscroll.app"
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true
-    }
-
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file("release_key.jks")   // तुमचा keystore
-            storePassword = keystoreProperties["storePassword"] as String
-        }
-    }
-
-    buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = true          // ✅ Production optimize
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
-
-        debug {
-            applicationIdSuffix = ".debug"   // Debug separate app
-            versionNameSuffix = "-debug"
-            isDebuggable = true
-        }
-    }
-
-    packaging {
-        resources {
-            excludes += setOf(
-                "META-INF/DEPENDENCIES",
-                "META-INF/LICENSE*",
-                "META-INF/NOTICE*",
-                "META-INF/*.kotlin_module"
-            )
-        }
     }
 }
 
