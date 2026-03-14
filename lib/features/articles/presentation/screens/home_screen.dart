@@ -13,7 +13,6 @@ import 'package:good_news/features/settings/presentation/screens/settings_screen
 import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 import 'package:good_news/core/services/app_info_service.dart';
 import '../../../../widgets/speed_dial_fab.dart';
 import '../widgets/video_reel_widget.dart';
@@ -49,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen>
   List<int> _selectedCategoryIds = [];
 
   late PageController _horizontalPageController;
+  late PageController _videoPageController;
   DateTime? _lastTabTapTime;
   int? _lastTappedTabIndex;
   late ScrollController _categoryScrollController;
@@ -67,14 +67,14 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
 
-  // ─── Video Pagination ───────────────────────────────────────────────────
-  static const int _kVideoPageSize = 20;
+  // ΓöÇΓöÇΓöÇ Video Pagination ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+  // Γ£à FIX 1: 100 ΓåÆ 20 (αñ¬αñ╣αñ┐αñ▓αÑç αñ½αñòαÑìαññ 20 videos load, UI αñ▓αñùαÑçαñÜ αñªαñ┐αñ╕αÑçαñ▓)
+  static const int _kVideoPageSize = 20; // ΓåÉ WAS 100
   int _videoOffset = 0;
   bool _videoHasMore = true;
   bool _videoLoadingMore = false;
   bool _videoAllLoaded = false;
-  final Set<String> _allVideoIds = {};
-  // ───────────────────────────────────────────────────────────────────────
+  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
@@ -96,6 +96,7 @@ class _HomeScreenState extends State<HomeScreen>
     _categoryScrollController = ScrollController();
     _selectedTabIndex = 1;
     _horizontalPageController = PageController(initialPage: 1);
+    _videoPageController = PageController(keepPage: false, initialPage: 0);
     _previousPageIndex = 1;
     _refreshUserDisplayName();
     _loadInitialData();
@@ -112,6 +113,7 @@ class _HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _categoryScrollController.dispose();
     _horizontalPageController.dispose();
+    _videoPageController.dispose();
     for (var controller in _commentControllers.values) {
       controller.dispose();
     }
@@ -315,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen>
           });
       }
     } catch (e) {
-      debugPrint('❌ Articles load error: $e');
+      debugPrint('Γ¥î Articles load error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -336,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen>
           });
       }
     } catch (e) {
-      debugPrint('❌ Social posts error: $e');
+      debugPrint('Γ¥î Social posts error: $e');
     }
   }
 
@@ -418,14 +420,18 @@ class _HomeScreenState extends State<HomeScreen>
     _videoHasMore = true;
     _videoLoadingMore = false;
     _videoAllLoaded = false;
-    _allVideoIds.clear();
     setState(() => _isVideoLoading = true);
+
+    final stopwatch = Stopwatch()..start();
 
     try {
       final response = await ApiService.getVideoFeed(
-        limit: _kVideoPageSize,
+        limit: _kVideoPageSize, // Γ£à 20
         offset: _videoOffset,
       );
+
+      stopwatch.stop();
+      debugPrint('ΓÅ▒∩╕Å Video API time: ${stopwatch.elapsedMilliseconds}ms');
 
       if (!mounted) return;
 
@@ -442,7 +448,6 @@ class _HomeScreenState extends State<HomeScreen>
               _videoPosts = [];
               _isVideoLoading = false;
               _videoAllLoaded = true;
-              _videoHasMore = false;
             });
           return;
         }
@@ -450,24 +455,15 @@ class _HomeScreenState extends State<HomeScreen>
         final mapped =
         raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
         _videoOffset += mapped.length;
-
-        for (final v in mapped) {
-          _allVideoIds.add(v['id'] as String);
-        }
-
-        final total = response['total'] as int? ?? 0;
-        final serverSaysHasMore = response['has_more'] == true;
-        final totalSaysMore = total > 0 && _videoOffset < total;
-        _videoHasMore = serverSaysHasMore || totalSaysMore;
-
-        debugPrint(
-            '📊 loadVideoPosts: hasMore=$_videoHasMore offset=$_videoOffset total=$total');
+        _videoHasMore = response['has_more'] == true;
 
         if (mounted)
           setState(() {
             _videoPosts = mapped;
             _isVideoLoading = false;
           });
+
+        // Γ£à scroll-based onLoadMore handles pagination ΓÇö no background loop needed
       } else {
         if (retryCount < 2) {
           await Future.delayed(const Duration(milliseconds: 500));
@@ -478,11 +474,11 @@ class _HomeScreenState extends State<HomeScreen>
             _videoPosts = [];
             _isVideoLoading = false;
             _videoAllLoaded = true;
-            _videoHasMore = false;
           });
       }
     } catch (e) {
-      debugPrint('❌ Video load error: $e');
+      stopwatch.stop();
+      debugPrint('Γ¥î Video load error: $e (${stopwatch.elapsedMilliseconds}ms)');
       if (retryCount < 2 && mounted) {
         await Future.delayed(const Duration(milliseconds: 500));
         return _loadVideoPosts(retryCount: retryCount + 1);
@@ -492,74 +488,73 @@ class _HomeScreenState extends State<HomeScreen>
           _videoPosts = [];
           _isVideoLoading = false;
           _videoAllLoaded = true;
-          _videoHasMore = false;
         });
     }
   }
 
+
+  // Γ£à FIXED: scroll trigger αñ¥αñ╛αñ▓αÑìαñ»αñ╛αñ╡αñ░ αñ¬αÑüαñóαñÜαÑç 20 videos fetch αñòαñ░αññαÑï
   Future<List<Map<String, dynamic>>?> _onVideoLoadMore(int page) async {
-    if (!_videoHasMore) {
-      debugPrint('⏭️ onLoadMore: no more pages');
-      return [];
-    }
-    if (_videoLoadingMore || !mounted) {
-      debugPrint('⏭️ onLoadMore skipped: loading=$_videoLoadingMore');
+    // Guard: already loading or no more pages
+    if (!_videoHasMore || _videoLoadingMore || !mounted) {
+      debugPrint('ΓÅ¡∩╕Å onLoadMore skipped: hasMore=$_videoHasMore loading=$_videoLoadingMore');
       return null;
     }
-
     _videoLoadingMore = true;
-    debugPrint('📥 Loading more: offset=$_videoOffset page=$page');
+    debugPrint('≡ƒôÑ Loading more videos: offset=$_videoOffset page=$page');
 
     try {
       final response = await ApiService.getVideoFeed(
-        limit: _kVideoPageSize,
+        limit: _kVideoPageSize, // 20
         offset: _videoOffset,
       );
 
       if (!mounted) return null;
-      if (response['status'] != 'success') return null;
+
+      if (response['status'] != 'success') {
+        debugPrint('Γ¥î onVideoLoadMore: API error');
+        return null;
+      }
 
       final raw = response['videos'] as List? ?? [];
-      debugPrint('📦 Got ${raw.length} at offset $_videoOffset');
+      debugPrint('≡ƒôª Got ${raw.length} videos at offset $_videoOffset');
 
       if (raw.isEmpty) {
         _videoHasMore = false;
-        return [];
+        if (mounted) setState(() => _videoAllLoaded = true);
+        return null;
       }
 
       final mapped =
       raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
 
-      final fresh = mapped
-          .where((v) => !_allVideoIds.contains(v['id'] as String))
-          .toList();
+      // Duplicate filter ΓÇö offset mismatch αñàαñ╕αÑçαñ▓ αññαñ░ safety net
+      final existingIds = _videoPosts.map((p) => p['id']).toSet();
+      final fresh =
+      mapped.where((v) => !existingIds.contains(v['id'])).toList();
 
       _videoOffset += mapped.length;
+      _videoHasMore = response['has_more'] == true;
 
-      for (final v in fresh) {
-        _allVideoIds.add(v['id'] as String);
+      debugPrint('Γ£à Fresh: ${fresh.length}, hasMore: $_videoHasMore, newOffset: $_videoOffset');
+
+      if (fresh.isNotEmpty && mounted) {
+        setState(() => _videoPosts = [..._videoPosts, ...fresh]);
       }
 
-      final total = response['total'] as int? ?? 0;
-      final serverSaysHasMore = response['has_more'] == true;
-      final totalSaysMore = total > 0 && _videoOffset < total;
-      _videoHasMore = serverSaysHasMore || totalSaysMore;
-
-      debugPrint(
-          '✅ Fresh: ${fresh.length}, hasMore: $_videoHasMore, offset: $_videoOffset total: $total');
-
-      if (fresh.isEmpty) {
-        return _videoHasMore ? null : [];
+      if (!_videoHasMore && mounted) {
+        setState(() => _videoAllLoaded = true);
       }
 
-      return fresh;
+      return fresh.isNotEmpty ? fresh : null;
     } catch (e) {
-      debugPrint('❌ onVideoLoadMore error: $e');
+      debugPrint('Γ¥î onVideoLoadMore error: $e');
       return null;
     } finally {
       _videoLoadingMore = false;
     }
   }
+
 
   void _updateDisplayedItems() {
     if (!mounted) return;
@@ -704,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen>
         await _loadVideoPosts();
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✨ Videos refreshed!'),
+              content: Text('Γ£¿ Videos refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
       } else if (tabIndex == 1) {
@@ -715,21 +710,21 @@ class _HomeScreenState extends State<HomeScreen>
         await _loadArticles(isInitial: true);
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✨ News refreshed!'),
+              content: Text('Γ£¿ News refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
       } else if (tabIndex == 2) {
         await _loadSocialPosts();
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✨ Posts refreshed!'),
+              content: Text('Γ£¿ Posts refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
       } else if (tabIndex == 3) {
         await _loadProfileData();
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('✨ Profile refreshed!'),
+              content: Text('Γ£¿ Profile refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
       }
@@ -822,7 +817,7 @@ class _HomeScreenState extends State<HomeScreen>
     final summary = article['content'] ?? '';
     final url = article['source_url'] ?? '';
     Share.share(
-        '🗞 joy scroll!\n$title\n${summary.length > 100 ? summary.substring(0, 100) + '...' : summary}\n${url.isNotEmpty ? '🔗 $url' : ''}');
+        '≡ƒù₧ joy scroll!\n$title\n${summary.length > 100 ? summary.substring(0, 100) + '...' : summary}\n${url.isNotEmpty ? '≡ƒöù $url' : ''}');
   }
 
   Future<void> _toggleLike(Map<String, dynamic> post) async {
@@ -1419,6 +1414,7 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // Γ£à FIX: onLoadMore properly wired ΓÇö widget αñ╕αÑìαñ╡αññαñâ pagination trigger αñòαñ░αÑçαñ▓
   Widget _buildVideoTabContent() {
     if (_isVideoLoading) {
       return Container(
@@ -1497,7 +1493,8 @@ class _HomeScreenState extends State<HomeScreen>
                                 width: 30,
                                 decoration: BoxDecoration(
                                     color: primaryColor,
-                                    borderRadius: BorderRadius.circular(1.5)))),
+                                    borderRadius:
+                                    BorderRadius.circular(1.5)))),
                     ]),
               ),
             );
