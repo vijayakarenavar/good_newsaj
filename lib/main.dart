@@ -43,7 +43,7 @@ class _GoodNewsAppState extends State<GoodNewsApp> {
         .listen((result) {
       if (mounted) {
         setState(() {
-          _isConnected = result != ConnectivityResult.none;
+          _isConnected = !result.contains(ConnectivityResult.none);
         });
       }
     });
@@ -53,7 +53,7 @@ class _GoodNewsAppState extends State<GoodNewsApp> {
     final result = await Connectivity().checkConnectivity();
     if (mounted) {
       setState(() {
-        _isConnected = result != ConnectivityResult.none;
+        _isConnected = !result.contains(ConnectivityResult.none);
       });
     }
   }

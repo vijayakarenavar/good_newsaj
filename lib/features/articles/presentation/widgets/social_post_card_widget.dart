@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:good_news/core/themes/app_theme.dart';
+//import 'package:good_news/core/themes/app_theme.dart';
 import 'package:good_news/core/services/api_service.dart';
 
 /// 📸 INSTAGRAM STYLE - Content-sized card only

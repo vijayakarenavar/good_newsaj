@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:good_news/core/services/api_service.dart';
-import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/core/constants/theme_tokens.dart';
-import 'package:good_news/features/authentication/presentation/screens/login_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class RegistrationScreen extends StatefulWidget {
