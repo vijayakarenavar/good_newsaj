@@ -5,7 +5,7 @@ publish_to: 'none'
 version: 1.0.0+13
 
 environment:
-  sdk:  ">=3.3.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -20,7 +20,7 @@ dependencies:
   crypto: ^3.0.3
   shared_preferences: ^2.0.15
   url_launcher: ^6.2.5
-  flutter_html: ^3.0.0-beta.2
+  flutter_html: ^3.0.0
   google_fonts: ^6.1.0
   cached_network_image: ^3.3.1
   visibility_detector: ^0.4.0+2
@@ -31,16 +31,15 @@ dependencies:
   mime: ^2.0.0
   http_parser: ^4.1.2
   http: ^1.5.0
-  card_swiper: ^3.0.1
   video_player: ^2.10.1
   timeago: ^3.7.1
   lottie: ^3.0.0
   connectivity_plus: ^6.1.0
   provider: ^6.1.2
   youtube_player_flutter: ^9.1.1
-  webview_flutter: ^4.7.0
   google_sign_in: ^6.1.5
   shimmer: ^3.0.0
+  flutter_secure_storage: ^9.2.2  # Token encryption
 
 dev_dependencies:
   flutter_test:
@@ -58,21 +57,9 @@ flutter:
     - assets/splash_animation.json
     - .env
 
-
-
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/images/new_logo_goodnews.png"
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/images/new_logo_goodnews.png"
-
-
-
-
-
-
-
-
-
-

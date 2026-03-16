@@ -95,7 +95,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }
 
   int _getSummaryMaxLines(double screenWidth, double screenHeight, bool isLandscape) {
-    // ✅ Landscape मध्ये कमी lines
     if (isLandscape) return screenWidth > 600 ? 4 : 3;
     if (screenHeight > 900) return screenWidth > 600 ? 28 : 24;
     if (screenHeight > 800) return screenWidth > 600 ? 25 : 20;
@@ -219,8 +218,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final isDark = theme.brightness == Brightness.dark;
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // ✅ Landscape detection
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
@@ -237,7 +234,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     _getSummaryMaxLines(screenWidth, screenHeight, isLandscape);
     final summary = _getSummaryText(context, summaryMaxLines);
 
-    // ✅ FIXED: Landscape मध्ये image height कमी — overflow नाही
     final imageHeight = isLandscape
         ? screenHeight * 0.40
         : screenWidth > 600
@@ -249,7 +245,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final contentPadding =
     screenWidth > 600 ? 20.0 : screenWidth > 450 ? 18.0 : 16.0;
 
-    // ✅ FIXED: Landscape मध्ये cardHeight screen fit होईल
     final availableHeight = screenHeight - 100;
     final cardHeight = isLandscape
         ? screenHeight * 0.88
@@ -263,7 +258,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
     final buttonMetrics = _getButtonMetrics(screenWidth);
     final readButtonText = _getButtonText(screenWidth);
 
-    final heroTag = 'feed_article_${widget.article['id']}';
+    final heroTag = 'feed_article_${widget.article['id'] ?? widget.article.hashCode}';
 
     Widget buildImageWidget() {
       final imageUrl = widget.article['image_url'] as String?;
@@ -291,10 +286,11 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
       }
     }
 
-    // ✅ Landscape layout — side by side (image | content)
+    // Landscape layout
     if (isLandscape) {
       return VisibilityDetector(
-        key: Key('article_${widget.article['id']}'),
+        // FIX: null-safe key
+        key: Key('article_${widget.article['id'] ?? widget.article.hashCode}'),
         onVisibilityChanged: _onVisibilityChanged,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -313,7 +309,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
               borderRadius: BorderRadius.circular(24),
               child: Row(
                 children: [
-                  // ✅ LEFT: Image
                   SizedBox(
                     width: screenWidth * 0.40,
                     child: Hero(
@@ -321,15 +316,12 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                       child: buildImageWidget(),
                     ),
                   ),
-
-                  // ✅ RIGHT: Content
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // TIMESTAMP
                           Row(children: [
                             Icon(Icons.access_time_rounded,
                                 size: 12,
@@ -347,8 +339,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                             ),
                           ]),
                           const SizedBox(height: 6),
-
-                          // TITLE
                           Text(
                             title,
                             style: GoogleFonts.merriweather(
@@ -362,8 +352,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
-
-                          // SOURCE + AI TAG
                           Row(children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -438,8 +426,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                               ),
                           ]),
                           const SizedBox(height: 8),
-
-                          // SUMMARY
                           Expanded(
                             child: Text(
                               summary,
@@ -455,8 +441,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                             ),
                           ),
                           const SizedBox(height: 10),
-
-                          // BUTTONS
                           _buildResponsiveActionButtons(
                             context: context,
                             buttonMetrics: buttonMetrics,
@@ -477,9 +461,10 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
       );
     }
 
-    // ✅ Portrait layout — original
+    // Portrait layout
     return VisibilityDetector(
-      key: Key('article_${widget.article['id']}'),
+      // FIX: null-safe key
+      key: Key('article_${widget.article['id'] ?? widget.article.hashCode}'),
       onVisibilityChanged: _onVisibilityChanged,
       child: Container(
         margin: EdgeInsets.symmetric(
@@ -507,7 +492,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
             borderRadius: BorderRadius.circular(24),
             child: Column(
               children: [
-                // IMAGE SECTION
                 SizedBox(
                   height: imageHeight,
                   width: double.infinity,
@@ -516,8 +500,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     child: buildImageWidget(),
                   ),
                 ),
-
-                // CONTENT SECTION
                 Expanded(
                   child: Padding(
                     padding: EdgeInsets.only(
@@ -529,7 +511,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // TIMESTAMP
                         Row(
                           children: [
                             Icon(Icons.access_time_rounded,
@@ -549,8 +530,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           ],
                         ),
                         const SizedBox(height: 8),
-
-                        // TITLE
                         Text(
                           title,
                           style: GoogleFonts.merriweather(
@@ -568,8 +547,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-
-                        // SOURCE + AI TAG
                         Row(
                           children: [
                             Container(
@@ -646,8 +623,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           ],
                         ),
                         const SizedBox(height: 10),
-
-                        // SUMMARY
                         Expanded(
                           child: SingleChildScrollView(
                             physics: const NeverScrollableScrollPhysics(),
@@ -671,8 +646,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
                           ),
                         ),
                         const SizedBox(height: 14),
-
-                        // BUTTONS
                         _buildResponsiveActionButtons(
                           context: context,
                           buttonMetrics: buttonMetrics,
@@ -754,7 +727,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   }) {
     return Row(
       children: [
-        // READ FULL ARTICLE BUTTON
         Expanded(
           flex: 7,
           child: Material(
@@ -819,8 +791,6 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
           ),
         ),
         const SizedBox(width: 10),
-
-        // SHARE BUTTON
         Expanded(
           flex: 3,
           child: Material(

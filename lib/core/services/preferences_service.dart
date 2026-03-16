@@ -1,26 +1,36 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class PreferencesService {
   static SharedPreferences? _prefs;
+  static const _secure = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   static Future<void> _init() async {
     _prefs ??= await SharedPreferences.getInstance();
   }
 
-  // 👇 FCM TOKEN SUPPORT (NEW)
-  static const String _keyFCMToken = 'fcm_token';
+  // Secure keys — token aani sensitive data
+  static const _keyToken = 'user_token';
+  static const _keyFCMToken = 'fcm_token';
 
-  static Future<String?> getFCMToken() async {
-    await _init();
-    return _prefs!.getString(_keyFCMToken);
-  }
+  // Non-sensitive keys — SharedPreferences madhe rahil
+  static const _keyUserId = 'user_id';
+  static const _keyUserName = 'user_name';
+  static const _keyUserEmail = 'user_email';
+  static const _keyIsLoggedIn = 'is_logged_in';
+  static const _keyOnboarding = 'onboarding_completed';
+  static const _keyCategories = 'selected_categories';
 
   static Future<void> saveFCMToken(String token) async {
-    await _init();
-    await _prefs!.setString(_keyFCMToken, token);
+    await _secure.write(key: _keyFCMToken, value: token);
   }
 
-  // 👇 Existing Auth & User Data
+  static Future<String?> getFCMToken() async {
+    return await _secure.read(key: _keyFCMToken);
+  }
+
   static Future<void> saveUserData({
     required String token,
     required int userId,
@@ -28,22 +38,17 @@ class PreferencesService {
     required String email,
   }) async {
     await _init();
-    await _prefs!.setString('user_token', token);
-    await _prefs!.setInt('user_id', userId);
-    await _prefs!.setString('user_name', name);
-    await _prefs!.setString('user_email', email);
-    // Set login status implicitly
-    await _prefs!.setBool('is_logged_in', true);
-  }
-
-  static Future<String?> getUserDisplayName() async {
-    await _init();
-    return _prefs!.getString('user_name');
+    // Token — secure storage madhe
+    await _secure.write(key: _keyToken, value: token);
+    // Baaki info — SharedPreferences madhe (sensitive nahi)
+    await _prefs!.setInt(_keyUserId, userId);
+    await _prefs!.setString(_keyUserName, name);
+    await _prefs!.setString(_keyUserEmail, email);
+    await _prefs!.setBool(_keyIsLoggedIn, true);
   }
 
   static Future<String?> getUserToken() async {
-    await _init();
-    return _prefs!.getString('user_token');
+    return await _secure.read(key: _keyToken);
   }
 
   static Future<String?> getToken() async {
@@ -54,48 +59,50 @@ class PreferencesService {
     return await getUserToken();
   }
 
+  static Future<String?> getUserDisplayName() async {
+    await _init();
+    return _prefs!.getString(_keyUserName);
+  }
+
   static Future<String?> getUserEmail() async {
     await _init();
-    return _prefs!.getString('user_email');
+    return _prefs!.getString(_keyUserEmail);
   }
 
   static Future<int?> getUserId() async {
     await _init();
-    return _prefs!.getInt('user_id');
+    return _prefs!.getInt(_keyUserId);
   }
 
   static Future<bool> isLoggedIn() async {
     await _init();
-    return _prefs!.getBool('is_logged_in') ?? false;
+    return _prefs!.getBool(_keyIsLoggedIn) ?? false;
   }
 
-  // 👇 Onboarding
   static Future<void> setOnboardingCompleted(bool completed) async {
     await _init();
-    await _prefs!.setBool('onboarding_completed', completed);
+    await _prefs!.setBool(_keyOnboarding, completed);
   }
 
   static Future<bool> isOnboardingCompleted() async {
     await _init();
-    return _prefs!.getBool('onboarding_completed') ?? false;
+    return _prefs!.getBool(_keyOnboarding) ?? false;
   }
 
-  // 👇 Selected Categories
   static Future<void> saveSelectedCategories(List<int> categoryIds) async {
     await _init();
     await _prefs!.setStringList(
-      'selected_categories',
+      _keyCategories,
       categoryIds.map((e) => e.toString()).toList(),
     );
   }
 
   static Future<List<int>> getSelectedCategories() async {
     await _init();
-    final categories = _prefs!.getStringList('selected_categories') ?? [];
+    final categories = _prefs!.getStringList(_keyCategories) ?? [];
     return categories.map((e) => int.parse(e)).toList();
   }
 
-  // 👇 Liked Posts (user-specific key)
   static Future<void> saveLikedPost(int postId) async {
     await _init();
     final userId = await getUserId();
@@ -149,28 +156,27 @@ class PreferencesService {
     await _prefs!.remove('liked_posts_$userId');
   }
 
-  // 👇 Clear All (Logout)
   static Future<void> clearToken() async {
-    await _init();
-    await _prefs!.remove('user_token');
+    await _secure.delete(key: _keyToken);
   }
 
   static Future<void> clearUserData() async {
     await _init();
-    await _prefs!.remove('user_id');
-    await _prefs!.remove('user_name');
-    await _prefs!.remove('user_email');
-    await _prefs!.remove('is_logged_in');
+    await _prefs!.remove(_keyUserId);
+    await _prefs!.remove(_keyUserName);
+    await _prefs!.remove(_keyUserEmail);
+    await _prefs!.remove(_keyIsLoggedIn);
   }
 
   static Future<void> logout() async {
     await _init();
     await clearLikedPosts();
-    await _prefs!.clear(); // 🔥 clears FCM token, auth, everything
-    //'🚪 User logged out - all data cleared');
+    // Secure storage madhe je ahe te delete karo
+    await _secure.deleteAll();
+    // SharedPreferences clear karo
+    await _prefs!.clear();
   }
 
-  // 👇 Helper methods (optional but kept for compatibility)
   static Future<bool?> getBool(String key) async {
     await _init();
     return _prefs!.getBool(key);

@@ -5,8 +5,7 @@ import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/features/onboarding/presentation/screens/onboarding_screen.dart';
 import 'package:good_news/features/authentication/presentation/screens/registration_screen.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,13 +26,10 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _passwordError;
 
   // Google Sign-In instance
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  late final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    serverClientId: '293043554696-41f65f90a0opo0jq15ves6d2fhb1v2qe.apps.googleusercontent.com',
+    serverClientId: dotenv.env['GOOGLE_CLIENT_ID'] ?? '',
   );
-
-  static const String _baseUrl = 'https://goodnewsapp.lemmecode.com/api/v1';
-
   @override
   void dispose() {
     _emailController.dispose();
@@ -82,9 +78,8 @@ class _LoginScreenState extends State<LoginScreen> {
       _showError('Login failed. Please check your connection and try again.');
     }
 
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
-
   // ── Google Sign-In ────────────────────────────────────────────────────────
   Future<void> _googleSignInMethod() async {
     setState(() => _isGoogleLoading = true);

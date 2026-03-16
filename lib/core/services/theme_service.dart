@@ -8,8 +8,8 @@ class ThemeService extends ChangeNotifier {
   factory ThemeService() => _instance;
   ThemeService._internal();
 
-  // ✅ डीफॉल्ट: Light Mode (UI ला आधीपासूनच light दाखवायचं)
-  ThemeMode _themeMode = ThemeMode.light;
+  // ✅ डीफॉल्ट: Light Mode (UI ला आधीपासूनच dark दाखवायचं)
+  ThemeMode _themeMode = ThemeMode.dark;
   AppThemeType _themeType = AppThemeType.green;
   double _fontSize = 1.0;
   bool _reduceMotion = false;
@@ -21,8 +21,8 @@ class ThemeService extends ChangeNotifier {
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 
   Future<void> loadPreferences() async {
-    // ✅ Important: Default to LIGHT if no preference exists
-    final isDark = await PreferencesService.getBool('isDarkMode') ?? false; // false = light mode
+    // ✅ Important: Default to DARK if no preference exists
+    final isDark = await PreferencesService.getBool('isDarkMode') ?? true;//True = dark mode
 
     _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
 

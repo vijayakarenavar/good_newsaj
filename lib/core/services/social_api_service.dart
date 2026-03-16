@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
-import 'package:dio/dio.dart';
 import 'package:good_news/core/constants/api_constants.dart';
 import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';

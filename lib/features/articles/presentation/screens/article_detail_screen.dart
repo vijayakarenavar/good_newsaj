@@ -90,7 +90,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   Future<void> _openSourceUrl() async {
     setState(() => _isLoading = true);
 
-    // सगळे possible URL fields try करतो
     String? rawUrl;
     for (final key in ['source_url', 'url', 'link', 'article_url', 'original_url']) {
       final val = widget.article[key]?.toString().trim();
@@ -106,13 +105,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       return;
     }
 
-    String url = rawUrl;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://$url';
+    // ✅ हे नवीन add करा — link safe आहे का check
+    final uri = Uri.tryParse(rawUrl);
+    if (uri == null || !['http', 'https'].contains(uri.scheme)) {
+      _showSnack('Invalid or unsafe link');
+      setState(() => _isLoading = false);
+      return;
     }
 
     try {
-      final uri = Uri.parse(url);
       final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched) {
         await launchUrl(uri, mode: LaunchMode.inAppBrowserView);

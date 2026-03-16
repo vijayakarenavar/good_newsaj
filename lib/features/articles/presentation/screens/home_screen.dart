@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
@@ -56,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen>
   int? _previousPageIndex;
 
   static const int LOAD_MORE_THRESHOLD = 3;
-  static const int PAGE_SIZE = 9999;
+  static const int PAGE_SIZE = 20;
   static const int PRELOAD_COUNT = 5;
   static const List<String> EXCLUDED_CATEGORIES = [
     'Education',
@@ -117,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen>
     for (var controller in _commentControllers.values) {
       controller.dispose();
     }
+    _preloadedImages.clear(); // ← हे add कर
     super.dispose();
   }
 
@@ -285,7 +287,7 @@ class _HomeScreenState extends State<HomeScreen>
         final categoryIds = [null, ..._categoryMap.keys];
         final responses = await Future.wait(categoryIds.map((categoryId) =>
             ApiService.getUnifiedFeed(
-                limit: 9999, cursor: null, categoryId: categoryId)));
+                limit: 20, cursor: null, categoryId: categoryId)));
         Map<int?, List<Map<String, dynamic>>> categoryArticles = {};
         for (int i = 0; i < categoryIds.length; i++) {
           final response = responses[i];
@@ -317,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen>
           });
       }
     } catch (e) {
-      debugPrint('Γ¥î Articles load error: $e');
+      if (kDebugMode) debugPrint('Articles load error: $e');
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
     }
@@ -338,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen>
           });
       }
     } catch (e) {
-      debugPrint('Γ¥î Social posts error: $e');
+      if (kDebugMode) debugPrint('Social posts error: $e');
     }
   }
 
@@ -431,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen>
       );
 
       stopwatch.stop();
-      debugPrint('ΓÅ▒∩╕Å Video API time: ${stopwatch.elapsedMilliseconds}ms');
+      if (kDebugMode) debugPrint('Video API time: ${stopwatch.elapsedMilliseconds}ms');
 
       if (!mounted) return;
 
@@ -478,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen>
       }
     } catch (e) {
       stopwatch.stop();
-      debugPrint('Γ¥î Video load error: $e (${stopwatch.elapsedMilliseconds}ms)');
+      if (kDebugMode) debugPrint('Video load error: $e');
       if (retryCount < 2 && mounted) {
         await Future.delayed(const Duration(milliseconds: 500));
         return _loadVideoPosts(retryCount: retryCount + 1);
@@ -492,32 +494,29 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-
-  // Γ£à FIXED: scroll trigger αñ¥αñ╛αñ▓αÑìαñ»αñ╛αñ╡αñ░ αñ¬αÑüαñóαñÜαÑç 20 videos fetch αñòαñ░αññαÑï
   Future<List<Map<String, dynamic>>?> _onVideoLoadMore(int page) async {
-    // Guard: already loading or no more pages
     if (!_videoHasMore || _videoLoadingMore || !mounted) {
-      debugPrint('ΓÅ¡∩╕Å onLoadMore skipped: hasMore=$_videoHasMore loading=$_videoLoadingMore');
+      if (kDebugMode) debugPrint('onLoadMore skipped: hasMore=$_videoHasMore loading=$_videoLoadingMore');
       return null;
     }
     _videoLoadingMore = true;
-    debugPrint('≡ƒôÑ Loading more videos: offset=$_videoOffset page=$page');
+    if (kDebugMode) debugPrint('Loading more videos: offset=$_videoOffset page=$page');
 
     try {
       final response = await ApiService.getVideoFeed(
-        limit: _kVideoPageSize, // 20
+        limit: _kVideoPageSize,
         offset: _videoOffset,
       );
 
       if (!mounted) return null;
 
       if (response['status'] != 'success') {
-        debugPrint('Γ¥î onVideoLoadMore: API error');
+        if (kDebugMode) debugPrint('onVideoLoadMore: API error');
         return null;
       }
 
       final raw = response['videos'] as List? ?? [];
-      debugPrint('≡ƒôª Got ${raw.length} videos at offset $_videoOffset');
+      if (kDebugMode) debugPrint('Got ${raw.length} videos at offset $_videoOffset');
 
       if (raw.isEmpty) {
         _videoHasMore = false;
@@ -525,18 +524,15 @@ class _HomeScreenState extends State<HomeScreen>
         return null;
       }
 
-      final mapped =
-      raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
+      final mapped = raw.map((v) => _mapVideo(v as Map<String, dynamic>)).toList();
 
-      // Duplicate filter ΓÇö offset mismatch αñàαñ╕αÑçαñ▓ αññαñ░ safety net
       final existingIds = _videoPosts.map((p) => p['id']).toSet();
-      final fresh =
-      mapped.where((v) => !existingIds.contains(v['id'])).toList();
+      final fresh = mapped.where((v) => !existingIds.contains(v['id'])).toList();
 
       _videoOffset += mapped.length;
       _videoHasMore = response['has_more'] == true;
 
-      debugPrint('Γ£à Fresh: ${fresh.length}, hasMore: $_videoHasMore, newOffset: $_videoOffset');
+      if (kDebugMode) debugPrint('Fresh: ${fresh.length}, hasMore: $_videoHasMore, newOffset: $_videoOffset');
 
       if (fresh.isNotEmpty && mounted) {
         setState(() => _videoPosts = [..._videoPosts, ...fresh]);
@@ -548,7 +544,7 @@ class _HomeScreenState extends State<HomeScreen>
 
       return fresh.isNotEmpty ? fresh : null;
     } catch (e) {
-      debugPrint('Γ¥î onVideoLoadMore error: $e');
+      if (kDebugMode) debugPrint('onVideoLoadMore error: $e');
       return null;
     } finally {
       _videoLoadingMore = false;

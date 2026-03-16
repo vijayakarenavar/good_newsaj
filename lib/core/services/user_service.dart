@@ -1,8 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 
 class UserService {
-  /// Get user profile from /user/profile
+
+  static void _log(String message) {
+    if (kDebugMode) debugPrint('UserService: $message');
+  }
+
   static Future<Map<String, dynamic>> getUserProfile() async {
     try {
       final token = await PreferencesService.getToken();
@@ -18,7 +23,6 @@ class UserService {
     }
   }
 
-  /// ✅ Unique articles count — getHistory() वरूनच
   static Future<Map<String, dynamic>> getUserStats() async {
     try {
       final history = await getHistory();
@@ -29,11 +33,11 @@ class UserService {
         'comments': 0,
       };
     } catch (e) {
+      _log('getUserStats error: $e');
       return {'articles_read': 0, 'posts': 0, 'likes': 0, 'comments': 0};
     }
   }
 
-  /// Update profile (PUT /user/profile)
   static Future<bool> updateProfile(Map<String, dynamic> data) async {
     try {
       final token = await PreferencesService.getToken();
@@ -48,6 +52,7 @@ class UserService {
           response['status'] == 'success' ||
           response['success'] == true;
     } catch (e) {
+      _log('updateProfile error: $e');
       return false;
     }
   }
@@ -77,10 +82,11 @@ class UserService {
           }
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      // FIX: silent failure काढला
+      _log('refreshUserProfile error: $e');
+    }
   }
-
-  // ==================== READING HISTORY ====================
 
   static Future<bool> addToHistory(int articleId) async {
     try {
@@ -95,6 +101,7 @@ class UserService {
       return response['message'] == 'Added to history successfully' ||
           response['status'] == 'success';
     } catch (e) {
+      _log('addToHistory error: $e');
       return false;
     }
   }
@@ -123,11 +130,11 @@ class UserService {
       }
       return null;
     } catch (e) {
+      _log('addToHistoryWithNewEntry error: $e');
       return null;
     }
   }
 
-  /// ✅ Valid URL शोधतो
   static String? _findValidUrl(Map<String, dynamic> a, List<String> keys) {
     for (final key in keys) {
       final val = a[key]?.toString().trim();
@@ -143,7 +150,6 @@ class UserService {
     return null;
   }
 
-  /// ✅ Valid date string शोधतो
   static String? _findValidDate(Map<String, dynamic> a, List<String> keys) {
     for (final key in keys) {
       final val = a[key]?.toString().trim();
@@ -160,7 +166,6 @@ class UserService {
     return null;
   }
 
-  /// ✅ Nested article object flatten करतो
   static Map<String, dynamic> _flattenHistoryItem(Map<String, dynamic> raw) {
     final flat = Map<String, dynamic>.from(raw);
     for (final nestedKey in ['article', 'news', 'post']) {
@@ -176,19 +181,15 @@ class UserService {
     return flat;
   }
 
-  /// ✅ FIXED: Feed वरून image_url + source_url enrich करतो
-  /// कारण: /user/history API मध्ये image_url + source_url येत नाही
-  /// Solution: /feed API वरून article ID match करून missing fields fill करतो
+  // FIX: limit 9999 → 50 — history enrich साठी फक्त recent articles पुरेसे
   static Future<List<Map<String, dynamic>>> _enrichWithFeedData(
       List<Map<String, dynamic>> historyItems) async {
     try {
-      // Feed वरून सगळे articles एकत्र आणतो
-      final feedResponse = await ApiService.getUnifiedFeed(limit: 9999);
+      final feedResponse = await ApiService.getUnifiedFeed(limit: 50);
       if (feedResponse['status'] != 'success') return historyItems;
 
       final feedItems = feedResponse['items'] as List? ?? [];
 
-      // Feed articles ला ID वरून map बनवतो — O(1) lookup
       final feedMap = <dynamic, Map<String, dynamic>>{};
       for (final item in feedItems) {
         if (item is Map<String, dynamic> && item['type'] == 'article') {
@@ -196,13 +197,11 @@ class UserService {
         }
       }
 
-      // History items मध्ये missing image_url + source_url fill करतो
       return historyItems.map((article) {
         final id = article['id'];
         final feedArticle = feedMap[id];
         if (feedArticle == null) return article;
 
-        // ✅ फक्त missing fields feed वरून घेतो
         final enriched = Map<String, dynamic>.from(article);
 
         if (_findValidUrl(enriched, ['image_url']) == null) {
@@ -222,15 +221,11 @@ class UserService {
         return enriched;
       }).toList();
     } catch (e) {
-      // Feed enrich fail झाला तरी original history return करतो
+      _log('_enrichWithFeedData error: $e');
       return historyItems;
     }
   }
 
-  /// ✅ FIXED: Get reading history
-  /// - Nested object flatten
-  /// - Unique articles only
-  /// - Feed वरून image_url + source_url enrich
   static Future<List<Map<String, dynamic>>> getHistory() async {
     try {
       final token = await PreferencesService.getToken();
@@ -254,7 +249,6 @@ class UserService {
         if (history is List) historyList = history;
       }
 
-      // ✅ Unique articles only
       final seenIds = <dynamic>{};
       final uniqueList = historyList.where((item) {
         final raw = item as Map;
@@ -264,7 +258,6 @@ class UserService {
         return seenIds.add(id);
       }).toList();
 
-      // ✅ Map करतो
       final mappedList = uniqueList.map((item) {
         final a = _flattenHistoryItem(Map<String, dynamic>.from(item as Map));
 
@@ -307,8 +300,8 @@ class UserService {
           'rewritten_summary': a['rewritten_summary'] ?? content,
           'rewritten_headline': a['rewritten_headline'],
           'description': a['description'],
-          'image_url': imageUrl,   // history API मधून येतो (नसेल तर null)
-          'source_url': sourceUrl, // history API मधून येतो (नसेल तर null)
+          'image_url': imageUrl,
+          'source_url': sourceUrl,
           'category': a['category_name'] ?? a['category'] ?? 'General',
           'category_id': a['category_id'],
           'author': a['author'] ?? a['author_name'] ?? a['source'],
@@ -319,10 +312,10 @@ class UserService {
         };
       }).toList();
 
-      // ✅ Feed वरून missing image_url + source_url enrich करतो
       final enriched = await _enrichWithFeedData(mappedList);
       return enriched;
     } catch (e) {
+      _log('getHistory error: $e');
       return [];
     }
   }
