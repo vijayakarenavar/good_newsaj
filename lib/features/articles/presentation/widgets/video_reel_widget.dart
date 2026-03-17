@@ -42,7 +42,6 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
   bool _useHybridComposition = true;
   bool _deviceDetected = false;
 
-  // active index → controller (फक्त current + neighbors)
   final Map<int, YoutubePlayerController> _controllerCache = {};
 
   List<Map<String, dynamic>> get _filteredVideos => _allVideos
@@ -74,28 +73,35 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
     } else {
       _useHybridComposition = false;
     }
-    _deviceDetected = true;
 
     if (!mounted) return;
+
     _buildFreshController(0);
-    setState(() {});
+
+    setState(() {
+      _deviceDetected = true; // ✅ एकाच setState मध्ये
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _controllerCache[0]?.play();
     });
   }
 
-  // ─── Fresh controller बनवणे — हेच replay fix आहे ───────────────────────────
-  YoutubePlayerController _buildFreshController(int actualIndex) {
+  // ✅ Crash-safe fresh controller
+  YoutubePlayerController? _buildFreshController(int actualIndex) {
     final videos = _filteredVideos;
-    if (actualIndex >= videos.length) return _controllerCache[actualIndex]!;
+
+    // ✅ Fix 1 — index out of range — null return, crash नाही
+    if (actualIndex < 0 || actualIndex >= videos.length) return null;
+
+    final videoId = videos[actualIndex]['video_id'] as String? ?? '';
+
+    // ✅ Fix 2 — empty videoId — null return, crash नाही
+    if (videoId.isEmpty) return null;
 
     // जुना असेल तर dispose कर
     _controllerCache[actualIndex]?.dispose();
     _controllerCache.remove(actualIndex);
-
-    final videoId = videos[actualIndex]['video_id'] as String? ?? '';
-    if (videoId.isEmpty) return _controllerCache[actualIndex]!;
 
     final ctrl = YoutubePlayerController(
       initialVideoId: videoId,
@@ -116,7 +122,6 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
     return ctrl;
   }
 
-  // Neighbors preload (without disposing active)
   void _preloadNeighbors(int currentActualIndex) {
     final videos = _filteredVideos;
     if (videos.isEmpty) return;
@@ -144,7 +149,7 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
       );
     }
 
-    // दूर गेलेले dispose (±2 पेक्षा दूर)
+    // दूर गेलेले dispose
     final toDispose = _controllerCache.keys.where((key) {
       final diff = (key - currentActualIndex + videos.length) % videos.length;
       return diff > 2 && diff < videos.length - 1;
@@ -162,7 +167,6 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
       setState(() => _hasMorePages = widget.hasMore!);
     }
     if (widget.videos != oldWidget.videos) {
-      // Refresh — सगळे controllers dispose
       for (final c in _controllerCache.values) c.dispose();
       _controllerCache.clear();
       setState(() {
@@ -191,7 +195,10 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
       final newVideos = await widget.onLoadMore!(_nextPage);
       if (!mounted) return;
       if (newVideos == null || newVideos.isEmpty) {
-        setState(() { _hasMorePages = false; _isLoadingMore = false; });
+        setState(() {
+          _hasMorePages = false;
+          _isLoadingMore = false;
+        });
       } else {
         setState(() {
           _allVideos.addAll(newVideos);
@@ -214,13 +221,13 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
     // Previous video pause
     _controllerCache[prevActualIndex]?.pause();
 
-    setState(() => _currentPage = index);
-
-    // ✅ Fresh controller बनव — हेच replay fix
+    // ✅ Fix 3 — एकाच setState मध्ये सगळं
     _buildFreshController(actualIndex);
     _preloadNeighbors(actualIndex);
 
-    setState(() {}); // _VideoReelItem ला नवीन controller मिळेल
+    setState(() {
+      _currentPage = index;
+    });
 
     // Play after short delay (WebView ready होण्यासाठी)
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -265,7 +272,7 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
         color: Colors.black,
         child: Center(
           child: !_deviceDetected
-              ? const SizedBox.shrink() // detect होताना blank — flicker नाही
+              ? const SizedBox.shrink()
               : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             const Icon(Icons.video_library_outlined,
                 color: Colors.white38, size: 64),
@@ -303,7 +310,6 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
             final ctrl = _controllerCache[actualIndex];
 
             return RepaintBoundary(
-              // ✅ controller च्या hashCode पण key मध्ये — fresh controller = widget rebuild
               key: ValueKey('reel_${actualIndex}_${ctrl?.hashCode ?? 0}'),
               child: _VideoReelItem(
                 video: video,
@@ -341,7 +347,6 @@ class _VideoReelItem extends StatefulWidget {
   final VoidCallback onShare;
 
   const _VideoReelItem({
-    // key नाही — parent ValueKey मधून rebuild होतो
     required this.video,
     required this.isActive,
     required this.controller,
@@ -384,7 +389,6 @@ class _VideoReelItemState extends State<_VideoReelItem> {
     if (widget.controller != oldWidget.controller) {
       oldWidget.controller?.removeListener(_onStateChanged);
       _ctrl?.addListener(_onStateChanged);
-      // नवीन controller आला — fresh state
       if (mounted) {
         setState(() {
           _showThumbnail = true;
@@ -433,7 +437,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
       if (!hasInternet) {
         setState(() => _showNetworkError = true);
       } else {
-        _ctrl?.play(); // silent retry
+        _ctrl?.play();
       }
     });
   }
@@ -471,7 +475,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
         _isPlaying = playing;
         if (playing) {
           _loadTimeoutTimer?.cancel();
-          _showThumbnail = false; // actually play होतो तेव्हाच thumbnail जाते
+          _showThumbnail = false;
           _showNetworkError = false;
         }
       });
@@ -516,9 +520,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
                 controller: _ctrl!,
                 showVideoProgressIndicator: false,
                 onReady: () {
-                  if (mounted && widget.isActive) {
-                    _ctrl?.play();
-                  }
+                  if (mounted && widget.isActive) _ctrl?.play();
                 },
                 onEnded: (_) {
                   if (widget.isActive) {
@@ -585,8 +587,8 @@ class _VideoReelItemState extends State<_VideoReelItem> {
             child: Center(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 32),
-                padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 20),
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(0.80),
                   borderRadius: BorderRadius.circular(16),
@@ -741,8 +743,7 @@ class _VideoReelItemState extends State<_VideoReelItem> {
           if (category.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
                 color: Colors.white12,
                 borderRadius: BorderRadius.circular(20),

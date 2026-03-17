@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -296,7 +297,9 @@ class _SplashWrapper extends StatelessWidget {
 
       return const ResponsiveApp();
     } catch (e) {
-      debugPrint("🔥 Initial Screen Error: $e");
+      if (kDebugMode) {
+        debugPrint("🔥 Initial Screen Error: $e");
+      }
       return const LoginScreen();
     }
   }

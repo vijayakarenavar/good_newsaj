@@ -378,12 +378,28 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   margin: Margins.only(bottom: 6),
                 ),
               },
-              onAnchorTap: (url, attributes, element) async {
-                if (url != null) {
-                  final uri = Uri.parse(url);
+         onAnchorTap: (url, attributes, element) async {
+            if (url == null || url.trim().isEmpty) return;
+
+            final uri = Uri.tryParse(url.trim());
+
+            // ✅ Only allow http/https
+            if (uri == null || !['http', 'https'].contains(uri.scheme)) {
+              _showSnack('Invalid or unsafe link');
+              return;
+            }
+
+            try {
+              final launched =
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+
+              if (!launched) {
+                await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+              }
+            } catch (_) {
+              _showSnack('Cannot open link');
+            }
+          },
             ),
 
             const SizedBox(height: 30),

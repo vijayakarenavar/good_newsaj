@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:good_news/core/utils/responsive_helper.dart';
@@ -93,7 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         throw Exception(response['error']);
       }
     } catch (e) {
-      debugPrint("Error loading friends: $e");
+      if (kDebugMode) { debugPrint("Error loading friends: $e"); }
       if (mounted) setState(() => _isFriendsLoading = false);
     }
   }
@@ -110,7 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         }
       }
     } catch (e) {
-      debugPrint("Silent friends load error: $e");
+      if (kDebugMode) { debugPrint("Silent friends load error: $e"); }
     }
   }
 
@@ -126,7 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint("Error loading user data: $e");
+      if (kDebugMode) { debugPrint("Error loading user data: $e");}
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,7 +162,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         });
       }
     } catch (e) {
-      debugPrint("Stats load error: $e");
+      if (kDebugMode) {
+        debugPrint("Stats load error: $e");
+      }
+
       if (mounted) {
         setState(() {
           _articlesReadCount = 0;
@@ -187,7 +191,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         }
       }
     } catch (e) {
-      debugPrint("Friend request count error: $e");
+      if (kDebugMode) {
+        debugPrint("Friend request count error: $e");
+      }
       if (mounted) {
         setState(() {
           _friendRequestsCount = 0;
