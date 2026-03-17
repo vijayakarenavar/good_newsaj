@@ -40,6 +40,7 @@ dependencies:
   google_sign_in: ^6.1.5
   shimmer: ^3.0.0
   flutter_secure_storage: ^9.2.2  # Token encryption
+  device_info_plus: ^9.0.0
 
 dev_dependencies:
   flutter_test:
