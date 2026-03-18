@@ -21,7 +21,13 @@ class ArticleDetailScreen extends StatefulWidget {
 class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   bool _isLoading = false;
 
-  // ================= CLEAN AI TEXT =================
+  @override
+  void initState() {
+    super.initState();
+    assert(widget.article != null, 'article cannot be null');
+    assert(widget.article['id'] != null, 'article.id cannot be null');
+  }
+
   String _removeAiText(String content) {
     final aiPatterns = [
       '[This article was rewritten using A.I]',
@@ -54,11 +60,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       </div>
       ''';
     }
-
     return _removeAiText(rawContent);
   }
 
-  // ================= DOMAIN =================
   String _getDomainFromUrl(String? url) {
     if (url == null || url.isEmpty) return '';
     try {
@@ -70,7 +74,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
   }
 
-  // ================= DATE FORMAT =================
   String _formatDateTime(dynamic dateStr) {
     if (dateStr == null) return '';
     try {
@@ -86,8 +89,14 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
   }
 
-  // ================= OPEN SOURCE URL =================
+  bool _isValidUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    final uri = Uri.tryParse(url.trim());
+    return uri != null && ['http', 'https'].contains(uri.scheme);
+  }
+
   Future<void> _openSourceUrl() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     String? rawUrl;
@@ -101,22 +110,22 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
     if (rawUrl == null || rawUrl.isEmpty) {
       _showSnack('No source link available');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    // ✅ हे नवीन add करा — link safe आहे का check
-    final uri = Uri.tryParse(rawUrl);
-    if (uri == null || !['http', 'https'].contains(uri.scheme)) {
+    if (!_isValidUrl(rawUrl)) {
       _showSnack('Invalid or unsafe link');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched) {
-        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      final uri = Uri.parse(rawUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        _showSnack('Cannot open link');
       }
     } catch (e) {
       _showSnack('Cannot open link. Please try again.');
@@ -130,7 +139,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ================= IMAGE URL VALIDATION =================
   bool _isValidImageUrl(dynamic imageUrl) {
     if (imageUrl == null) return false;
     final s = imageUrl.toString().trim();
@@ -139,9 +147,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return true;
   }
 
-  // ================= ARTICLE IMAGE =================
   Widget _buildArticleImage(Color primaryColor) {
-    // सगळे possible image fields try करतो
     dynamic imageUrl;
     for (final key in ['image_url', 'image', 'thumbnail_url', 'thumbnail', 'featured_image']) {
       if (_isValidImageUrl(widget.article[key])) {
@@ -181,7 +187,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         ),
       );
     }
-
     return _buildDefaultArticleImage(primaryColor);
   }
 
@@ -231,14 +236,75 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     if (content.isEmpty) {
       return '<div style="padding: 20px; text-align: center;"><p style="color: #666;">No content available</p></div>';
     }
+
+    // ✅ Step 1: Remove script tags
     content = content.replaceAll(
-        RegExp(r'<script[^>]*>.*?</script>', caseSensitive: false, dotAll: true), '');
+      RegExp(r'<script\b[^>]*>[\s\S]*?</script>', caseSensitive: false, multiLine: true),
+      '',
+    );
+
+    // ✅ Step 2: Remove style tags
     content = content.replaceAll(
-        RegExp(r'<style[^>]*>.*?</style>', caseSensitive: false, dotAll: true), '');
+      RegExp(r'<style\b[^>]*>[\s\S]*?</style>', caseSensitive: false, multiLine: true),
+      '',
+    );
+
+    // ✅ Step 3: Remove event handlers (onerror, onload, onclick, etc.)
+    content = content.replaceAll(
+      RegExp(r'\s+on\w+\s*=\s*"[^"]*"', caseSensitive: false),
+      '',
+    );
+    content = content.replaceAll(
+      RegExp(r"\s+on\w+\s*=\s*'[^']*'", caseSensitive: false),
+      '',
+    );
+
+    // ✅ Step 4: Remove javascript: URLs
+    content = content.replaceAll(
+      RegExp(r'javascript\s*:', caseSensitive: false),
+      '',
+    );
+
+    // ✅ Step 5: Remove iframe tags
+    content = content.replaceAll(
+      RegExp(r'<iframe\b[^>]*>[\s\S]*?</iframe>', caseSensitive: false, multiLine: true),
+      '',
+    );
+    content = content.replaceAll(
+      RegExp(r'<iframe\b[^>]*/>'),
+      '',
+    );
+
+    // ✅ Step 6: Remove object tags
+    content = content.replaceAll(
+      RegExp(r'<object\b[^>]*>[\s\S]*?</object>', caseSensitive: false, multiLine: true),
+      '',
+    );
+
+    // ✅ Step 7: Remove embed tags
+    content = content.replaceAll(
+      RegExp(r'<embed\b[^>]*>[\s\S]*?</embed>', caseSensitive: false, multiLine: true),
+      '',
+    );
+
+    // ✅ Step 8: Remove form tags
+    content = content.replaceAll(
+      RegExp(r'<form\b[^>]*>[\s\S]*?</form>', caseSensitive: false, multiLine: true),
+      '',
+    );
+
+    // ✅ Step 9: Remove dangerous SVG patterns
+    content = content.replaceAll(
+      RegExp(r'<svg\b[^>]*on\w+\s*=[^>]*>', caseSensitive: false),
+      '<svg>',
+    );
+
+    // ✅ Step 10: If content has no HTML tags, wrap in paragraphs
     if (!content.contains('<') && !content.contains('>')) {
       final paragraphs = content.split('\n\n');
       content = paragraphs.map((p) => '<p>${p.trim()}</p>').join('\n');
     }
+
     return content;
   }
 
@@ -250,9 +316,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     return false;
   }
 
-  // ================= BUILD =================
   @override
   Widget build(BuildContext context) {
+    if (widget.article.isEmpty || widget.article['id'] == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Article')),
+        body: const Center(child: Text('Article data not available')),
+      );
+    }
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primaryColor = theme.colorScheme.primary;
@@ -286,11 +358,9 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
             _buildArticleImage(primaryColor),
             const SizedBox(height: 16),
 
-            // Title
             Text(
               title,
               style: GoogleFonts.merriweather(
@@ -300,7 +370,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
             ),
             const SizedBox(height: 10),
 
-            // Meta — फक्त valid data असेल तेव्हाच दाखवतो
             if (domain.isNotEmpty || time.isNotEmpty)
               Wrap(
                 spacing: 12,
@@ -325,7 +394,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
             const SizedBox(height: 20),
 
-            // HTML Content
             Html(
               data: _formatHtmlContent(content),
               style: {
@@ -378,33 +446,29 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                   margin: Margins.only(bottom: 6),
                 ),
               },
-         onAnchorTap: (url, attributes, element) async {
-            if (url == null || url.trim().isEmpty) return;
+              onAnchorTap: (url, attributes, element) async {
+                if (url == null || url.trim().isEmpty) return;
 
-            final uri = Uri.tryParse(url.trim());
+                if (!_isValidUrl(url)) {
+                  _showSnack('Invalid or unsafe link');
+                  return;
+                }
 
-            // ✅ Only allow http/https
-            if (uri == null || !['http', 'https'].contains(uri.scheme)) {
-              _showSnack('Invalid or unsafe link');
-              return;
-            }
-
-            try {
-              final launched =
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-
-              if (!launched) {
-                await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-              }
-            } catch (_) {
-              _showSnack('Cannot open link');
-            }
-          },
+                try {
+                  final uri = Uri.parse(url.trim());
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  } else {
+                    _showSnack('Cannot open link');
+                  }
+                } catch (_) {
+                  _showSnack('Cannot open link');
+                }
+              },
             ),
 
             const SizedBox(height: 30),
 
-            // Visit Source Button — valid URL असेल तरच दाखवतो
             if (hasSourceUrl)
               SizedBox(
                 width: double.infinity,
