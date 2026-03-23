@@ -116,14 +116,12 @@ class UserService {
         token: token,
         data: {'article_id': articleId},
       );
-      if (response is Map) {
-        final newEntryId = response['history_id'] ??
-            response['id'] ??
-            response['entry_id'] ??
-            response['data']?['id'];
-        if (newEntryId != null && newEntryId is int) return newEntryId;
-      }
-      if (response['message']?.contains('success') == true ||
+      final newEntryId = response['history_id'] ??
+          response['id'] ??
+          response['entry_id'] ??
+          response['data']?['id'];
+      if (newEntryId != null && newEntryId is int) return newEntryId;
+          if (response['message']?.contains('success') == true ||
           response['status'] == 'success' ||
           response['success'] == true) {
         return -1;
@@ -241,10 +239,10 @@ class UserService {
 
       if (response is List) {
         historyList = response as List;
-      } else if (response is Map && response.containsKey('data')) {
+      } else if (response.containsKey('data')) {
         final data = response['data'];
         if (data is List) historyList = data;
-      } else if (response is Map && response.containsKey('history')) {
+      } else if (response.containsKey('history')) {
         final history = response['history'];
         if (history is List) historyList = history;
       }

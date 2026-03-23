@@ -9,11 +9,11 @@ class SplashScreen extends StatefulWidget {
   final Color? accentColor;
 
   const SplashScreen({
-    Key? key,
+    super.key,
     required this.nextScreen,
     this.backgroundColor,
     this.accentColor,
-  }) : super(key: key);
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();

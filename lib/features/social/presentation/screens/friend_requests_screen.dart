@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/constants/theme_tokens.dart';
 
 class FriendRequestsScreen extends StatefulWidget {
-  const FriendRequestsScreen({Key? key}) : super(key: key);
+  const FriendRequestsScreen({super.key});
 
   @override
   State<FriendRequestsScreen> createState() => _FriendRequestsScreenState();
@@ -266,7 +266,7 @@ class _FriendRequestsScreenState extends State<FriendRequestsScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Card(
-        color: colorScheme.surfaceVariant,
+        color: colorScheme.surfaceContainerHighest,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),

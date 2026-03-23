@@ -7,11 +7,11 @@ class NewsCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
 
   const NewsCard({
-    Key? key,
+    super.key,
     required this.article,
     required this.isFavorite,
     required this.onFavoriteToggle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

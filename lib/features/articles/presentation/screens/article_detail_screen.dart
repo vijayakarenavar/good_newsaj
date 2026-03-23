@@ -10,9 +10,9 @@ class ArticleDetailScreen extends StatefulWidget {
   final Map<String, dynamic> article;
 
   const ArticleDetailScreen({
-    Key? key,
+    super.key,
     required this.article,
-  }) : super(key: key);
+  });
 
   @override
   State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
@@ -24,7 +24,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   @override
   void initState() {
     super.initState();
-    assert(widget.article != null, 'article cannot be null');
     assert(widget.article['id'] != null, 'article.id cannot be null');
   }
 

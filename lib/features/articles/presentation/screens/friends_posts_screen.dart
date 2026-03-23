@@ -4,7 +4,7 @@ import 'package:good_news/core/services/preferences_service.dart';
 import 'dart:io';
 
 class FriendsPostsScreen extends StatefulWidget {
-  const FriendsPostsScreen({Key? key}) : super(key: key);
+  const FriendsPostsScreen({super.key});
 
   @override
   State<FriendsPostsScreen> createState() => _FriendsPostsScreenState();
@@ -17,9 +17,9 @@ class _FriendsPostsScreenState extends State<FriendsPostsScreen> {
   bool _isLoadingFriends = true;
   bool _isLoadingFriendsPosts = true;
 
-  Map<String, List<Map<String, dynamic>>> _postComments = {};
-  Map<String, bool> _showCommentsMap = {};
-  Map<String, bool> _isLoadingCommentsMap = {};
+  final Map<String, List<Map<String, dynamic>>> _postComments = {};
+  final Map<String, bool> _showCommentsMap = {};
+  final Map<String, bool> _isLoadingCommentsMap = {};
   final Map<String, TextEditingController> _commentControllers = {};
 
   @override

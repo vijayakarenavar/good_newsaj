@@ -7,11 +7,11 @@ class AnimatedCategoryChip extends StatefulWidget {
   final VoidCallback? onTap;
 
   const AnimatedCategoryChip({
-    Key? key,
+    super.key,
     required this.label,
     required this.isSelected,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedCategoryChip> createState() => _AnimatedCategoryChipState();
@@ -73,7 +73,7 @@ class _AnimatedCategoryChipState extends State<AnimatedCategoryChip>
   void _updateColorAnimation() {
     final theme = Theme.of(context);
     _colorAnimation = ColorTween(
-      begin: theme.colorScheme.surfaceVariant,
+      begin: theme.colorScheme.surfaceContainerHighest,
       end: theme.colorScheme.primary,
     ).animate(CurvedAnimation(
       parent: _controller,
@@ -112,7 +112,7 @@ class _AnimatedCategoryChipState extends State<AnimatedCategoryChip>
                 decoration: BoxDecoration(
                   color: widget.isSelected
                       ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.surfaceVariant,
+                      : Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: widget.isSelected

@@ -8,11 +8,11 @@ class FriendPost extends StatefulWidget {
   final VoidCallback? onShare;
 
   const FriendPost({
-    Key? key,
+    super.key,
     required this.post,
     this.onLike,
     this.onShare,
-  }) : super(key: key);
+  });
 
   @override
   State<FriendPost> createState() => _FriendPostState();

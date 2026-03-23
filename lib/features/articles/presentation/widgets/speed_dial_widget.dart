@@ -23,12 +23,12 @@ class SpeedDialWidget extends StatelessWidget {
   final List<SpeedDialAction> actions;
 
   const SpeedDialWidget({
-    Key? key,
+    super.key,
     required this.isOpen,
     required this.rotationAnimation,
     required this.onToggle,
     required this.actions,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

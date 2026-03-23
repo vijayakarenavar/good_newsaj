@@ -15,7 +15,7 @@ class SocialPostCardWidget extends StatefulWidget {
   final Function(String, Map<String, dynamic>) onOpenCommentPage;
 
   const SocialPostCardWidget({
-    Key? key,
+    super.key,
     required this.post,
     required this.commentController,
     required this.onToggleLike,
@@ -23,7 +23,7 @@ class SocialPostCardWidget extends StatefulWidget {
     this.onAddFriend,
     required this.onShowFullImage,
     required this.onOpenCommentPage,
-  }) : super(key: key);
+  });
 
   @override
   State<SocialPostCardWidget> createState() => _SocialPostCardWidgetState();

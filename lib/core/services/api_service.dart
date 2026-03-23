@@ -136,10 +136,12 @@ class ApiService {
   static Map<String, dynamic> _formatFeedItem(Map<String, dynamic> item) {
     final String type = item['type'] ?? 'article';
     if (type == 'article') return _formatArticleFromFeed(item);
-    if (type == 'post' || type == 'social_post')
+    if (type == 'post' || type == 'social_post') {
       return _formatSocialPostFromFeed(item);
-    if (type == 'video' || type == 'video_post')
+    }
+    if (type == 'video' || type == 'video_post') {
       return _formatVideoPostFromFeed(item);
+    }
     return {
       'type': 'article',
       'id': item['id'] ?? 0,
@@ -227,14 +229,16 @@ class ApiService {
     try {
       final response =
       await _retryRequest(() async => await _dio.get('/categories'));
-      if (response.data is Map<String, dynamic>)
+      if (response.data is Map<String, dynamic>) {
         return response.data as Map<String, dynamic>;
-      if (response.data is List)
+      }
+      if (response.data is List) {
         return {
           'status': 'success',
           'categories': response.data,
           'count': (response.data as List).length
         };
+      }
       return {'status': 'success', 'categories': [], 'count': 0};
     } catch (e) {
       _log('getCategories error: $e');
@@ -254,8 +258,9 @@ class ApiService {
           data: {'category_ids': categoryIds},
           options:
           Options(headers: {'Authorization': 'Bearer $token'})));
-      if (response.data is Map<String, dynamic>)
+      if (response.data is Map<String, dynamic>) {
         return response.data as Map<String, dynamic>;
+      }
       return {'status': 'success'};
     } catch (e) {
       _log('saveUserPreferencesAuth error: $e');
@@ -283,8 +288,9 @@ class ApiService {
           options: Options(headers: {
             if (token != null) 'Authorization': 'Bearer $token'
           }));
-      if (response.statusCode == 200 && response.data is List)
+      if (response.statusCode == 200 && response.data is List) {
         return {'status': 'success', 'data': response.data};
+      }
       return {
         'status': 'error',
         'error': 'Invalid response format',
@@ -324,11 +330,12 @@ class ApiService {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }));
-      if (response.statusCode == 200 || response.statusCode == 201)
+      if (response.statusCode == 200 || response.statusCode == 201) {
         return {
           'status': 'success',
           'message': 'Friend request sent successfully'
         };
+      }
       return {'status': 'error', 'error': 'Failed to send friend request'};
     } catch (e) {
       _log('sendFriendRequest error: $e');
@@ -347,22 +354,24 @@ class ApiService {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }));
-      if (response.statusCode == 200 || response.statusCode == 204)
+      if (response.statusCode == 200 || response.statusCode == 204) {
         return {
           'status': 'success',
           'message': 'Friend request cancelled'
         };
+      }
       if (response.statusCode == 404 || response.statusCode == 405) {
         final fallback = await _dio.post('/friends/$userId/cancel',
             options: Options(headers: {
               'Authorization': 'Bearer $token',
               'Content-Type': 'application/json'
             }));
-        if (fallback.statusCode == 200 || fallback.statusCode == 204)
+        if (fallback.statusCode == 200 || fallback.statusCode == 204) {
           return {
             'status': 'success',
             'message': 'Friend request cancelled'
           };
+        }
       }
       return {
         'status': 'error',
@@ -473,18 +482,20 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (response.data is Map<String, dynamic>) {
           final responseData = response.data as Map<String, dynamic>;
-          if (!responseData.containsKey('status'))
+          if (!responseData.containsKey('status')) {
             responseData['status'] = 'success';
+          }
           return responseData;
         }
         return {'status': 'success', 'data': response.data};
       }
-      if (response.statusCode == 401)
+      if (response.statusCode == 401) {
         return {
           'status': 'error',
           'error': 'Authentication failed',
           'statusCode': 401
         };
+      }
       return {
         'status': 'error',
         'error': 'Server error: ${response.statusCode}',
@@ -492,8 +503,9 @@ class ApiService {
       };
     } catch (e) {
       if (e is DioException &&
-          e.type == DioExceptionType.connectionTimeout)
+          e.type == DioExceptionType.connectionTimeout) {
         return {'status': 'error', 'error': 'Connection timeout'};
+      }
       _log('authenticatedRequest error: $e');
       return {'status': 'error', 'error': e.toString()};
     }
@@ -589,32 +601,36 @@ class ApiService {
   static Future<Map<String, dynamic>> deleteAccount() async {
     try {
       final token = await PreferencesService.getToken();
-      if (token == null)
+      if (token == null) {
         return {'status': 'error', 'error': 'Not authenticated'};
+      }
       final response = await _dio.delete('/user/account',
           options: Options(headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           }));
-      if (response.statusCode == 200 || response.statusCode == 204)
+      if (response.statusCode == 200 || response.statusCode == 204) {
         return {
           'status': 'success',
           'message': 'Account deleted successfully'
         };
-      if (response.statusCode == 401)
+      }
+      if (response.statusCode == 401) {
         return {'status': 'error', 'error': 'Authentication failed'};
+      }
       return {
         'status': 'error',
         'error': 'Failed to delete account. Please try again.'
       };
     } catch (e) {
       if (e is DioException &&
-          e.type == DioExceptionType.connectionTimeout)
+          e.type == DioExceptionType.connectionTimeout) {
         return {
           'status': 'error',
           'error': 'Connection timeout. Please check your internet.'
         };
+      }
       _log('deleteAccount error: $e');
       return {'status': 'error', 'error': e.toString()};
     }

@@ -25,11 +25,11 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _emailError;
   String? _passwordError;
 
-  // Google Sign-In instance
   late final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
     serverClientId: dotenv.env['GOOGLE_CLIENT_ID'] ?? '',
   );
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -41,7 +41,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailController.text.trim().isNotEmpty &&
           _passwordController.text.isNotEmpty;
 
-  // ── Email/Password Login ──────────────────────────────────────────────────
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
@@ -52,6 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
 
+      if (!mounted) return;
+
       if (response['token'] != null) {
         await PreferencesService.saveUserData(
           token: response['token'],
@@ -59,6 +60,8 @@ class _LoginScreenState extends State<LoginScreen> {
           name: 'User',
           email: _emailController.text.trim(),
         );
+
+        if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -75,36 +78,36 @@ class _LoginScreenState extends State<LoginScreen> {
         _showError(response['message'] ?? 'Invalid email or password');
       }
     } catch (e) {
+      if (!mounted) return;
       _showError('Login failed. Please check your connection and try again.');
     }
 
     if (mounted) setState(() => _isLoading = false);
   }
-  // ── Google Sign-In ────────────────────────────────────────────────────────
+
   Future<void> _googleSignInMethod() async {
     setState(() => _isGoogleLoading = true);
 
     try {
       final GoogleSignInAccount? account = await _googleSignIn.signIn();
       if (account == null) {
-        setState(() => _isGoogleLoading = false);
+        if (mounted) setState(() => _isGoogleLoading = false);
         return;
       }
 
       final GoogleSignInAuthentication auth = await account.authentication;
-      // ✅ Debug prints
-      // print("ID TOKEN: ${auth.idToken}");
-      // print("ACCESS TOKEN: ${auth.accessToken}");
-
       final String? idToken = auth.idToken;
 
       if (idToken == null) {
+        if (!mounted) return;
         _showError('Google Sign-In failed. Please try again.');
         setState(() => _isGoogleLoading = false);
         return;
       }
 
       final result = await ApiService.googleMobileLogin(idToken);
+
+      if (!mounted) return;
 
       if (result['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -120,10 +123,11 @@ class _LoginScreenState extends State<LoginScreen> {
         _showError(result['error'] ?? 'Google Sign-In failed.');
       }
     } catch (e) {
+      if (!mounted) return;
       _showError('Google Sign-In failed: $e');
     }
 
-    setState(() => _isGoogleLoading = false);
+    if (mounted) setState(() => _isGoogleLoading = false);
   }
 
   void _showError(String message) {
@@ -142,11 +146,11 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -162,19 +166,19 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildLogo(),
+                  _buildLogo(isDark),
                   const SizedBox(height: 48),
-                  _buildEmailField(),
+                  _buildEmailField(isDark),
                   const SizedBox(height: 16),
-                  _buildPasswordField(),
+                  _buildPasswordField(isDark),
                   const SizedBox(height: 24),
                   _buildLoginButton(),
                   const SizedBox(height: 16),
-                  _buildDivider(),
+                  _buildDivider(isDark),
                   const SizedBox(height: 16),
-                  _buildGoogleButton(),
+                  _buildGoogleButton(isDark),
                   const SizedBox(height: 32),
-                  _buildSignUpLink(),
+                  _buildSignUpLink(isDark),
                 ],
               ),
             ),
@@ -184,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo(bool isDark) {
     return Column(
       children: [
         Container(
@@ -195,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -204,10 +208,10 @@ class _LoginScreenState extends State<LoginScreen> {
           child: const Icon(Icons.check, color: Colors.white, size: 40),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Joy Scroll',
           style: TextStyle(
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
             fontSize: 28,
             fontWeight: FontWeight.w700,
           ),
@@ -225,11 +229,59 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildEmailField() {
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData prefixIcon,
+    String? errorText,
+    Widget? suffixIcon,
+    required bool isDark,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white60 : Colors.grey,
+      ),
+      errorText: errorText,
+      errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
+      filled: true,
+      fillColor: isDark ? Colors.white.withOpacity(0.07) : Colors.grey[50],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white24 : Colors.grey.shade200,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 2),
+      ),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: isDark ? Colors.white54 : Colors.grey,
+      ),
+      suffixIcon: suffixIcon,
+    );
+  }
+
+  Widget _buildEmailField(bool isDark) {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(
+        color: isDark ? Colors.white : Colors.black87,
+      ),
       onChanged: (value) {
         setState(() {
           if (value.trim().isEmpty) {
@@ -242,34 +294,11 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Email',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Email',
+        prefixIcon: Icons.email_outlined,
         errorText: _emailError,
-        errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
+        isDark: isDark,
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -283,50 +312,29 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField(bool isDark) {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(
+        color: isDark ? Colors.white : Colors.black87,
+      ),
       onChanged: (value) {
         setState(() {
           _passwordError = value.isEmpty ? 'Password is required' : null;
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Password',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Password',
+        prefixIcon: Icons.lock_outlined,
         errorText: _passwordError,
-        errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.lock_outlined, color: Colors.grey),
+        isDark: isDark,
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
                 ? Icons.visibility_outlined
                 : Icons.visibility_off_outlined,
-            color: Colors.grey,
+            color: isDark ? Colors.white54 : Colors.grey,
           ),
           onPressed: () =>
               setState(() => _obscurePassword = !_obscurePassword),
@@ -346,7 +354,8 @@ class _LoginScreenState extends State<LoginScreen> {
       width: _isLoading ? 56 : fullWidth,
       height: 56,
       child: ElevatedButton(
-        onPressed: _canLogin && !_isLoading && !_isGoogleLoading ? _login : null,
+        onPressed:
+        _canLogin && !_isLoading && !_isGoogleLoading ? _login : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: ThemeTokens.primaryGreen,
           foregroundColor: Colors.white,
@@ -374,43 +383,51 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildDivider() {
+  Widget _buildDivider(bool isDark) {
     return Row(
       children: [
         Expanded(
-          child: Divider(color: Colors.grey.shade300),
+          child: Divider(
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
+          ),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(
             'OR',
             style: TextStyle(
-              color: Colors.grey[500],
+              color: isDark ? Colors.white54 : Colors.grey[500],
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
           ),
         ),
         Expanded(
-          child: Divider(color: Colors.grey.shade300),
+          child: Divider(
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildGoogleButton() {
+  Widget _buildGoogleButton(bool isDark) {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: OutlinedButton(
-        onPressed: _isLoading || _isGoogleLoading ? null : _googleSignInMethod,
+        onPressed:
+        _isLoading || _isGoogleLoading ? null : _googleSignInMethod,
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.black87,
-          side: BorderSide(color: Colors.grey.shade300),
+          foregroundColor: isDark ? Colors.white : Colors.black87,
+          side: BorderSide(
+            color: isDark ? Colors.white24 : Colors.grey.shade300,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          backgroundColor: Colors.white,
+          backgroundColor:
+          isDark ? Colors.white.withOpacity(0.07) : Colors.white,
           elevation: 1,
           shadowColor: Colors.black12,
         ),
@@ -432,12 +449,12 @@ class _LoginScreenState extends State<LoginScreen> {
               height: 22,
             ),
             const SizedBox(width: 12),
-            const Text(
+            Text(
               'Sign in with Google',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: isDark ? Colors.white : Colors.black87,
               ),
             ),
           ],
@@ -446,13 +463,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildSignUpLink() {
+  Widget _buildSignUpLink(bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           "Don't have an account? ",
-          style: TextStyle(color: Colors.grey[700], fontSize: 14),
+          style: TextStyle(
+            color: isDark ? Colors.white60 : Colors.grey[700],
+            fontSize: 14,
+          ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 2),

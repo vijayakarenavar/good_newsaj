@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:good_news/core/utils/responsive_helper.dart';
 import 'package:good_news/core/services/user_service.dart';
 import 'package:good_news/features/profile/presentation/screens/blocked_users_screen.dart';
 import 'package:good_news/features/profile/presentation/screens/my_posts_screen.dart';
@@ -18,7 +17,7 @@ import 'package:good_news/features/social/presentation/screens/friend_requests_s
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -143,17 +142,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     setState(() => _isStatsLoading = true);
     try {
       final stats = await UserService.getUserStats();
-      if (stats != null) {
-        if (mounted) {
-          setState(() {
-            _articlesReadCount = stats['articles_read'] ?? 0;
-            _userStats = stats;
-            _isStatsLoading = false;
-          });
-        }
-        return;
+      if (mounted) {
+        setState(() {
+          _articlesReadCount = stats['articles_read'] ?? 0;
+          _userStats = stats;
+          _isStatsLoading = false;
+        });
       }
-
+      return;
+    
       final history = await UserService.getHistory();
       if (mounted) {
         setState(() {

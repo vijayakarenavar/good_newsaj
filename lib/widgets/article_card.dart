@@ -8,13 +8,13 @@ class ArticleCard extends StatelessWidget {
   final VoidCallback? onReadMore;
 
   const ArticleCard({
-    Key? key,
+    super.key,
     required this.article,
     this.isFavorite = false,
     this.onTap,
     this.onFavoriteToggle,
     this.onReadMore,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +72,7 @@ class ArticleCard extends StatelessWidget {
                       ),
                       child: const Text(
                         'AI-Rewritten',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Colors.green,

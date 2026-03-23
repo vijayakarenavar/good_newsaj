@@ -13,11 +13,11 @@ class ArticleCardWidget extends StatefulWidget {
   final Function(Map<String, dynamic>) onShare;
 
   const ArticleCardWidget({
-    Key? key,
+    super.key,
     required this.article,
     required this.onTrackRead,
     required this.onShare,
-  }) : super(key: key);
+  });
 
   @override
   State<ArticleCardWidget> createState() => _ArticleCardWidgetState();
@@ -36,7 +36,7 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
   String _getShortTitle(String fullTitle) {
     final words = fullTitle.trim().split(' ');
     if (words.length <= 5) return fullTitle;
-    return words.take(5).join(' ') + '...';
+    return '${words.take(5).join(' ')}...';
   }
 
   Widget _buildDefaultArticleImage(Color primary, bool isDark) {
@@ -118,8 +118,8 @@ class _ArticleCardWidgetState extends State<ArticleCardWidget> {
 
     final truncated = cleanContent.substring(0, limit);
     final lastSpace = truncated.lastIndexOf(' ');
-    if (lastSpace == -1) return truncated + '...';
-    return truncated.substring(0, lastSpace) + '...';
+    if (lastSpace == -1) return '$truncated...';
+    return '${truncated.substring(0, lastSpace)}...';
   }
 
   bool _hasAiRewritingTag() {

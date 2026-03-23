@@ -9,11 +9,11 @@ class SwipeCardStack extends StatefulWidget {
   final int maxStack;
 
   const SwipeCardStack({
-    Key? key,
+    super.key,
     required this.articles,
     required this.onSwipe,
     this.maxStack = 1, // Changed default to 1 for single card display
-  }) : super(key: key);
+  });
 
   @override
   State<SwipeCardStack> createState() => _SwipeCardStackState();
@@ -128,8 +128,9 @@ class _SwipeCardStackState extends State<SwipeCardStack> {
                 onDragEnd: (details) {
                   final screenCenterX = MediaQuery.of(context).size.width / 2;
                   final dx = details.offset.dx - screenCenterX;
-                  if (dx > 100) _handleSwipe(_items[0], true);
-                  else if (dx < -100) _handleSwipe(_items[0], false);
+                  if (dx > 100) {
+                    _handleSwipe(_items[0], true);
+                  } else if (dx < -100) _handleSwipe(_items[0], false);
                   else setState(() {});
                 },
                 child: GestureDetector(

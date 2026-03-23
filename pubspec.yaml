@@ -2,7 +2,7 @@ name: good_news
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+19
+version: 1.0.0+21
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -62,3 +62,5 @@ flutter_launcher_icons:
   image_path: "assets/images/new_logo_goodnews.png"
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/images/new_logo_goodnews.png"
+
+

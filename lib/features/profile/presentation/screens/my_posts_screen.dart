@@ -693,7 +693,7 @@ class _MyPostsScreenState extends State<MyPostsScreen> with SingleTickerProvider
                           radius: 16,
                           backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
                           child: Text(
-                            (comment['display_name'] as String?)?.substring(0, 1)?.toUpperCase() ?? '?',
+                            (comment['display_name'] as String?)?.substring(0, 1).toUpperCase() ?? '?',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.primary,
                               fontSize: 12,

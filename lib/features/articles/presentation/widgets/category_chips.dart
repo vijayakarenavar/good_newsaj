@@ -9,13 +9,13 @@ class CategoryChips extends StatelessWidget {
   final int? activeCategoryIndex;
 
   const CategoryChips({
-    Key? key,
+    super.key,
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategorySelected,
     this.scrollController,
     this.activeCategoryIndex,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

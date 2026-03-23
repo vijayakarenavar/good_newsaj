@@ -1,9 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/gestures.dart';
-import 'package:flutter/services.dart';
 import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/user_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
@@ -19,7 +16,7 @@ import '../../../../widgets/speed_dial_fab.dart';
 import '../widgets/video_reel_widget.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -38,7 +35,7 @@ class _HomeScreenState extends State<HomeScreen>
   String? _nextCursor;
   bool _hasMore = true;
   bool _isLoadingMore = false;
-  bool _showFab = true;
+  final bool _showFab = true;
   bool _isRefreshing = false;
   bool _isInitialLoading = true;
   bool _isVideoLoading = false;
@@ -101,10 +98,6 @@ class _HomeScreenState extends State<HomeScreen>
     _loadProfileData();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-  }
 
   @override
   void dispose() {
@@ -202,10 +195,11 @@ class _HomeScreenState extends State<HomeScreen>
         _loadFriendRequestsCount()
       ]);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Failed to load profile'),
             backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() => _isProfileLoading = false);
     }
@@ -268,11 +262,12 @@ class _HomeScreenState extends State<HomeScreen>
         });
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _friendRequestsCount = 0;
           _isFriendRequestsLoading = false;
         });
+      }
     }
   }
 
@@ -308,12 +303,13 @@ class _HomeScreenState extends State<HomeScreen>
         }
         final seen = <dynamic>{};
         final unique = interleaved.where((a) => seen.add(a['id'])).toList();
-        if (mounted)
+        if (mounted) {
           setState(() {
             _allArticles = unique;
             _hasMore = false;
             _nextCursor = null;
           });
+        }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('Articles load error: $e');
@@ -329,12 +325,13 @@ class _HomeScreenState extends State<HomeScreen>
         final postsList = response['posts'] as List;
         final List<int> locallyLikedPosts =
         await PreferencesService.getLikedPosts();
-        if (mounted)
+        if (mounted) {
           setState(() {
             _socialPosts = postsList
                 .map((post) => _formatSocialPost(post, locallyLikedPosts))
                 .toList();
           });
+        }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('Social posts error: $e');
@@ -442,12 +439,13 @@ class _HomeScreenState extends State<HomeScreen>
             await Future.delayed(const Duration(milliseconds: 500));
             return _loadVideoPosts(retryCount: retryCount + 1);
           }
-          if (mounted)
+          if (mounted) {
             setState(() {
               _videoPosts = [];
               _isVideoLoading = false;
               _videoAllLoaded = true;
             });
+          }
           return;
         }
 
@@ -456,11 +454,12 @@ class _HomeScreenState extends State<HomeScreen>
         _videoOffset += mapped.length;
         _videoHasMore = response['has_more'] == true;
 
-        if (mounted)
+        if (mounted) {
           setState(() {
             _videoPosts = mapped;
             _isVideoLoading = false;
           });
+        }
 
         // Γ£à scroll-based onLoadMore handles pagination ΓÇö no background loop needed
       } else {
@@ -468,12 +467,13 @@ class _HomeScreenState extends State<HomeScreen>
           await Future.delayed(const Duration(milliseconds: 500));
           return _loadVideoPosts(retryCount: retryCount + 1);
         }
-        if (mounted)
+        if (mounted) {
           setState(() {
             _videoPosts = [];
             _isVideoLoading = false;
             _videoAllLoaded = true;
           });
+        }
       }
     } catch (e) {
       stopwatch.stop();
@@ -482,12 +482,13 @@ class _HomeScreenState extends State<HomeScreen>
         await Future.delayed(const Duration(milliseconds: 500));
         return _loadVideoPosts(retryCount: retryCount + 1);
       }
-      if (mounted)
+      if (mounted) {
         setState(() {
           _videoPosts = [];
           _isVideoLoading = false;
           _videoAllLoaded = true;
         });
+      }
     }
   }
 
@@ -561,8 +562,9 @@ class _HomeScreenState extends State<HomeScreen>
           _displayedItems = _allArticles
               .where((a) => a['category_id'] == _selectedCategoryId)
               .toList();
-          if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore)
+          if (_displayedItems.length < 5 && _hasMore && !_isLoadingMore) {
             Future.delayed(Duration.zero, () => _loadArticles());
+          }
         }
       } else {
         _displayedItems = [];
@@ -581,8 +583,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (categoryId != null) {
       final existing =
       _allArticles.where((a) => a['category_id'] == categoryId).toList();
-      if (existing.isEmpty && _hasMore && !_isLoadingMore)
+      if (existing.isEmpty && _hasMore && !_isLoadingMore) {
         _loadArticles(isInitial: false);
+      }
     }
     _scrollToCategoryPage(categoryId);
   }
@@ -623,26 +626,26 @@ class _HomeScreenState extends State<HomeScreen>
   void _onVerticalDragEnd(DragEndDetails details) {
     final v = details.primaryVelocity ?? 0;
     if (v.abs() < 300) return;
-    if (v < -300 && _currentIndex < _displayedItems.length - 1)
+    if (v < -300 && _currentIndex < _displayedItems.length - 1) {
       _currentIndex++;
-    else if (v > 300 && _currentIndex > 0) _currentIndex--;
+    } else if (v > 300 && _currentIndex > 0) _currentIndex--;
   }
 
   void _onHorizontalDragEnd(DragEndDetails details) {
     final v = details.primaryVelocity ?? 0;
     if (v.abs() < 250) return;
-    if (v < -250)
+    if (v < -250) {
       _switchToNextCategory();
-    else if (v > 250) _switchToPreviousCategory();
+    } else if (v > 250) _switchToPreviousCategory();
   }
 
   void _switchToNextCategory() {
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
     int ci = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (ci != -1 && ci == categoryList.length - 1)
+    if (ci != -1 && ci == categoryList.length - 1) {
       _onTabChanged(3);
-    else if (ci != -1 && ci < categoryList.length - 1)
+    } else if (ci != -1 && ci < categoryList.length - 1)
       _selectCategory(categoryList[ci + 1]['id']);
   }
 
@@ -650,9 +653,9 @@ class _HomeScreenState extends State<HomeScreen>
     final categoryList = _buildCategoryList();
     if (categoryList.isEmpty) return;
     int ci = categoryList.indexWhere((c) => c['id'] == _selectedCategoryId);
-    if (ci == 0)
+    if (ci == 0) {
       _onTabChanged(0);
-    else if (ci > 0) _selectCategory(categoryList[ci - 1]['id']);
+    } else if (ci > 0) _selectCategory(categoryList[ci - 1]['id']);
   }
 
   void _onTabChanged(int index) {
@@ -681,8 +684,9 @@ class _HomeScreenState extends State<HomeScreen>
       });
       _updateDisplayedItems();
     }
-    if (_horizontalPageController.hasClients)
+    if (_horizontalPageController.hasClients) {
       _horizontalPageController.jumpToPage(targetPage);
+    }
   }
 
   Future<void> _handleTabSpecificRefresh(int tabIndex) async {
@@ -690,41 +694,46 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       if (tabIndex == 0) {
         await _loadVideoPosts();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Γ£¿ Videos refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
+        }
       } else if (tabIndex == 1) {
         _preloadedImages.clear();
         _allArticles.clear();
         _nextCursor = null;
         _hasMore = true;
         await _loadArticles(isInitial: true);
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Γ£¿ News refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
+        }
       } else if (tabIndex == 2) {
         await _loadSocialPosts();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Γ£¿ Posts refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
+        }
       } else if (tabIndex == 3) {
         await _loadProfileData();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
               content: Text('Γ£¿ Profile refreshed!'),
               duration: Duration(seconds: 1),
               backgroundColor: Colors.green));
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Refresh failed.'), backgroundColor: Colors.red));
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }
@@ -782,12 +791,14 @@ class _HomeScreenState extends State<HomeScreen>
     }
     if (categoryIndexToScroll != null) {
       Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && _categoryScrollController.hasClients)
+        if (mounted && _categoryScrollController.hasClients) {
           _scrollCategoryChipsToIndex(categoryIndexToScroll!);
+        }
       });
     }
-    if (_displayedItems.isNotEmpty && mounted)
+    if (_displayedItems.isNotEmpty && mounted) {
       _preloadImages(_displayedItems, 0);
+    }
   }
 
   int _getTotalPageCount() => 1 + _buildCategoryList().length + 1;
@@ -808,9 +819,21 @@ class _HomeScreenState extends State<HomeScreen>
   void _shareArticle(Map<String, dynamic> article) {
     final title = article['title'] ?? '';
     final summary = article['content'] ?? '';
-    final url = article['source_url'] ?? '';
-    Share.share(
-        '≡ƒù₧ joy scroll!\n$title\n${summary.length > 100 ? summary.substring(0, 100) + '...' : summary}\n${url.isNotEmpty ? '≡ƒöù $url' : ''}');
+
+    String url = '';
+    for (final key in ['source_url', 'url', 'link', 'article_url', 'original_url']) {
+      final val = article[key]?.toString().trim() ?? '';
+      if (val.isNotEmpty && val != 'null') {
+        url = val;
+        break;
+      }
+    }
+
+    SharePlus.instance.share(ShareParams(
+      text: '🌟 Joy Scroll!\n$title\n'
+          '${summary.length > 100 ? summary.substring(0, 100) + '...' : summary}\n'
+          '${url.isNotEmpty ? '🔗 $url' : ''}',
+    ));
   }
 
   Future<void> _toggleLike(Map<String, dynamic> post) async {
@@ -826,25 +849,29 @@ class _HomeScreenState extends State<HomeScreen>
           ? await SocialApiService.unlikePost(postId)
           : await SocialApiService.likePost(postId);
       if (response['status'] == 'success') {
-        if (!wasLiked)
+        if (!wasLiked) {
           PreferencesService.saveLikedPost(postId);
-        else
+        } else {
           PreferencesService.removeLikedPost(postId);
-        if (response['likes_count'] != null && mounted)
+        }
+        if (response['likes_count'] != null && mounted) {
           setState(() => post['likes'] = response['likes_count']);
+        }
       } else {
-        if (mounted)
+        if (mounted) {
           setState(() {
             post['isLiked'] = wasLiked;
             post['likes'] = currentLikes;
           });
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           post['isLiked'] = wasLiked;
           post['likes'] = currentLikes;
         });
+      }
     }
   }
 
@@ -921,8 +948,9 @@ class _HomeScreenState extends State<HomeScreen>
     ];
     if (_selectedCategoryIds.isNotEmpty) {
       for (var id in _selectedCategoryIds) {
-        if (_categoryMap.containsKey(id))
+        if (_categoryMap.containsKey(id)) {
           list.add({'id': id, 'name': _categoryMap[id]!});
+        }
       }
     } else {
       list.addAll(_categoryMap.entries
@@ -1408,8 +1436,9 @@ class _HomeScreenState extends State<HomeScreen>
                 activeCategoryIndex: pageIndex - 1,
               );
             }
-            if (pageIndex == totalNewsPages + 1)
+            if (pageIndex == totalNewsPages + 1) {
               return _buildProfilePage();
+            }
             return Container();
           },
         ),
@@ -1529,8 +1558,9 @@ class _HomeScreenState extends State<HomeScreen>
               physics: const ClampingScrollPhysics(),
               itemCount: items.isEmpty && showEmptyState ? 1 : items.length,
               itemBuilder: (context, index) {
-                if (items.isEmpty && showEmptyState)
+                if (items.isEmpty && showEmptyState) {
                   return _buildEmptyStateForTab(categoryName);
+                }
                 return _buildArticle(items[index]);
               },
             ),
@@ -1588,16 +1618,15 @@ class _HomeScreenState extends State<HomeScreen>
                     color: isDark ? Colors.white54 : Colors.grey[500]),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
-            if (onPressed != null)
-              ElevatedButton.icon(
-                  onPressed: onPressed,
-                  icon: Icon(buttonIcon),
-                  label: Text(buttonText),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12))),
+            ElevatedButton.icon(
+                onPressed: onPressed,
+                icon: Icon(buttonIcon),
+                label: Text(buttonText),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 12))),
           ])),
     );
   }

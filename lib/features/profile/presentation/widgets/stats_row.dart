@@ -7,12 +7,12 @@ class StatsRow extends StatelessWidget {
   final VoidCallback? onFavoritesTap;
 
   const StatsRow({
-    Key? key,
+    super.key,
     required this.articlesRead,
     required this.favorites,
     this.onArticlesReadTap,
     this.onFavoritesTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +60,7 @@ class StatsRow extends StatelessWidget {
     final card = Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: color.withOpacity(0.2),

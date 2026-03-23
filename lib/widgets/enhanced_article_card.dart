@@ -7,12 +7,12 @@ class EnhancedArticleCard extends StatelessWidget {
   final VoidCallback? onFavorite;
 
   const EnhancedArticleCard({
-    Key? key,
+    super.key,
     required this.article,
     this.onTap,
     this.onShare,
     this.onFavorite,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

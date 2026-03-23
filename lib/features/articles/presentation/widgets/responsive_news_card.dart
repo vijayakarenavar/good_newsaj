@@ -11,7 +11,7 @@ class ResponsiveNewsCard extends StatelessWidget {
   final bool isFavorite;
 
   const ResponsiveNewsCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     required this.imageUrl,
@@ -20,7 +20,7 @@ class ResponsiveNewsCard extends StatelessWidget {
     required this.onCardTap,
     required this.onFavoriteTap,
     required this.isFavorite,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

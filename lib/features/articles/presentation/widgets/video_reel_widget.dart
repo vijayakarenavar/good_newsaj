@@ -18,14 +18,14 @@ class VideoReelFeed extends StatefulWidget {
   final bool? hasMore;
 
   const VideoReelFeed({
-    Key? key,
+    super.key,
     required this.videos,
     required this.onToggleLike,
     required this.onShare,
     required this.onRefresh,
     this.onLoadMore,
     this.hasMore,
-  }) : super(key: key);
+  });
 
   @override
   State<VideoReelFeed> createState() => _VideoReelFeedState();
@@ -167,7 +167,9 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
       setState(() => _hasMorePages = widget.hasMore!);
     }
     if (widget.videos != oldWidget.videos) {
-      for (final c in _controllerCache.values) c.dispose();
+      for (final c in _controllerCache.values) {
+        c.dispose();
+      }
       _controllerCache.clear();
       setState(() {
         _allVideos = List<Map<String, dynamic>>.from(widget.videos);
@@ -188,7 +190,9 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
     if (!_hasMorePages ||
         _isLoadingMore ||
         widget.onLoadMore == null ||
-        rawIndex < videos.length - 5) return;
+        rawIndex < videos.length - 5) {
+      return;
+    }
 
     setState(() => _isLoadingMore = true);
     try {
@@ -258,7 +262,9 @@ class _VideoReelFeedState extends State<VideoReelFeed> {
       DeviceOrientation.landscapeRight,
     ]);
     _pageController.dispose();
-    for (final c in _controllerCache.values) c.dispose();
+    for (final c in _controllerCache.values) {
+      c.dispose();
+    }
     _controllerCache.clear();
     super.dispose();
   }
@@ -361,7 +367,7 @@ class _VideoReelItem extends StatefulWidget {
 class _VideoReelItemState extends State<_VideoReelItem> {
   bool _showThumbnail = true;
   bool _isPlaying = false;
-  bool _hasError = false;
+  final bool _hasError = false;
   bool _showNetworkError = false;
   bool _userManuallyStopped = false;
   Timer? _loadTimeoutTimer;
@@ -497,14 +503,17 @@ class _VideoReelItemState extends State<_VideoReelItem> {
     final title = widget.video['title'] as String? ?? '';
     final videoId = widget.video['video_id'] as String? ?? '';
     final author = widget.video['author'] as String? ?? '';
-    final url =
-    videoId.isNotEmpty ? 'https://www.youtube.com/watch?v=$videoId' : '';
-    Share.share([
-      if (title.isNotEmpty) '🎬 $title',
-      if (author.isNotEmpty) '👤 $author',
-      if (url.isNotEmpty) '🔗 $url',
-      '📲 Check it out on Joy Scroll!',
-    ].join('\n'));
+    final url = videoId.isNotEmpty
+        ? 'https://www.youtube.com/watch?v=$videoId'
+        : '';
+    SharePlus.instance.share(ShareParams(
+      text: [
+        if (title.isNotEmpty) '🎬 $title',
+        if (author.isNotEmpty) '👤 $author',
+        if (url.isNotEmpty) '🔗 $url',
+        '📲 Check it out on Joy Scroll!',
+      ].join('\n'),
+    ));
   }
 
   @override

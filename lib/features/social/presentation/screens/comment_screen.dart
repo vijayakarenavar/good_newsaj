@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/services/social_api_service.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 
@@ -9,10 +8,10 @@ class CommentPage extends StatefulWidget {
   final Map<String, dynamic> post;
 
   const CommentPage({
-    Key? key,
+    super.key,
     required this.postId,
     required this.post,
-  }) : super(key: key);
+  });
 
   @override
   State<CommentPage> createState() => _CommentPageState();

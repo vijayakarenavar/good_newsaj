@@ -6,7 +6,7 @@ import 'package:good_news/responsive_app.dart';
 import 'package:good_news/widgets/animated_category_chip.dart';
 
 class ChooseTopicsScreen extends StatefulWidget {
-  const ChooseTopicsScreen({Key? key}) : super(key: key);
+  const ChooseTopicsScreen({super.key});
 
   @override
   State<ChooseTopicsScreen> createState() => _ChooseTopicsScreenState();
@@ -33,7 +33,7 @@ class _ChooseTopicsScreenState extends State<ChooseTopicsScreen> {
 
   List<Map<String, dynamic>> _allCategories = [];
   List<Map<String, dynamic>> _filteredCategories = [];
-  Set<int> _selectedCategories = {};
+  final Set<int> _selectedCategories = {};
   bool _isLoading = false;
   bool _isSaving = false;
   String? _errorMessage;

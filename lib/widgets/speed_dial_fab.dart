@@ -5,9 +5,9 @@ class SpeedDialFAB extends StatefulWidget {
   final List<SpeedDialAction> actions;
 
   const SpeedDialFAB({
-    Key? key,
+    super.key,
     required this.actions,
-  }) : super(key: key);
+  });
 
   @override
   State<SpeedDialFAB> createState() => _SpeedDialFABState();
@@ -100,7 +100,7 @@ class _SpeedDialFABState extends State<SpeedDialFAB>
                 ),
               ),
             );
-          }).toList(),
+          }),
 
         // ✅ Main FAB - नेहमी वर राहतो, नेहमी clickable
         Positioned(

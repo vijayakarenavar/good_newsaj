@@ -4,9 +4,9 @@ class MenuList extends StatelessWidget {
   final List<MenuItem> items;
 
   const MenuList({
-    Key? key,
+    super.key,
     required this.items,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

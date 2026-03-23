@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 // import 'package:swipeable_card/swipeable_card.dart';
-import 'news_card.dart';
 
 class SwipeableNewsCard extends StatefulWidget {
   final String title;
@@ -15,7 +14,7 @@ class SwipeableNewsCard extends StatefulWidget {
   final VoidCallback onSwipeLeft;
 
   const SwipeableNewsCard({
-    Key? key,
+    super.key,
     required this.title,
     required this.description,
     required this.imageUrl,
@@ -26,7 +25,7 @@ class SwipeableNewsCard extends StatefulWidget {
     required this.onLikeToggle,
     required this.onSwipeRight,
     required this.onSwipeLeft,
-  }) : super(key: key);
+  });
 
   @override
   State<SwipeableNewsCard> createState() => _SwipeableNewsCardState();

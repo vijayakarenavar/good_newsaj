@@ -222,13 +222,13 @@ class SocialApiService {
           };
         }
       }
-    } on SocketException catch (e) {
+    } on SocketException {
       //'❌ UPLOAD: Socket error: $e');
       return {
         'status': 'error',
         'error': 'Network error - check your internet connection',
       };
-    } on TimeoutException catch (e) {
+    } on TimeoutException {
       //'❌ UPLOAD: Timeout: $e');
       return {
         'status': 'error',
@@ -264,14 +264,12 @@ class SocialApiService {
         };
       }
 
-      if (response is Map<String, dynamic>) {
-        final data = response['data'] ?? response['friends'] ?? [];
-        return {
-          'status': response['status'] ?? 'success',
-          'data': data is List ? data : [],
-        };
-      }
-
+      final data = response['data'] ?? response['friends'] ?? [];
+      return {
+        'status': response['status'] ?? 'success',
+        'data': data is List ? data : [],
+      };
+    
       return {'status': 'success', 'data': []};
 
     } catch (e) {
@@ -318,22 +316,20 @@ class SocialApiService {
 
       //'📡 SOCIAL API: createPost response: $response');
 
-      if (response != null && response is Map<String, dynamic>) {
-        if (response.containsKey('error')) {
-          return {'status': 'error', 'error': response['error']};
-        }
+      if (response.containsKey('error')) {
+        return {'status': 'error', 'error': response['error']};
+      }
 
-        if (response.containsKey('status') && response['status'] == 'success') {
-          return response;
-        }
+      if (response.containsKey('status') && response['status'] == 'success') {
+        return response;
+      }
 
-        if (response.containsKey('post_id') || response.containsKey('id')) {
-          return {'status': 'success', 'post': response};
-        }
-
+      if (response.containsKey('post_id') || response.containsKey('id')) {
         return {'status': 'success', 'post': response};
       }
 
+      return {'status': 'success', 'post': response};
+    
       return {'status': 'error', 'error': 'No response from server'};
 
     } catch (e) {
@@ -360,14 +356,12 @@ class SocialApiService {
 
       //'📡 SOCIAL API: likePost response: $response');
 
-      if (response != null && response is Map<String, dynamic>) {
-        return {
-          'status': 'success',
-          'likes_count': response['likes_count'] ?? 0,
-          'message': response['message'] ?? 'Post liked',
-        };
-      }
-
+      return {
+        'status': 'success',
+        'likes_count': response['likes_count'] ?? 0,
+        'message': response['message'] ?? 'Post liked',
+      };
+    
       return response ?? {'status': 'error', 'error': 'No response from server'};
 
     } catch (e) {
@@ -387,15 +381,13 @@ class SocialApiService {
         token: token,
       );
 
-      if (response != null && response is Map<String, dynamic>) {
-        return {
-          'status': 'success',
-          'likes_count': response['likes_count'] ?? 0,
-          'message': response['message'] ?? 'Post unliked',
-        };
-      }
-
-      return response is Map<String, dynamic> ? response : {'status': 'success'};
+      return {
+        'status': 'success',
+        'likes_count': response['likes_count'] ?? 0,
+        'message': response['message'] ?? 'Post unliked',
+      };
+    
+      return response;
     } catch (e) {
       //'❌ SOCIAL API: unlikePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
@@ -419,42 +411,28 @@ class SocialApiService {
         token: token,
       );
 
-      //'📡 SOCIAL API: getComments raw response: $response');
-      //'📡 SOCIAL API: Response type: ${response.runtimeType}');
-
-      if (response == null) {
-        return {'status': 'success', 'comments': [], 'has_more': false, 'total_count': 0};
-      }
-
       List<dynamic> commentsList = [];
       int totalCount = 0;
 
-      if (response is Map<String, dynamic>) {
-        if (response.containsKey('data') && response['data'] is List) {
-          commentsList = response['data'] as List;
-          totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
-          //'✅ SOCIAL API: Found ${commentsList.length} comments in data[] field, total_count: $totalCount');
-        }
-        else if (response.containsKey('comments') && response['comments'] is List) {
-          commentsList = response['comments'] as List;
-          totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
-          //'✅ SOCIAL API: Found ${commentsList.length} comments in comments[] field, total_count: $totalCount');
-        }
-        else if (response['status'] == 'success') {
-          //'⚠️ SOCIAL API: Success response but no data/comments field');
-          return {'status': 'success', 'comments': [], 'has_more': false, 'total_count': 0};
-        }
+      if (response.containsKey('data') && response['data'] is List) {
+        commentsList = response['data'] as List;
+        totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
+        //'✅ SOCIAL API: Found ${commentsList.length} comments in data[] field, total_count: $totalCount');
       }
-      else if (response is List) {
-        commentsList = List<dynamic>.from(response as Iterable);
-        totalCount = commentsList.length;
-        //'✅ SOCIAL API: Found ${commentsList.length} comments (direct list)');
+      else if (response.containsKey('comments') && response['comments'] is List) {
+        commentsList = response['comments'] as List;
+        totalCount = response['total_count'] ?? response['comments_count'] ?? commentsList.length;
+        //'✅ SOCIAL API: Found ${commentsList.length} comments in comments[] field, total_count: $totalCount');
       }
-
+      else if (response['status'] == 'success') {
+        //'⚠️ SOCIAL API: Success response but no data/comments field');
+        return {'status': 'success', 'comments': [], 'has_more': false, 'total_count': 0};
+      }
+    
       return {
         'status': 'success',
         'comments': commentsList,
-        'has_more': response is Map ? (response['has_more'] ?? false) : false,
+        'has_more': (response['has_more'] ?? false),
         'total_count': totalCount,
       };
 
@@ -487,13 +465,11 @@ class SocialApiService {
 
       //'📡 SOCIAL API: blockFriend response: $response');
 
-      if (response != null && response is Map<String, dynamic>) {
-        return {
-          'status': 'success',
-          'message': response['message'] ?? 'User blocked successfully',
-        };
-      }
-
+      return {
+        'status': 'success',
+        'message': response['message'] ?? 'User blocked successfully',
+      };
+    
       return {'status': 'success', 'message': 'User blocked'};
     } catch (e) {
       //'❌ SOCIAL API: blockFriend failed: $e');
@@ -522,13 +498,12 @@ class SocialApiService {
 
       if (response is List) {
         blockedList = List<dynamic>.from(response as Iterable);
-      } else if (response is Map<String, dynamic>) {
-        if (response.containsKey('data') && response['data'] is List) {
-          blockedList = response['data'];
-        } else if (response.containsKey('blocked_users') && response['blocked_users'] is List) {
-          blockedList = response['blocked_users'];
-        }
+      } else      if (response.containsKey('data') && response['data'] is List) {
+        blockedList = response['data'];
+      } else if (response.containsKey('blocked_users') && response['blocked_users'] is List) {
+        blockedList = response['blocked_users'];
       }
+    
 
       return {
         'status': 'success',
@@ -559,7 +534,7 @@ class SocialApiService {
 
       return {
         'status': 'success',
-        'message': response?['message'] ?? 'User unblocked successfully',
+        'message': response['message'] ?? 'User unblocked successfully',
       };
     } catch (e) {
       //'❌ SOCIAL API: unblockUser failed: $e');
@@ -586,20 +561,18 @@ class SocialApiService {
 
       //'📡 SOCIAL API: createComment response: $response');
 
-      if (response != null && response is Map<String, dynamic>) {
-        if (response.containsKey('error')) {
-          return {'status': 'error', 'error': response['error']};
-        }
-
-        return {
-          'status': 'success',
-          'comment': response['comment'] ?? response,
-          'comment_id': response['comment_id'] ?? response['id'],
-          'comments_count': response['comments_count'],
-          'message': response['message'] ?? 'Comment added successfully',
-        };
+      if (response.containsKey('error')) {
+        return {'status': 'error', 'error': response['error']};
       }
 
+      return {
+        'status': 'success',
+        'comment': response['comment'] ?? response,
+        'comment_id': response['comment_id'] ?? response['id'],
+        'comments_count': response['comments_count'],
+        'message': response['message'] ?? 'Comment added successfully',
+      };
+    
       return {'status': 'success'};
 
     } catch (e) {
@@ -629,13 +602,7 @@ class SocialApiService {
         token: token,
       );
 
-      //'📡 SOCIAL API: getPosts raw response: $response');
-
-      if (response == null) {
-        throw Exception('Null response from server');
-      }
-
-      void _normalizeImageUrlInPost(Map<String, dynamic> post) {
+      void normalizeImageUrlInPost(Map<String, dynamic> post) {
         final rawImageUrl = post['image_url'] as String?;
         if (rawImageUrl != null && rawImageUrl.isNotEmpty) {
           post['image_url'] = _normalizeImageUrl(rawImageUrl);
@@ -660,7 +627,7 @@ class SocialApiService {
         //'✅ SOCIAL API: Found ${response.length} posts (list)');
         final processedPosts = (response as List).map((post) {
           if (post is Map<String, dynamic>) {
-            _normalizeImageUrlInPost(post);
+            normalizeImageUrlInPost(post);
           }
           return post;
         }).toList();
@@ -673,60 +640,58 @@ class SocialApiService {
         };
       }
 
-      if (response is Map<String, dynamic>) {
-        if (response.containsKey('data') && response['data'] is List) {
-          final data = response['data'] as List;
-          //'✅ SOCIAL API: Found ${data.length} posts in data[]');
-          final processedData = data.map((post) {
-            if (post is Map<String, dynamic>) {
-              _normalizeImageUrlInPost(post);
-            }
-            return post;
-          }).toList();
+      if (response.containsKey('data') && response['data'] is List) {
+        final data = response['data'] as List;
+        //'✅ SOCIAL API: Found ${data.length} posts in data[]');
+        final processedData = data.map((post) {
+          if (post is Map<String, dynamic>) {
+            normalizeImageUrlInPost(post);
+          }
+          return post;
+        }).toList();
 
-          return {
-            'status': response['status'] ?? 'success',
-            'posts': processedData,
-            'total_count': processedData.length,
-            'has_more': processedData.length >= limit,
-          };
-        }
+        return {
+          'status': response['status'] ?? 'success',
+          'posts': processedData,
+          'total_count': processedData.length,
+          'has_more': processedData.length >= limit,
+        };
+      }
 
-        if (response.containsKey('posts') && response['posts'] is List) {
-          final posts = response['posts'] as List;
-          final processedPosts = posts.map((post) {
-            if (post is Map<String, dynamic>) {
-              _normalizeImageUrlInPost(post);
-            }
-            return post;
-          }).toList();
-
-          return {
-            'status': 'success',
-            'posts': processedPosts,
-            'total_count': response['total_count'] ?? processedPosts.length,
-            'has_more': response['has_more'] ?? false,
-          };
-        }
-
-        if (response.containsKey('id') && response.containsKey('content')) {
-          _normalizeImageUrlInPost(response);
-          return {
-            'status': 'success',
-            'posts': [response],
-            'total_count': 1,
-            'has_more': false,
-          };
-        }
+      if (response.containsKey('posts') && response['posts'] is List) {
+        final posts = response['posts'] as List;
+        final processedPosts = posts.map((post) {
+          if (post is Map<String, dynamic>) {
+            normalizeImageUrlInPost(post);
+          }
+          return post;
+        }).toList();
 
         return {
           'status': 'success',
-          'posts': [],
-          'total_count': 0,
+          'posts': processedPosts,
+          'total_count': response['total_count'] ?? processedPosts.length,
+          'has_more': response['has_more'] ?? false,
+        };
+      }
+
+      if (response.containsKey('id') && response.containsKey('content')) {
+        normalizeImageUrlInPost(response);
+        return {
+          'status': 'success',
+          'posts': [response],
+          'total_count': 1,
           'has_more': false,
         };
       }
 
+      return {
+        'status': 'success',
+        'posts': [],
+        'total_count': 0,
+        'has_more': false,
+      };
+    
       throw Exception('Unexpected response format: ${response.runtimeType}');
     } catch (e) {
       //'❌ SOCIAL API: getPosts failed: $e');
@@ -759,7 +724,7 @@ class SocialApiService {
 
       //'📡 SOCIAL API: createConversation response: $response');
 
-      if (response != null && response['status'] == 'success') {
+      if (response['status'] == 'success') {
         return response;
       }
 
@@ -824,14 +789,12 @@ class SocialApiService {
         };
       }
 
-      if (response is Map<String, dynamic>) {
-        final data = response['data'] ?? response['received'] ?? [];
-        return {
-          'status': response['status'] ?? 'success',
-          'data': data is List ? data : [],
-        };
-      }
-
+      final data = response['data'] ?? response['received'] ?? [];
+      return {
+        'status': response['status'] ?? 'success',
+        'data': data is List ? data : [],
+      };
+    
       return {
         'status': 'success',
         'data': [],
@@ -907,7 +870,7 @@ class SocialApiService {
 
       return {
         'status': 'success',
-        'message': response?['message'] ?? 'Declined',
+        'message': response['message'] ?? 'Declined',
       };
 
     } catch (e) {
@@ -928,7 +891,7 @@ class SocialApiService {
         data: {'content': content},
       );
 
-      return response is Map<String, dynamic> ? response : {'status': 'success', 'post': response};
+      return response;
     } catch (e) {
       //'❌ SOCIAL API: updatePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
@@ -946,7 +909,7 @@ class SocialApiService {
         token: token,
       );
 
-      return response is Map<String, dynamic> ? response : {'status': 'success'};
+      return response;
     } catch (e) {
       //'❌ SOCIAL API: deletePost failed: $e');
       return {'status': 'error', 'error': e.toString()};
@@ -978,15 +941,14 @@ class SocialApiService {
       if (response is List) {
         rawMessages = List<dynamic>.from(response as Iterable);
         //'✅ Got ${rawMessages.length} messages (direct list)');
-      } else if (response is Map<String, dynamic>) {
-        if (response.containsKey('data') && response['data'] is List) {
-          rawMessages = List<dynamic>.from(response['data']);
-          //'✅ Got ${rawMessages.length} messages from data[]');
-        } else if (response.containsKey('messages') && response['messages'] is List) {
-          rawMessages = List<dynamic>.from(response['messages']);
-          //'✅ Got ${rawMessages.length} messages from messages[]');
-        }
+      } else      if (response.containsKey('data') && response['data'] is List) {
+        rawMessages = List<dynamic>.from(response['data']);
+        //'✅ Got ${rawMessages.length} messages from data[]');
+      } else if (response.containsKey('messages') && response['messages'] is List) {
+        rawMessages = List<dynamic>.from(response['messages']);
+        //'✅ Got ${rawMessages.length} messages from messages[]');
       }
+    
 
       final messages = rawMessages.map((msg) {
         final m = msg as Map<String, dynamic>;
@@ -994,7 +956,7 @@ class SocialApiService {
         final senderName = m['display_name'] ?? m['sender_name'] ?? 'Unknown';
 
         final senderIdInt = senderId is int ? senderId : int.tryParse(senderId.toString()) ?? 0;
-        final currentUserIdInt = currentUserId is int ? currentUserId : int.tryParse(currentUserId.toString()) ?? 0;
+        final currentUserIdInt = currentUserId;
 
         final isMe = senderIdInt == currentUserIdInt;
 
@@ -1078,28 +1040,16 @@ class SocialApiService {
         token: token,
       );
 
-      //'📡 API Response: $response');
-      //'📡 Response Type: ${response.runtimeType}');
-
-      if (response == null) {
-        return {'status': 'success', 'conversations': []};
-      }
-
       List<dynamic> rawConversations = [];
 
-      if (response is Map<String, dynamic>) {
-        if (response.containsKey('data') && response['data'] is List) {
-          rawConversations = List.from(response['data'] as List<dynamic>);
-          //'✅ Found ${rawConversations.length} conversations in data[]');
-        } else if (response.containsKey('conversations') && response['conversations'] is List) {
-          rawConversations = List.from(response['conversations'] as List<dynamic>);
-          //'✅ Found ${rawConversations.length} conversations in conversations[]');
-        }
-      } else if (response is List) {
-        rawConversations = List.from(response as Iterable<dynamic>);
-        //'✅ Found ${rawConversations.length} conversations (raw list)');
+      if (response.containsKey('data') && response['data'] is List) {
+        rawConversations = List.from(response['data'] as List<dynamic>);
+        //'✅ Found ${rawConversations.length} conversations in data[]');
+      } else if (response.containsKey('conversations') && response['conversations'] is List) {
+        rawConversations = List.from(response['conversations'] as List<dynamic>);
+        //'✅ Found ${rawConversations.length} conversations in conversations[]');
       }
-
+    
       final processed = <Map<String, dynamic>>[];
 
       for (var conv in rawConversations) {
@@ -1108,7 +1058,7 @@ class SocialApiService {
           continue;
         }
 
-        final c = conv as Map<String, dynamic>;
+        final c = conv;
 
         String friendName;
         int friendId;

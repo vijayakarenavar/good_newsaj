@@ -67,6 +67,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         _phoneController.text.trim(),
       );
 
+      if (!mounted) return;
+
       if (response['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -85,11 +87,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       _showError(
         'Registration failed. Please check your connection and try again.',
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -110,15 +113,65 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
   }
 
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData prefixIcon,
+    String? errorText,
+    Widget? suffixIcon,
+    required bool isDark,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white60 : Colors.grey,
+      ),
+      errorText: errorText,
+      errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
+      filled: true,
+      fillColor: isDark ? Colors.white.withOpacity(0.07) : Colors.grey[50],
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(
+          color: isDark ? Colors.white24 : Colors.grey.shade200,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.red, width: 2),
+      ),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: isDark ? Colors.white54 : Colors.grey,
+      ),
+      suffixIcon: suffixIcon,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(
+            Icons.arrow_back,
+            color: isDark ? Colors.white : Colors.black,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -139,23 +192,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildLogo(),
+                  _buildLogo(isDark),
                   const SizedBox(height: 32),
-                  _buildDisplayNameField(),
+                  _buildDisplayNameField(isDark),
                   const SizedBox(height: 16),
-                  _buildPhoneField(),
+                  _buildPhoneField(isDark),
                   const SizedBox(height: 16),
-                  _buildEmailField(),
+                  _buildEmailField(isDark),
                   const SizedBox(height: 16),
-                  _buildPasswordField(),
+                  _buildPasswordField(isDark),
                   const SizedBox(height: 16),
-                  _buildConfirmPasswordField(),
+                  _buildConfirmPasswordField(isDark),
                   const SizedBox(height: 16),
-                  _buildTermsCheckbox(),
+                  _buildTermsCheckbox(isDark),
                   const SizedBox(height: 24),
                   _buildRegisterButton(),
                   const SizedBox(height: 16),
-                  _buildLoginLink(),
+                  _buildLoginLink(isDark),
                 ],
               ),
             ),
@@ -165,7 +218,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildLogo() {
+  Widget _buildLogo(bool isDark) {
     return Column(
       children: [
         Container(
@@ -176,7 +229,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withOpacity(0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -185,10 +238,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           child: const Icon(Icons.check, color: Colors.white, size: 40),
         ),
         const SizedBox(height: 16),
-        const Text(
+        Text(
           'Joy Scroll',
           style: TextStyle(
-            color: Colors.black87,
+            color: isDark ? Colors.white : Colors.black87,
             fontSize: 28,
             fontWeight: FontWeight.w700,
           ),
@@ -206,10 +259,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildDisplayNameField() {
+  Widget _buildDisplayNameField(bool isDark) {
     return TextFormField(
       controller: _displayNameController,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       onChanged: (value) {
         setState(() {
           if (value.trim().isEmpty) {
@@ -223,26 +276,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Name',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Name',
+        prefixIcon: Icons.person_outlined,
         errorText: _displayNameError,
-        errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.person_outlined, color: Colors.grey),
+        isDark: isDark,
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -259,11 +297,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildPhoneField() {
+  Widget _buildPhoneField(bool isDark) {
     return TextFormField(
       controller: _phoneController,
       keyboardType: TextInputType.phone,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       onChanged: (value) {
         setState(() {
           if (value.trim().isEmpty) {
@@ -275,25 +313,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Phone Number',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Phone Number',
+        prefixIcon: Icons.phone_outlined,
         errorText: _phoneError,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.phone_outlined, color: Colors.grey),
+        isDark: isDark,
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -307,42 +331,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildEmailField() {
+  Widget _buildEmailField(bool isDark) {
     return TextFormField(
       controller: _emailController,
       keyboardType: TextInputType.emailAddress,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       onChanged: (value) {
         setState(() {
           final email = value.trim().toLowerCase();
           if (value.trim().isEmpty) {
             _emailError = 'Email is required';
-          } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(email)) {
+          } else if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$')
+              .hasMatch(email)) {
             _emailError = 'Only @gmail.com emails are allowed';
           } else {
             _emailError = null;
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Email',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Email',
+        prefixIcon: Icons.email_outlined,
         errorText: _emailError,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.email_outlined, color: Colors.grey),
+        isDark: isDark,
       ),
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
@@ -357,11 +368,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField(bool isDark) {
     return TextFormField(
       controller: _passwordController,
       obscureText: _obscurePassword,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       onChanged: (value) {
         setState(() {
           if (value.isEmpty) {
@@ -372,49 +383,31 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             _passwordError = null;
           }
           if (_confirmPasswordController.text.isNotEmpty) {
-            if (_confirmPasswordController.text != value) {
-              _confirmPasswordError = 'Passwords do not match';
-            } else {
-              _confirmPasswordError = null;
-            }
+            _confirmPasswordError =
+            _confirmPasswordController.text != value
+                ? 'Passwords do not match'
+                : null;
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Password',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Password',
+        prefixIcon: Icons.lock_outlined,
         errorText: _passwordError,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.lock_outlined, color: Colors.grey),
+        isDark: isDark,
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword
                 ? Icons.visibility_outlined
                 : Icons.visibility_off_outlined,
-            color: Colors.grey,
+            color: isDark ? Colors.white54 : Colors.grey,
           ),
-          onPressed: () {
-            setState(() => _obscurePassword = !_obscurePassword);
-          },
+          onPressed: () =>
+              setState(() => _obscurePassword = !_obscurePassword),
         ),
       ),
       validator: (value) {
-        if (value == null || value.isEmpty) {
-          return 'Please enter a password';
-        }
+        if (value == null || value.isEmpty) return 'Please enter a password';
         if (value.length < 6) {
           return 'Password must be at least 6 characters';
         }
@@ -423,11 +416,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildConfirmPasswordField() {
+  Widget _buildConfirmPasswordField(bool isDark) {
     return TextFormField(
       controller: _confirmPasswordController,
       obscureText: _obscureConfirmPassword,
-      style: const TextStyle(color: Colors.black87),
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       onChanged: (value) {
         setState(() {
           if (value.isEmpty) {
@@ -439,35 +432,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           }
         });
       },
-      decoration: InputDecoration(
-        labelText: 'Confirm Password',
-        labelStyle: const TextStyle(color: Colors.grey),
+      decoration: _buildInputDecoration(
+        label: 'Confirm Password',
+        prefixIcon: Icons.lock_outlined,
         errorText: _confirmPasswordError,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ThemeTokens.primaryGreen, width: 2),
-        ),
-        prefixIcon: const Icon(Icons.lock_outlined, color: Colors.grey),
+        isDark: isDark,
         suffixIcon: IconButton(
           icon: Icon(
             _obscureConfirmPassword
                 ? Icons.visibility_outlined
                 : Icons.visibility_off_outlined,
-            color: Colors.grey,
+            color: isDark ? Colors.white54 : Colors.grey,
           ),
-          onPressed: () {
-            setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
-          },
+          onPressed: () => setState(
+                  () => _obscureConfirmPassword = !_obscureConfirmPassword),
         ),
       ),
       validator: (value) {
@@ -482,22 +460,23 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  // ✅ Terms Checkbox - आता real URLs आहेत
-  Widget _buildTermsCheckbox() {
+  Widget _buildTermsCheckbox(bool isDark) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4.0, right: 8.0, top: 6.0, bottom: 4.0),
+      padding: const EdgeInsets.only(
+          left: 4.0, right: 8.0, top: 6.0, bottom: 4.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Checkbox(
             value: _isTermsAccepted,
             onChanged: (value) {
-              setState(() {
-                _isTermsAccepted = value ?? false;
-              });
+              setState(() => _isTermsAccepted = value ?? false);
             },
             activeColor: ThemeTokens.primaryGreen,
             checkColor: Colors.white,
+            side: BorderSide(
+              color: isDark ? Colors.white38 : Colors.grey,
+            ),
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -506,8 +485,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             child: Text.rich(
               TextSpan(
                 text: 'I agree to the ',
-                style: const TextStyle(
-                  color: Colors.grey,
+                style: TextStyle(
+                  color: isDark ? Colors.white60 : Colors.grey,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -519,9 +498,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       decoration: TextDecoration.underline,
                     ),
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () => _openUrl('https://goodnewsapp.lemmecode.com/legal/terms'),
+                      ..onTap = () => _openUrl(
+                          'https://goodnewsapp.lemmecode.com/legal/terms'),
                   ),
-                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: ' and ',
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey,
+                    ),
+                  ),
                   TextSpan(
                     text: 'Privacy Policy',
                     style: TextStyle(
@@ -529,7 +514,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       decoration: TextDecoration.underline,
                     ),
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () => _openUrl('https://goodnewsapp.lemmecode.com/legal/privacy'),
+                      ..onTap = () => _openUrl(
+                          'https://goodnewsapp.lemmecode.com/legal/privacy'),
                   ),
                 ],
               ),
@@ -555,7 +541,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               foregroundColor: Colors.white,
               padding: EdgeInsets.zero,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(_isLoading ? 28 : 12),
+                borderRadius:
+                BorderRadius.circular(_isLoading ? 28 : 12),
               ),
               elevation: 2,
             ),
@@ -584,14 +571,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     );
   }
 
-  Widget _buildLoginLink() {
+  Widget _buildLoginLink(bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
           'Already have an account? ',
           style: TextStyle(
-            color: Colors.grey[700],
+            color: isDark ? Colors.white60 : Colors.grey[700],
             fontSize: 14,
           ),
         ),

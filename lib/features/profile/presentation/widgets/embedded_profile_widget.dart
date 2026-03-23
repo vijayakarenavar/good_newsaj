@@ -7,7 +7,6 @@ import 'package:good_news/features/profile/presentation/screens/reading_history_
 import 'package:good_news/features/profile/presentation/screens/edit_profile_screen.dart';
 import 'package:good_news/features/profile/presentation/widgets/friends_section.dart';
 import 'package:good_news/features/profile/presentation/widgets/quick_actions.dart';
-import 'package:good_news/features/profile/presentation/widgets/stats_row.dart';
 import 'package:good_news/features/profile/presentation/widgets/menu_list.dart';
 import 'package:good_news/features/social/presentation/screens/friend_requests_screen.dart';
 import 'package:good_news/features/settings/presentation/screens/settings_screen.dart';
@@ -16,9 +15,9 @@ class EmbeddedProfileWidget extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>?>? onReadingHistoryAction;
 
   const EmbeddedProfileWidget({
-    Key? key,
+    super.key,
     this.onReadingHistoryAction,
-  }) : super(key: key);
+  });
 
   @override
   State<EmbeddedProfileWidget> createState() => EmbeddedProfileWidgetState();
@@ -81,7 +80,7 @@ class EmbeddedProfileWidgetState extends State<EmbeddedProfileWidget> {
     try {
       try {
         final stats = await UserService.getUserStats();
-        if (stats != null && mounted) {
+        if (mounted) {
           setState(() {
             _articlesReadCount = stats['articles_read'] ?? 0;
             _userStats = stats;

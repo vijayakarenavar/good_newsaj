@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:good_news/features/articles/presentation/screens/home_screen.dart';
-import 'package:good_news/features/onboarding/presentation/screens/choose_topics_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({Key? key}) : super(key: key);
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();

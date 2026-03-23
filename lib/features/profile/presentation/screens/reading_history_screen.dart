@@ -3,7 +3,7 @@ import 'package:good_news/core/services/user_service.dart';
 import '../../../articles/presentation/screens/article_detail_screen.dart';
 
 class ReadingHistoryScreen extends StatefulWidget {
-  const ReadingHistoryScreen({Key? key}) : super(key: key);
+  const ReadingHistoryScreen({super.key});
 
   @override
   State<ReadingHistoryScreen> createState() => _ReadingHistoryScreenState();
@@ -224,7 +224,7 @@ class _ReadingHistoryScreenState extends State<ReadingHistoryScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: colorScheme.surfaceVariant.withOpacity(0.06),
+                  color: colorScheme.surfaceContainerHighest.withOpacity(0.06),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: colorScheme.outline.withOpacity(0.12)),
                 ),

@@ -28,3 +28,4 @@ if ($content -match "version:\s*(\d+\.\d+\.\d+)\+(\d+)") {
 else {
     Write-Host "Version not found!"
 }
+#.\auto_build.ps1

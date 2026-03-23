@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:good_news/core/services/social_api_service.dart';
-import 'package:good_news/core/constants/theme_tokens.dart';
 
 class BlockedUsersScreen extends StatefulWidget {
-  const BlockedUsersScreen({Key? key}) : super(key: key);
+  const BlockedUsersScreen({super.key});
 
   @override
   State<BlockedUsersScreen> createState() => _BlockedUsersScreenState();
@@ -184,7 +183,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Card(
-        color: colorScheme.surfaceVariant.withOpacity(0.3),
+        color: colorScheme.surfaceContainerHighest.withOpacity(0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),

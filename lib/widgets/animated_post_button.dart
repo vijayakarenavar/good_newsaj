@@ -8,12 +8,12 @@ class AnimatedPostButton extends StatefulWidget {
   final String text;
 
   const AnimatedPostButton({
-    Key? key,
+    super.key,
     required this.isEnabled,
     required this.isLoading,
     required this.onPressed,
     this.text = 'Post',
-  }) : super(key: key);
+  });
 
   @override
   State<AnimatedPostButton> createState() => _AnimatedPostButtonState();

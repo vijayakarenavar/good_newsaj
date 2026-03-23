@@ -8,12 +8,12 @@ class LogoAppBar extends StatelessWidget implements PreferredSizeWidget {
   final PreferredSizeWidget? bottom;
 
   const LogoAppBar({
-    Key? key,
+    super.key,
     this.actions,
     this.backgroundColor,
     this.foregroundColor,
     this.bottom,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -89,11 +89,11 @@ class LogoWatermark extends StatelessWidget {
   final double size;
 
   const LogoWatermark({
-    Key? key,
+    super.key,
     required this.child,
     this.opacity = 0.1,
     this.size = 120,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

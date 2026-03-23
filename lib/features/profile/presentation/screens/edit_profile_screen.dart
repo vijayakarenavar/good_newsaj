@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:good_news/core/services/user_service.dart';
-import 'package:good_news/core/services/image_picker_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final Map<String, dynamic> userProfile;
@@ -232,7 +231,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: colors.surfaceVariant.withOpacity(0.4),
+            color: colors.surfaceContainerHighest.withOpacity(0.4),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -275,7 +274,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         errorText: _displayNameError,
         prefixIcon: Icon(Icons.person_outline, color: colors.onSurfaceVariant),
         filled: true,
-        fillColor: colors.surfaceVariant.withOpacity(0.3),
+        fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -312,7 +311,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         errorText: _phoneError,
         prefixIcon: Icon(Icons.phone_outlined, color: colors.onSurfaceVariant),
         filled: true,
-        fillColor: colors.surfaceVariant.withOpacity(0.3),
+        fillColor: colors.surfaceContainerHighest.withOpacity(0.3),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -331,7 +330,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colors.surfaceVariant.withOpacity(0.2),
+        color: colors.surfaceContainerHighest.withOpacity(0.2),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(

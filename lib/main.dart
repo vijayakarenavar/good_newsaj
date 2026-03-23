@@ -18,7 +18,7 @@ Future<void> main() async {
 }
 
 class GoodNewsApp extends StatefulWidget {
-  const GoodNewsApp({Key? key}) : super(key: key);
+  const GoodNewsApp({super.key});
 
   @override
   State<GoodNewsApp> createState() => _GoodNewsAppState();

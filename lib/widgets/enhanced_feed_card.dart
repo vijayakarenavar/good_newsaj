@@ -10,14 +10,14 @@ class EnhancedFeedCard extends StatefulWidget {
   final VoidCallback? onDelete;
 
   const EnhancedFeedCard({
-    Key? key,
+    super.key,
     required this.post,
     this.onLike,
     this.onComment,
     this.onShare,
     this.onEdit,
     this.onDelete,
-  }) : super(key: key);
+  });
 
   @override
   State<EnhancedFeedCard> createState() => _EnhancedFeedCardState();
@@ -221,7 +221,7 @@ class _EnhancedFeedCardState extends State<EnhancedFeedCard> {
                     height: 200,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Center(
