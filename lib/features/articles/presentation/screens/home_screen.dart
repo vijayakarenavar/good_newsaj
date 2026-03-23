@@ -68,14 +68,11 @@ class _HomeScreenState extends State<HomeScreen>
   final Map<String, TextEditingController> _commentControllers = {};
   final Set<String> _preloadedImages = {};
 
-  // ΓöÇΓöÇΓöÇ Video Pagination ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-  // Γ£à FIX 1: 100 ΓåÆ 20 (αñ¬αñ╣αñ┐αñ▓αÑç αñ½αñòαÑìαññ 20 videos load, UI αñ▓αñùαÑçαñÜ αñªαñ┐αñ╕αÑçαñ▓)
-  static const int _kVideoPageSize = 20; // ΓåÉ WAS 100
+  static const int _kVideoPageSize = 20;
   int _videoOffset = 0;
   bool _videoHasMore = true;
   bool _videoLoadingMore = false;
   bool _videoAllLoaded = false;
-  // ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
   Map<String, dynamic>? _userProfile;
   Map<String, dynamic>? _userStats;
@@ -1240,7 +1237,10 @@ class _HomeScreenState extends State<HomeScreen>
     super.build(context);
     final categoryList = _buildCategoryList();
     return Scaffold(
-      body: SafeArea(child: _buildMainContent(categoryList)),
+      body: SafeArea(
+        bottom: false,
+        child: _buildMainContent(categoryList),
+      ),  // SafeArea काढा इथून
       floatingActionButton:
       _showFab && _selectedTabIndex == 2 ? SpeedDialFAB(actions: []) : null,
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -1251,8 +1251,10 @@ class _HomeScreenState extends State<HomeScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryColor = Theme.of(context).colorScheme.primary;
     final isSmallScreen = MediaQuery.of(context).size.width < 360;
+    final bottomInset = MediaQuery.of(context).padding.bottom; // ← हे add करा
+
     return Container(
-      height: isSmallScreen ? 60 : 65,
+      // height काढा — आता fixed height नको
       decoration: BoxDecoration(
         color: isDark ? Colors.grey[900] : Colors.white,
         boxShadow: [
@@ -1262,33 +1264,38 @@ class _HomeScreenState extends State<HomeScreen>
               offset: const Offset(0, -2))
         ],
       ),
-      child: SafeArea(
-          top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomInset), // ← system bar inset
+        child: SizedBox(
+          height: isSmallScreen ? 60 : 65, // nav bar ची actual height
           child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildNavItem(
-                    icon: Icons.video_library_outlined,
-                    activeIcon: Icons.video_library,
-                    label: 'Video',
-                    isActive: _selectedTabIndex == 0,
-                    onTap: () => _onTabChanged(0),
-                    onDoubleTap: () => _handleTabSpecificRefresh(0)),
-                _buildNavItem(
-                    icon: Icons.article_outlined,
-                    activeIcon: Icons.article,
-                    label: 'News',
-                    isActive: _selectedTabIndex == 1,
-                    onTap: () => _onTabChanged(1),
-                    onDoubleTap: () => _handleTabSpecificRefresh(1)),
-                _buildNavItem(
-                    icon: Icons.person_outline,
-                    activeIcon: Icons.person,
-                    label: 'Profile',
-                    isActive: _selectedTabIndex == 3,
-                    onTap: () => _onTabChanged(3),
-                    onDoubleTap: () => _handleTabSpecificRefresh(3)),
-              ])),
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildNavItem(
+                  icon: Icons.video_library_outlined,
+                  activeIcon: Icons.video_library,
+                  label: 'Video',
+                  isActive: _selectedTabIndex == 0,
+                  onTap: () => _onTabChanged(0),
+                  onDoubleTap: () => _handleTabSpecificRefresh(0)),
+              _buildNavItem(
+                  icon: Icons.article_outlined,
+                  activeIcon: Icons.article,
+                  label: 'News',
+                  isActive: _selectedTabIndex == 1,
+                  onTap: () => _onTabChanged(1),
+                  onDoubleTap: () => _handleTabSpecificRefresh(1)),
+              _buildNavItem(
+                  icon: Icons.person_outline,
+                  activeIcon: Icons.person,
+                  label: 'Profile',
+                  isActive: _selectedTabIndex == 3,
+                  onTap: () => _onTabChanged(3),
+                  onDoubleTap: () => _handleTabSpecificRefresh(3)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1410,7 +1417,6 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  // Γ£à FIX: onLoadMore properly wired ΓÇö widget αñ╕αÑìαñ╡αññαñâ pagination trigger αñòαñ░αÑçαñ▓
   Widget _buildVideoTabContent() {
     if (_isVideoLoading) {
       return Container(

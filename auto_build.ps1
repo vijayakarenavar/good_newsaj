@@ -15,8 +15,15 @@ if ($content -match "version:\s*(\d+\.\d+\.\d+)\+(\d+)") {
 
     Write-Host "Updated Version: $newVersion"
 
-    # Build Release APK
+    # Build APK
+    Write-Host "Building APK..."
     flutter build apk --release
+
+    # Build AAB
+    Write-Host "Building AAB..."
+    flutter build appbundle --release
+
+    Write-Host "Done! APK + AAB ready!"
 }
 else {
     Write-Host "Version not found!"
