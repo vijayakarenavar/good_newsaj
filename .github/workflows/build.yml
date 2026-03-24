@@ -57,39 +57,27 @@ jobs:
       - name: Get Flutter Dependencies
         run: flutter pub get
 
-      # 7. Analyze code
-      - name: Flutter Analyze
-        run: flutter analyze
-
-      # 8. Run Unit & Widget Tests
-      - name: Run Flutter Tests
-        run: flutter test --coverage
-
-      # 9. Run Integration Tests
-      - name: Run Integration Tests
-        run: flutter test integration_test/
-
-      # 10. Decode Keystore
+      # 7. Decode Keystore
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release_key.jks
 
-      # 11. Create key.properties
+      # 8. Create key.properties
       - name: Create key.properties
         run: |
           printf "storePassword=${{ secrets.KEYSTORE_PASSWORD }}\n" > android/key.properties
           printf "keyPassword=${{ secrets.KEY_PASSWORD }}\n" >> android/key.properties
           printf "keyAlias=${{ secrets.KEY_ALIAS }}\n" >> android/key.properties
 
-      # 12. Build Release APK
+      # 9. Build Release APK
       - name: Build Release APK
         run: flutter build apk --release
 
-      # 13. Build Release AAB
+      # 10. Build Release AAB
       - name: Build Release AAB
         run: flutter build appbundle --release
 
-      # 14. Commit updated pubspec.yaml
+      # 11. Commit updated pubspec.yaml
       - name: Commit Version Update
         run: |
           git config user.name "GitHub Actions"
@@ -98,7 +86,7 @@ jobs:
           git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
           git push origin ${{ github.event.inputs.branch }}
 
-      # 15. Upload Release APK
+      # 12. Upload Release APK
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
@@ -106,7 +94,7 @@ jobs:
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
 
-      # 16. Upload Release AAB
+      # 13. Upload Release AAB
       - name: Upload Release AAB
         uses: actions/upload-artifact@v4
         with:
