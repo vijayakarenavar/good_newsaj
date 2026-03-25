@@ -388,16 +388,15 @@ class ApiService {
     }
   }
 
-  // ✅ FIXED: DioException rethrow for proper error messages
+  // ✅ FIXED: no retry + DioException rethrow
   static Future<Map<String, dynamic>> login(
       String email, String password) async {
     try {
-      final response = await _retryRequest(() async => await _dio.post(
-          '/login',
+      final response = await _dio.post('/login',
           data: {
             'email': email.trim(),
             'password': password.trim()
-          }));
+          });
       final data = response.data;
       if (data != null &&
           data['token'] != null &&
@@ -427,18 +426,17 @@ class ApiService {
     }
   }
 
-  // ✅ FIXED: DioException rethrow for proper error messages
+  // ✅ FIXED: no retry + DioException rethrow
   static Future<Map<String, dynamic>> register(String displayName,
       String email, String password, String phoneNumber) async {
     try {
-      final response =
-      await _retryRequest(() async => await _dio.post('/register',
+      final response = await _dio.post('/register',
           data: {
             'email': email.trim(),
             'password': password.trim(),
             'display_name': displayName.trim(),
             'phone_number': phoneNumber.trim(),
-          }));
+          });
       return response.data ?? {'status': 'error'};
     } on DioException catch (e) {
       _log('register error: $e');
@@ -651,12 +649,12 @@ class ApiService {
     }
   }
 
-  // ✅ FIXED: DioException rethrow for proper error messages
+  // ✅ FIXED: no retry + DioException rethrow
   static Future<Map<String, dynamic>> googleMobileLogin(
       String idToken) async {
     try {
-      final response = await _retryRequest(() async => await _dio
-          .post('/auth/google/mobile', data: {'id_token': idToken}));
+      final response = await _dio.post('/auth/google/mobile',
+          data: {'id_token': idToken});
       final data = response.data;
       if (data != null && data['token'] != null) {
         await PreferencesService.saveUserData(
