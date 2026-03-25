@@ -7,6 +7,8 @@ import 'package:good_news/features/authentication/presentation/screens/registrat
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+import '../../../../core/themes/app_theme.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -128,7 +130,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (idToken == null) {
         if (!mounted) return;
         _showError(
-          'Google Sign-In failed. Please try again.',
+          'Unable to sign in with Google. Please try again.',
           isNetwork: false,
         );
         setState(() => _isGoogleLoading = false);
@@ -141,17 +143,39 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (result['token'] != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google Sign-In successful!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text(
+              'Google Sign-In successful!',
+              style: TextStyle(fontSize: 14, color: Colors.white),
+            ),
+            backgroundColor: ThemeTokens.primaryGreen,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.all(12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         );
+      } else if (result['error'] != null &&
+          (result['error'].toString().contains('SocketException') ||
+              result['error'].toString().contains('Failed host lookup'))) {
+        _showError(
+          'No internet connection. Please check your network and try again.',
+          isNetwork: true,
+        );
+      } else if (result['error'] != null &&
+          result['error'].toString().contains('TimeoutException')) {
+        _showError(
+          'Slow or no internet connection. Please try again.',
+          isNetwork: true,
+        );
       } else {
         _showError(
-          result['error'] ?? 'Google Sign-In failed.',
+          'Unable to sign in with Google. Please try again.',
           isNetwork: false,
         );
       }
@@ -173,12 +197,12 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (errorStr.contains('TimeoutException') ||
           errorStr.contains('timeout')) {
         _showError(
-          'Request timed out. Please try again.',
+          'Slow or no internet connection. Please try again.',
           isNetwork: true,
         );
       } else {
         _showError(
-          'Google Sign-In failed. Please try again.',
+          'Unable to sign in with Google. Please try again.',
           isNetwork: false,
         );
       }
@@ -188,29 +212,25 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showError(String message, {bool isNetwork = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           message,
           style: TextStyle(
             fontSize: 14,
-            color: isDark ? Colors.white : Colors.black87,
+            color: isNetwork ? Colors.white : Colors.red,
           ),
         ),
-        backgroundColor: isDark
-            ? const Color(0xFF1E1E1E)   // dark theme bg
-            : const Color(0xFFF5F5F5), // light theme bg
+        backgroundColor: isNetwork
+            ? ThemeTokens.primaryGreen
+            : Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkSurface
+            : AppTheme.lightSurface,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: ThemeTokens.primaryGreen.withOpacity(0.6),
-            width: 1,
-          ),
         ),
       ),
     );

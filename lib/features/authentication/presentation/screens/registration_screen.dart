@@ -4,6 +4,8 @@ import 'package:good_news/core/services/api_service.dart';
 import 'package:good_news/core/constants/theme_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/themes/app_theme.dart';
+
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
 
@@ -120,29 +122,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showError(String message, {bool isNetwork = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           message,
           style: TextStyle(
             fontSize: 14,
-            color: isDark ? Colors.white : Colors.black87,
+            color: isNetwork ? Colors.white : Colors.red,
           ),
         ),
-        backgroundColor: isDark
-            ? const Color(0xFF1E1E1E)   // dark theme bg
-            : const Color(0xFFF5F5F5), // light theme bg
+        backgroundColor: isNetwork
+            ? ThemeTokens.primaryGreen
+            : Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkSurface
+            : AppTheme.lightSurface,
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
-            color: ThemeTokens.primaryGreen.withOpacity(0.6),
-            width: 1,
-          ),
         ),
       ),
     );
