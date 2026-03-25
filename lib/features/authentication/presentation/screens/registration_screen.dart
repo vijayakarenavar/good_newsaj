@@ -105,7 +105,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       } else if (errorStr.contains('TimeoutException') ||
           errorStr.contains('timeout')) {
         _showError(
-          'Request timed out. Please try again.',
+          'Slow or no internet connection. Please try again.',
           isNetwork: true,
         );
       } else {
@@ -120,30 +120,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   }
 
   void _showError(String message, {bool isNetwork = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isNetwork ? Icons.wifi_off : Icons.error_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-          ],
+        content: Text(
+          message,
+          style: TextStyle(
+            fontSize: 14,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: isDark
+            ? const Color(0xFF1E1E1E)   // dark theme bg
+            : const Color(0xFFF5F5F5), // light theme bg
         duration: const Duration(seconds: 4),
         behavior: SnackBarBehavior.floating,
         margin: const EdgeInsets.all(12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: ThemeTokens.primaryGreen.withOpacity(0.6),
+            width: 1,
+          ),
         ),
       ),
     );
