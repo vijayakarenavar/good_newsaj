@@ -75,11 +75,38 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         );
       } else {
-        _showError(response['message'] ?? 'Invalid email or password');
+        _showError(
+          response['message'] ?? 'Invalid email or password',
+          isNetwork: false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      _showError('Login failed. Please check your connection and try again.');
+
+      final errorStr = e.toString();
+
+      if (errorStr.contains('SocketException') ||
+          errorStr.contains('Failed host lookup') ||
+          errorStr.contains('connection error') ||
+          errorStr.contains('DioException') ||
+          errorStr.contains('DioError') ||
+          errorStr.contains('NetworkException')) {
+        _showError(
+          'No internet connection. Please check your network and try again.',
+          isNetwork: true,
+        );
+      } else if (errorStr.contains('TimeoutException') ||
+          errorStr.contains('timeout')) {
+        _showError(
+          'Request timed out. Please try again.',
+          isNetwork: true,
+        );
+      } else {
+        _showError(
+          'Login failed. Please try again.',
+          isNetwork: false,
+        );
+      }
     }
 
     if (mounted) setState(() => _isLoading = false);
@@ -100,7 +127,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (idToken == null) {
         if (!mounted) return;
-        _showError('Google Sign-In failed. Please try again.');
+        _showError(
+          'Google Sign-In failed. Please try again.',
+          isNetwork: false,
+        );
         setState(() => _isGoogleLoading = false);
         return;
       }
@@ -120,22 +150,69 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         );
       } else {
-        _showError(result['error'] ?? 'Google Sign-In failed.');
+        _showError(
+          result['error'] ?? 'Google Sign-In failed.',
+          isNetwork: false,
+        );
       }
     } catch (e) {
       if (!mounted) return;
-      _showError('Google Sign-In failed: $e');
+
+      final errorStr = e.toString();
+
+      if (errorStr.contains('SocketException') ||
+          errorStr.contains('Failed host lookup') ||
+          errorStr.contains('connection error') ||
+          errorStr.contains('DioException') ||
+          errorStr.contains('DioError') ||
+          errorStr.contains('NetworkException')) {
+        _showError(
+          'No internet connection. Please check your network and try again.',
+          isNetwork: true,
+        );
+      } else if (errorStr.contains('TimeoutException') ||
+          errorStr.contains('timeout')) {
+        _showError(
+          'Request timed out. Please try again.',
+          isNetwork: true,
+        );
+      } else {
+        _showError(
+          'Google Sign-In failed. Please try again.',
+          isNetwork: false,
+        );
+      }
     }
 
     if (mounted) setState(() => _isGoogleLoading = false);
   }
 
-  void _showError(String message) {
+  void _showError(String message, {bool isNetwork = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            Icon(
+              isNetwork ? Icons.wifi_off : Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }

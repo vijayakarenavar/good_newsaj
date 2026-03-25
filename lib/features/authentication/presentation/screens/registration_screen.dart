@@ -84,24 +84,67 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       } else {
         _showError(
           response['message'] ?? response['error'] ?? 'Registration failed',
+          isNetwork: false,
         );
       }
     } catch (e) {
       if (!mounted) return;
-      _showError(
-        'Registration failed. Please check your connection and try again.',
-      );
+
+      final errorStr = e.toString();
+
+      if (errorStr.contains('SocketException') ||
+          errorStr.contains('Failed host lookup') ||
+          errorStr.contains('connection error') ||
+          errorStr.contains('DioException') ||
+          errorStr.contains('DioError') ||
+          errorStr.contains('NetworkException')) {
+        _showError(
+          'No internet connection. Please check your network and try again.',
+          isNetwork: true,
+        );
+      } else if (errorStr.contains('TimeoutException') ||
+          errorStr.contains('timeout')) {
+        _showError(
+          'Request timed out. Please try again.',
+          isNetwork: true,
+        );
+      } else {
+        _showError(
+          'Registration failed. Please try again.',
+          isNetwork: false,
+        );
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showError(String message) {
+  void _showError(String message, {bool isNetwork = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            Icon(
+              isNetwork ? Icons.wifi_off : Icons.error_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
       ),
     );
   }
