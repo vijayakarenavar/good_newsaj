@@ -24,7 +24,6 @@ class ApiService {
     ..httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-
         client.badCertificateCallback =
             (X509Certificate cert, String host, int port) {
           if (host == "goodnewsapp.lemmecode.com") {
@@ -32,7 +31,6 @@ class ApiService {
           }
           return false;
         };
-
         return client;
       },
     )
@@ -40,11 +38,9 @@ class ApiService {
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await PreferencesService.getToken();
-
           if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-
           handler.next(options);
         },
         onResponse: (response, handler) => handler.next(response),
@@ -59,7 +55,6 @@ class ApiService {
       ),
     );
 
-  // FIX: debugPrint फक्त debug mode मध्ये — production मध्ये नाही
   static void _log(String message) {
     if (kDebugMode) debugPrint(message);
   }
@@ -79,7 +74,6 @@ class ApiService {
     throw Exception('Max retries exceeded');
   }
 
-  // FIX: limit default 20 — 9999 नाही
   static Future<Map<String, dynamic>> getUnifiedFeed({
     String? cursor,
     int limit = 20,
@@ -378,7 +372,6 @@ class ApiService {
         'error': 'Failed to cancel friend request'
       };
     } catch (e) {
-      // FIX: error असताना success return करत नाही
       _log('cancelFriendRequest error: $e');
       return {'status': 'error', 'error': e.toString()};
     }
@@ -395,6 +388,7 @@ class ApiService {
     }
   }
 
+  // ✅ FIXED: DioException rethrow for proper error messages
   static Future<Map<String, dynamic>> login(
       String email, String password) async {
     try {
@@ -416,12 +410,24 @@ class ApiService {
         await PreferencesService.setOnboardingCompleted(true);
       }
       return data ?? {'status': 'error'};
+    } on DioException catch (e) {
+      _log('login error: $e');
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        throw SocketException('Failed host lookup');
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('TimeoutException');
+      }
+      return {'status': 'error', 'error': e.message ?? 'Login failed'};
     } catch (e) {
       _log('login error: $e');
       return {'status': 'error', 'error': e.toString()};
     }
   }
 
+  // ✅ FIXED: DioException rethrow for proper error messages
   static Future<Map<String, dynamic>> register(String displayName,
       String email, String password, String phoneNumber) async {
     try {
@@ -434,6 +440,17 @@ class ApiService {
             'phone_number': phoneNumber.trim(),
           }));
       return response.data ?? {'status': 'error'};
+    } on DioException catch (e) {
+      _log('register error: $e');
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        throw SocketException('Failed host lookup');
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('TimeoutException');
+      }
+      return {'status': 'error', 'error': e.message ?? 'Registration failed'};
     } catch (e) {
       _log('register error: $e');
       return {'status': 'error', 'error': e.toString()};
@@ -567,7 +584,6 @@ class ApiService {
     }
   }
 
-  // FIX: silent failure काढला — error log होतो
   static Future<void> trackVideoWatch(
       int videoId, int watchDuration, bool completed) async {
     try {
@@ -585,7 +601,6 @@ class ApiService {
     }
   }
 
-  // FIX: silent failure काढला — error log होतो
   static Future<void> saveVideo(int videoId) async {
     try {
       final token = await PreferencesService.getToken();
@@ -636,6 +651,7 @@ class ApiService {
     }
   }
 
+  // ✅ FIXED: DioException rethrow for proper error messages
   static Future<Map<String, dynamic>> googleMobileLogin(
       String idToken) async {
     try {
@@ -652,6 +668,17 @@ class ApiService {
         await PreferencesService.setOnboardingCompleted(true);
       }
       return data ?? {'status': 'error'};
+    } on DioException catch (e) {
+      _log('googleMobileLogin error: $e');
+      if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        throw SocketException('Failed host lookup');
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout) {
+        throw Exception('TimeoutException');
+      }
+      return {'status': 'error', 'error': e.message ?? 'Google login failed'};
     } catch (e) {
       _log('googleMobileLogin error: $e');
       return {'status': 'error', 'error': e.toString()};
