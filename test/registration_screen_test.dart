@@ -7,6 +7,7 @@ void main() {
     return const MaterialApp(home: RegistrationScreen());
   }
 
+  // ─── UI Tests ───────────────────────────────────────────────────────────────
   group('Registration Screen - UI', () {
     testWidgets('Registration screen loads correctly',
             (WidgetTester tester) async {
@@ -33,6 +34,7 @@ void main() {
     });
   });
 
+  // ─── Form Validation Tests ──────────────────────────────────────────────────
   group('Registration Screen - Form Validation', () {
     testWidgets('Register button disabled when fields are empty',
             (WidgetTester tester) async {
@@ -123,6 +125,112 @@ void main() {
         });
   });
 
+  // ─── Edge Case Tests ────────────────────────────────────────────────────────
+  group('Registration Screen - Edge Cases', () {
+    testWidgets('Display name with only spaces shows error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(0), '   ');
+          await tester.pump();
+
+          expect(find.text('Display name is required'), findsOneWidget);
+        });
+
+    testWidgets('Display name with 1 character shows error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(0), 'A');
+          await tester.pump();
+
+          expect(
+            find.text('Display name must be at least 2 characters'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets('Display name with numbers shows error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(0), 'Test123');
+          await tester.pump();
+
+          expect(
+            find.text('Only letters and spaces are allowed'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets('Phone number with all zeros is invalid',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(1), '0000000000');
+          await tester.pump();
+
+          expect(
+            find.text('Phone must start with 6-9 and be 10 digits'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets('Phone number with less than 10 digits is invalid',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(1), '987654321');
+          await tester.pump();
+
+          expect(
+            find.text('Phone must start with 6-9 and be 10 digits'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets('Uppercase email is invalid',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(2), 'TEST@YAHOO.COM');
+          await tester.pump();
+
+          expect(
+            find.text('Only @gmail.com emails are allowed'),
+            findsOneWidget,
+          );
+        });
+
+    testWidgets('Password with only spaces shows error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildRegistrationScreen());
+          await tester.pumpAndSettle();
+
+          final fields = find.byType(TextFormField);
+          await tester.enterText(fields.at(3), '     ');
+          await tester.pump();
+
+          expect(
+            find.text('Password must be at least 6 characters'),
+            findsOneWidget,
+          );
+        });
+  });
+
+  // ─── Navigation Tests ───────────────────────────────────────────────────────
   group('Registration Screen - Navigation', () {
     testWidgets('Login link is visible', (WidgetTester tester) async {
       await tester.pumpWidget(buildRegistrationScreen());

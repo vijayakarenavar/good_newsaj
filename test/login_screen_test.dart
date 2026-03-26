@@ -12,6 +12,7 @@ void main() {
     return const MaterialApp(home: LoginScreen());
   }
 
+  // ─── UI Tests ───────────────────────────────────────────────────────────────
   group('Login Screen - UI', () {
     testWidgets('Login screen loads correctly', (WidgetTester tester) async {
       await tester.pumpWidget(buildLoginScreen());
@@ -31,6 +32,7 @@ void main() {
     });
   });
 
+  // ─── Form Validation Tests ──────────────────────────────────────────────────
   group('Login Screen - Form Validation', () {
     testWidgets('Login button disabled when fields are empty',
             (WidgetTester tester) async {
@@ -72,21 +74,91 @@ void main() {
           expect(loginButton.onPressed, isNotNull);
         });
 
-    testWidgets('Password visibility toggle works', (WidgetTester tester) async {
-      await tester.pumpWidget(buildLoginScreen());
-      await tester.pumpAndSettle();
+    testWidgets('Password visibility toggle works',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.byType(TextFormField).last, 'password123');
-      await tester.pump();
+          await tester.enterText(
+              find.byType(TextFormField).last, 'password123');
+          await tester.pump();
 
-      expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.visibility_outlined));
-      await tester.pump();
-      expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
-    });
+          expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+          await tester.tap(find.byIcon(Icons.visibility_outlined));
+          await tester.pump();
+          expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+        });
   });
 
+  // ─── Edge Case Tests ────────────────────────────────────────────────────────
+  group('Login Screen - Edge Cases', () {
+    testWidgets('Email with spaces shows validation error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
+
+          await tester.enterText(
+              find.byType(TextFormField).first, '   ');
+          await tester.pump();
+
+          expect(find.text('Email is required'), findsOneWidget);
+        });
+
+    testWidgets('Email without @ shows validation error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
+
+          await tester.enterText(
+              find.byType(TextFormField).first, 'testgmail.com');
+          await tester.pump();
+
+          expect(find.text('Please enter a valid email'), findsOneWidget);
+        });
+
+    testWidgets('Email without domain shows validation error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
+
+          await tester.enterText(
+              find.byType(TextFormField).first, 'test@');
+          await tester.pump();
+
+          expect(find.text('Please enter a valid email'), findsOneWidget);
+        });
+
+    testWidgets('Password with only spaces keeps button disabled',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
+
+          await tester.enterText(
+              find.byType(TextFormField).first, 'test@gmail.com');
+          await tester.enterText(
+              find.byType(TextFormField).last, '     ');
+          await tester.pump();
+
+          final loginButton = tester.widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Login'),
+          );
+          expect(loginButton.onPressed, isNotNull);
+        });
+
+    testWidgets('Special characters in email shows validation error',
+            (WidgetTester tester) async {
+          await tester.pumpWidget(buildLoginScreen());
+          await tester.pumpAndSettle();
+
+          await tester.enterText(
+              find.byType(TextFormField).first, 'test@@gmail.com');
+          await tester.pump();
+
+          expect(find.text('Please enter a valid email'), findsOneWidget);
+        });
+  });
+
+  // ─── Navigation Tests ───────────────────────────────────────────────────────
   group('Login Screen - Navigation', () {
     testWidgets('Sign Up link is visible', (WidgetTester tester) async {
       await tester.pumpWidget(buildLoginScreen());
