@@ -5,6 +5,7 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 // Load keystore properties
@@ -15,22 +16,22 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.joyscroll.app"   // ✅ CHANGE
+    namespace = "com.joyscroll.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17   // ✅ Updated
+        sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
-        jvmTarget = "17"   // ✅ Updated
+        jvmTarget = "17"
     }
 
     defaultConfig {
-        applicationId = "com.joyscroll.app"   // ✅ CHANGE
+        applicationId = "com.joyscroll.app"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -42,7 +43,7 @@ android {
         create("release") {
             keyAlias = keystoreProperties["keyAlias"] as String
             keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file("release_key.jks")   // तुमचा keystore
+            storeFile = file("release_key.jks")
             storePassword = keystoreProperties["storePassword"] as String
         }
     }
@@ -50,7 +51,7 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = true          // ✅ Production optimize
+            isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -59,7 +60,7 @@ android {
         }
 
         debug {
-            applicationIdSuffix = ".debug"   // Debug separate app
+            applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
             isDebuggable = true
         }
@@ -80,6 +81,8 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+    implementation("com.google.firebase:firebase-messaging")
 }
 
 flutter {

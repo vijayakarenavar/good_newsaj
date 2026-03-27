@@ -12,8 +12,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 import 'package:good_news/core/services/app_info_service.dart';
+import '../../../../core/services/notification_badge_service.dart';
 import '../../../../widgets/speed_dial_fab.dart';
 import '../widgets/video_reel_widget.dart';
+import 'NotificationsScreen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -112,6 +114,78 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
+  Widget _buildFloatingBell() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ListenableBuilder(
+      listenable: NotificationBadgeService(),
+      builder: (context, _) {
+        final count = NotificationBadgeService().unreadCount;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(50),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(50),
+                onTap: () {
+                  NotificationBadgeService().reset();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const
+                      NotificationsScreen(),
+                    ),
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    count > 0
+                        ? Icons.notifications
+                        : Icons.notifications_outlined,
+                    color: isDark ? Colors.white70 : Colors.grey[700],
+                    size: 26,
+                  ),
+                ),
+              ),
+            ),
+            if (count > 0)
+              Positioned(
+                top: 4,
+                right: 4,
+                child: IgnorePointer(
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isDark ? Colors.black : Colors.white,
+                        width: 1.5,
+                      ),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
   Future<void> _preloadImages(
       List<Map<String, dynamic>> items, int startIndex) async {
     if (!mounted) return;
@@ -1265,10 +1339,21 @@ class _HomeScreenState extends State<HomeScreen>
     super.build(context);
     final categoryList = _buildCategoryList();
     return Scaffold(
+      // appBar: पूर्ण काढा ←
       body: SafeArea(
         bottom: false,
-        child: _buildMainContent(categoryList),
-      ),  // SafeArea काढा इथून
+        child: Stack(
+          children: [
+            _buildMainContent(categoryList),
+            if (_selectedTabIndex != 0)  // Video tab वर bell नको
+              Positioned(
+                top: 8,
+                right: 8,
+                child: _buildFloatingBell(),
+              ),
+          ],
+        ),
+      ),
       floatingActionButton:
       _showFab && _selectedTabIndex == 2 ? SpeedDialFAB(actions: []) : null,
       bottomNavigationBar: _buildBottomNavigationBar(),

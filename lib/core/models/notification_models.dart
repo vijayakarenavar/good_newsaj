@@ -1,10 +1,8 @@
 // lib/core/models/notification_models.dart
 
 enum NotificationType {
-  friendRequest,
-  friendPost,
-  postLike,
-  postComment,
+  newArticle,
+  newVideo,
   general,
 }
 
@@ -34,21 +32,18 @@ class AppNotification {
       title: json['title'] ?? '',
       body: json['body'] ?? '',
       data: json['data'] ?? {},
-      createdAt: DateTime.parse(json['created_at'] ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(
+          json['created_at'] ?? DateTime.now().toIso8601String()),
       isRead: json['is_read'] ?? false,
     );
   }
 
   static NotificationType _parseNotificationType(String? type) {
     switch (type) {
-      case 'friend_request':
-        return NotificationType.friendRequest;
-      case 'friend_post':
-        return NotificationType.friendPost;
-      case 'post_like':
-        return NotificationType.postLike;
-      case 'post_comment':
-        return NotificationType.postComment;
+      case 'new_article':
+        return NotificationType.newArticle;
+      case 'new_video':
+        return NotificationType.newVideo;
       default:
         return NotificationType.general;
     }
@@ -67,70 +62,58 @@ class AppNotification {
   }
 }
 
-class FriendRequestNotificationData {
-  final int requestId;
-  final int senderId;
-  final String senderName;
-  final String? senderAvatar;
-
-  FriendRequestNotificationData({
-    required this.requestId,
-    required this.senderId,
-    required this.senderName,
-    this.senderAvatar,
-  });
-
-  factory FriendRequestNotificationData.fromJson(Map<String, dynamic> json) {
-    return FriendRequestNotificationData(
-      requestId: int.parse(json['request_id']?.toString() ?? '0'),
-      senderId: int.parse(json['sender_id']?.toString() ?? '0'),
-      senderName: json['sender_name'] ?? 'Someone',
-      senderAvatar: json['sender_avatar'],
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'request_id': requestId.toString(),
-      'sender_id': senderId.toString(),
-      'sender_name': senderName,
-      'sender_avatar': senderAvatar,
-    };
-  }
-}
-
-class PostNotificationData {
+class ArticleNotificationData {
   final int postId;
-  final int authorId;
-  final String authorName;
-  final String? postTitle;
-  final String? actionUserName; // For likes/comments
+  final String title;
+  final String? category;
 
-  PostNotificationData({
+  ArticleNotificationData({
     required this.postId,
-    required this.authorId,
-    required this.authorName,
-    this.postTitle,
-    this.actionUserName,
+    required this.title,
+    this.category,
   });
 
-  factory PostNotificationData.fromJson(Map<String, dynamic> json) {
-    return PostNotificationData(
+  factory ArticleNotificationData.fromJson(Map<String, dynamic> json) {
+    return ArticleNotificationData(
       postId: int.parse(json['post_id']?.toString() ?? '0'),
-      authorId: int.parse(json['author_id']?.toString() ?? '0'),
-      authorName: json['author_name'] ?? 'Someone',
-      postTitle: json['post_title'],
-      actionUserName: json['action_user_name'],
+      title: json['title'] ?? '',
+      category: json['category'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'post_id': postId.toString(),
-      'author_id': authorId.toString(),
-      'author_name': authorName,
-      'post_title': postTitle,
-      'action_user_name': actionUserName,
+      'title': title,
+      'category': category,
+    };
+  }
+}
+
+class VideoNotificationData {
+  final int postId;
+  final String title;
+  final String? thumbnailUrl;
+
+  VideoNotificationData({
+    required this.postId,
+    required this.title,
+    this.thumbnailUrl,
+  });
+
+  factory VideoNotificationData.fromJson(Map<String, dynamic> json) {
+    return VideoNotificationData(
+      postId: int.parse(json['post_id']?.toString() ?? '0'),
+      title: json['title'] ?? '',
+      thumbnailUrl: json['thumbnail_url'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'post_id': postId.toString(),
+      'title': title,
+      'thumbnail_url': thumbnailUrl,
     };
   }
 }

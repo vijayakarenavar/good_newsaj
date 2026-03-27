@@ -3,17 +3,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:good_news/responsive_app.dart';
 import 'package:good_news/features/authentication/presentation/screens/login_screen.dart';
 import 'package:good_news/features/onboarding/presentation/screens/choose_topics_screen.dart';
 import 'package:good_news/core/services/preferences_service.dart';
 import 'package:good_news/core/services/theme_service.dart';
 import 'package:good_news/core/themes/app_theme.dart';
+import 'core/services/fcm_notification_service.dart';
 import 'features/splash_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await FCMNotificationService.initialize();
   runApp(const GoodNewsApp());
 }
 
@@ -83,6 +90,7 @@ class _GoodNewsAppState extends State<GoodNewsApp> {
 
         return MaterialApp(
           title: 'JoyScroll',
+          navigatorKey: FCMNotificationService.navigatorKey, // ← हे add करा
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: _themeService.themeMode,
