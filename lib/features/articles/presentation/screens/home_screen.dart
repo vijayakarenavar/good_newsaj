@@ -13,6 +13,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:good_news/features/articles/presentation/widgets/article_card_widget.dart';
 import 'package:good_news/core/services/app_info_service.dart';
 import '../../../../widgets/speed_dial_fab.dart';
+import '../../../joy_scroll_loader.dart';
 import '../widgets/video_reel_widget.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1396,9 +1397,7 @@ class _HomeScreenState extends State<HomeScreen>
       color: Theme.of(context).colorScheme.primary,
       strokeWidth: 2.5,
       child: _isInitialLoading
-          ? Center(
-          child: CircularProgressIndicator(
-              color: Theme.of(context).colorScheme.primary))
+          ? const JoyScrollLoader()   // ← फक्त हेच बदल
           : GestureDetector(
         onHorizontalDragEnd: _selectedTabIndex == 0
             ? (details) {
